@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { SignOutButton } from '@clerk/nextjs'
-import { FiMenu, FiMoon, FiSun, FiLogOut, FiUser } from 'react-icons/fi'
+import { FiMenu, FiMoon, FiSun, FiLogOut, FiUser, FiSettings, FiUserCheck } from 'react-icons/fi'
 import { useTheme } from '@/components/ThemeProvider'
 import { RoleSwitcher } from './RoleSwitcher'
 import type { SmsRole } from '@/types/database'
@@ -11,12 +12,19 @@ export function TopNavigation({
   role,
   avatarUrl,
   availableRoles,
+  profileHref,
+  settingsHref,
   onMenuClick,
 }: {
   name: string
   role: string
   avatarUrl?: string | null
   availableRoles?: SmsRole[]
+  // Account-level destinations live up here beside the identity they
+  // belong to, rather than at the bottom of the section nav -- the
+  // sidebar is for what this portal does, not for who you are.
+  profileHref?: string
+  settingsHref?: string
   onMenuClick?: () => void
 }) {
   const { theme, toggleTheme } = useTheme()
@@ -62,6 +70,28 @@ export function TopNavigation({
 
         {/* Renders nothing unless this person holds more than one role. */}
         <RoleSwitcher current={role as SmsRole} available={availableRoles ?? []} />
+
+        {profileHref && (
+          <Link
+            href={profileHref}
+            aria-label="Profile"
+            title="Profile"
+            className="p-2 rounded-full text-stone-500 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+          >
+            <FiUserCheck className="w-4 h-4" />
+          </Link>
+        )}
+
+        {settingsHref && (
+          <Link
+            href={settingsHref}
+            aria-label="Settings"
+            title="Settings"
+            className="p-2 rounded-full text-stone-500 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+          >
+            <FiSettings className="w-4 h-4" />
+          </Link>
+        )}
 
         <SignOutButton redirectUrl="/tamizhi/login">
           <button

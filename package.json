@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.39.6",
+    "@livekit/components-react": "^2.9.24",
+    "@livekit/components-styles": "^1.2.0",
     "@supabase/supabase-js": "^2.111.0",
     "@tiptap/extension-link": "^3.29.2",
     "@tiptap/pm": "^3.29.2",
@@ -19,6 +21,8 @@
     "framer-motion": "^12.43.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
+    "livekit-client": "^2.21.0",
+    "livekit-server-sdk": "^2.17.0",
     "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18",

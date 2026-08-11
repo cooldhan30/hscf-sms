@@ -1,4 +1,4 @@
-import { FiHome, FiUsers, FiCheckSquare, FiAward, FiFileText, FiSpeaker, FiUser, FiMessageCircle } from 'react-icons/fi'
+import { FiHome, FiUsers, FiCheckSquare, FiAward, FiFileText, FiSpeaker, FiMessageCircle, FiVideo } from 'react-icons/fi'
 import { RoleGuard, DashboardLayout, type SidebarItem } from '@/components/dashboard'
 
 const iconClass = 'w-4 h-4 flex-shrink-0'
@@ -10,8 +10,8 @@ const navItems: SidebarItem[] = [
   { label: 'Grades', href: '/parent/grades', icon: <FiAward className={iconClass} /> },
   { label: 'Assignments', href: '/parent/assignments', icon: <FiFileText className={iconClass} /> },
   { label: 'Announcements', href: '/parent/announcements', icon: <FiSpeaker className={iconClass} /> },
+  { label: 'Meetings', href: '/parent/meetings', icon: <FiVideo className={iconClass} /> },
   { label: 'Chat', href: '/parent/chat', icon: <FiMessageCircle className={iconClass} /> },
-  { label: 'Profile', href: '/parent/profile', icon: <FiUser className={iconClass} /> },
 ]
 
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
@@ -25,6 +25,7 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
           userRole={profile.role}
           userAvatarUrl={profile.avatar_url}
           availableRoles={availableRoles}
+          profileHref="/parent/profile"
         >
           {children}
         </DashboardLayout>

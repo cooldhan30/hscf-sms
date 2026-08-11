@@ -19,6 +19,10 @@ export default async function TeacherDashboardPage() {
   const { data: classes } = await supabase
     .from('sms_classes')
     .select('*, enrollments:sms_class_enrollments(student_id)')
+    // Filters the embedded rows only -- a class with nobody active still
+    // appears, it just counts zero. Without this the student total keeps
+    // counting a cohort that has already been promoted away.
+    .eq('enrollments.status', 'active')
     .order('schedule_day')
 
   const allClasses = classes ?? []

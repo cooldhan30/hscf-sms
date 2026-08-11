@@ -24,6 +24,10 @@ export default async function ClassRosterPage({ params }: { params: { id: string
       .from('sms_class_enrollments')
       .select('status, enrolled_at, student:sms_students(*)')
       .eq('class_id', params.id)
+      // A promoted cohort has moved on to next year's class and is no
+      // longer on this roster. 'dropped' still shows, with its label --
+      // that's a student who left, which an admin does want to see here.
+      .neq('status', 'promoted')
       .returns<EnrollmentRow[]>(),
     supabase.from('sms_students').select('*').order('first_name'),
     supabase

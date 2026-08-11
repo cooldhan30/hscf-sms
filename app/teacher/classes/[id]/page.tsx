@@ -23,6 +23,7 @@ export default async function TeacherClassDetailPage({ params }: { params: { id:
       .from('sms_class_enrollments')
       .select('status, student:sms_students(*)')
       .eq('class_id', params.id)
+      .neq('status', 'promoted')
       .returns<RosterRow[]>(),
     supabase
       .from('sms_class_join_requests')

@@ -1,4 +1,4 @@
-import { FiHome, FiUsers, FiUser, FiBookOpen, FiClipboard, FiCheckSquare, FiSpeaker, FiMessageCircle, FiSettings, FiUserCheck, FiTrendingUp } from 'react-icons/fi'
+import { FiHome, FiUsers, FiUser, FiBookOpen, FiClipboard, FiCheckSquare, FiSpeaker, FiMessageCircle, FiTrendingUp, FiVideo } from 'react-icons/fi'
 import { RoleGuard, DashboardLayout, type SidebarItem } from '@/components/dashboard'
 
 const iconClass = 'w-4 h-4 flex-shrink-0'
@@ -12,9 +12,8 @@ const navItems: SidebarItem[] = [
   { label: 'Attendance', href: '/admin/attendance', icon: <FiCheckSquare className={iconClass} /> },
   { label: 'Registrations', href: '/admin/registrations', icon: <FiClipboard className={iconClass} /> },
   { label: 'Announcements', href: '/admin/announcements', icon: <FiSpeaker className={iconClass} /> },
+  { label: 'Meetings', href: '/admin/meetings', icon: <FiVideo className={iconClass} /> },
   { label: 'Chat', href: '/admin/chat', icon: <FiMessageCircle className={iconClass} /> },
-  { label: 'Profile', href: '/admin/profile', icon: <FiUserCheck className={iconClass} /> },
-  { label: 'Settings', href: '/admin/settings', icon: <FiSettings className={iconClass} /> },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -28,6 +27,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           userRole={profile.role}
           userAvatarUrl={profile.avatar_url}
           availableRoles={availableRoles}
+          profileHref="/admin/profile"
+          settingsHref="/admin/settings"
         >
           {children}
         </DashboardLayout>

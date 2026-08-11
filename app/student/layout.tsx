@@ -1,4 +1,4 @@
-import { FiHome, FiBookOpen, FiFileText, FiAward, FiCheckSquare, FiSpeaker, FiUser, FiUserCheck, FiMessageCircle } from 'react-icons/fi'
+import { FiHome, FiBookOpen, FiFileText, FiAward, FiCheckSquare, FiSpeaker, FiUserCheck, FiMessageCircle, FiVideo } from 'react-icons/fi'
 import { RoleGuard, DashboardLayout, type SidebarItem } from '@/components/dashboard'
 
 const iconClass = 'w-4 h-4 flex-shrink-0'
@@ -10,9 +10,9 @@ const navItems: SidebarItem[] = [
   { label: 'Grades', href: '/student/grades', icon: <FiAward className={iconClass} /> },
   { label: 'Attendance', href: '/student/attendance', icon: <FiCheckSquare className={iconClass} /> },
   { label: 'Announcements', href: '/student/announcements', icon: <FiSpeaker className={iconClass} /> },
+  { label: 'Meetings', href: '/student/meetings', icon: <FiVideo className={iconClass} /> },
   { label: 'Chat', href: '/student/chat', icon: <FiMessageCircle className={iconClass} /> },
   { label: 'Link Requests', href: '/student/link-requests', icon: <FiUserCheck className={iconClass} /> },
-  { label: 'Profile', href: '/student/profile', icon: <FiUser className={iconClass} /> },
 ]
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
@@ -26,6 +26,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
           userRole={profile.role}
           userAvatarUrl={profile.avatar_url}
           availableRoles={availableRoles}
+          profileHref="/student/profile"
         >
           {children}
         </DashboardLayout>

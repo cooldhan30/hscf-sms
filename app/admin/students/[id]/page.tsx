@@ -30,6 +30,9 @@ export default async function StudentProfilePage({ params }: { params: { id: str
     .from('sms_class_enrollments')
     .select('status, class:sms_classes(*)')
     .eq('student_id', params.id)
+    // Last year's class after a promotion is history, not somewhere the
+    // student still sits.
+    .neq('status', 'promoted')
     .returns<{ status: string; class: SmsClass }[]>()
 
   const { data: attendance } = await supabase

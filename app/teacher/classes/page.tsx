@@ -21,7 +21,11 @@ export default async function TeacherClassesPage() {
   // RLS ("classes: teacher read own") already scopes this to only the
   // signed-in teacher's own classes -- no explicit teacher_id filter needed.
   const [{ data: classes }, { data: pendingRequestsData }] = await Promise.all([
-    supabase.from('sms_classes').select('*, enrollments:sms_class_enrollments(count)').order('name'),
+    supabase
+      .from('sms_classes')
+      .select('*, enrollments:sms_class_enrollments(count)')
+      .eq('enrollments.status', 'active')
+      .order('name'),
     // Narrow RPC rather than an embedded sms_classes join -- a plain RLS
     // policy granting read access to a requested-but-not-yet-approved
     // class would leak into every OTHER unscoped sms_classes query in

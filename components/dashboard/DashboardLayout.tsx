@@ -12,6 +12,8 @@ export function DashboardLayout({
   userRole,
   userAvatarUrl,
   availableRoles,
+  profileHref,
+  settingsHref,
   children,
 }: {
   roleLabel: string
@@ -20,6 +22,8 @@ export function DashboardLayout({
   userRole: string
   userAvatarUrl?: string | null
   availableRoles?: SmsRole[]
+  profileHref?: string
+  settingsHref?: string
   children: React.ReactNode
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -44,6 +48,8 @@ export function DashboardLayout({
           role={userRole}
           avatarUrl={userAvatarUrl}
           availableRoles={availableRoles}
+          profileHref={profileHref}
+          settingsHref={settingsHref}
           onMenuClick={() => setMobileMenuOpen(true)}
         />
         <main id="main-content" className="flex-1 px-4 sm:px-6 py-6">

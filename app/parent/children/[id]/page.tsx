@@ -23,6 +23,7 @@ export default async function ParentChildDetailPage({ params }: { params: { id: 
     .from('sms_class_enrollments')
     .select('status, class:sms_classes(*, teacher:sms_teachers(*, profile:sms_profiles(*)))')
     .eq('student_id', params.id)
+    .neq('status', 'promoted')
     .returns<{ status: string; class: ClassWithTeacher }[]>()
 
   return (
