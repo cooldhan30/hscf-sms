@@ -92,8 +92,8 @@ export function PaymentsClient() {
     const proceed = await confirm({
       title: `Send a fee reminder for ${row.studentName}?`,
       description:
-        `${row.parentNames.join(', ') || 'Their parents'} will get an in-app notification. ` +
-        `No email is sent yet -- no email provider is connected to this app.` +
+        `${row.parentNames.join(', ') || 'Their parents'} will be emailed at ` +
+        `${row.parentEmails.join(', ') || 'their address on file'} and notified in the app.` +
         (row.reminderCount > 0 ? ` Already reminded ${row.reminderCount} time(s).` : ''),
       confirmLabel: 'Send reminder',
     })
@@ -107,13 +107,27 @@ export function PaymentsClient() {
       return
     }
 
-    // Deliberately precise about what happened: an admin who believes an
-    // email went out will stop chasing a parent who never heard anything.
-    toast.success(
-      data.notified > 0
-        ? `Reminder sent in-app to ${data.notified} parent${data.notified === 1 ? '' : 's'}`
-        : 'Reminder recorded, but no parent has an account to notify'
-    )
+    // Always say exactly what happened. An admin who believes an email
+    // went out will stop chasing a parent who never heard anything.
+    if (data.emailSent) {
+      toast.success(`Reminder emailed to ${data.recipients.length} parent(s) and sent in-app`)
+    } else if (data.mailto) {
+      // No provider configured (or the send failed): hand off to the
+      // admin's own email client with the message already written, so
+      // the reminder still goes out on this click rather than becoming
+      // a task for later.
+      toast.success('Opening your email app with the reminder ready to send')
+      window.location.href = data.mailto
+    } else if (data.reason === 'no-address') {
+      toast.error(`${row.studentName} has no parent email on file`)
+    } else {
+      toast.success(
+        data.notified > 0
+          ? `Reminder sent in-app to ${data.notified} parent(s)`
+          : 'Reminder recorded'
+      )
+    }
+
     load()
   }
 
@@ -124,8 +138,8 @@ export function PaymentsClient() {
       <p className="flex items-start gap-2 text-sm text-stone-600 dark:text-stone-300 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-lg px-3 py-2">
         <FiInfo className="w-4 h-4 flex-shrink-0 mt-0.5" />
         <span>
-          Reminders are delivered as in-app notifications. Email delivery needs an email provider to be
-          connected first &mdash; nothing is emailed today.
+          Reminders notify parents in the app and email them. Until an email provider is connected,
+          your own email app opens with the message ready to send.
         </span>
       </p>
 
