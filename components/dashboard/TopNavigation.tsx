@@ -5,6 +5,7 @@ import { SignOutButton } from '@clerk/nextjs'
 import { FiMenu, FiMoon, FiSun, FiLogOut, FiUser, FiSettings, FiUserCheck } from 'react-icons/fi'
 import { useTheme } from '@/components/ThemeProvider'
 import { RoleSwitcher } from './RoleSwitcher'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 import type { SmsRole } from '@/types/database'
 
 export function TopNavigation({
@@ -70,6 +71,8 @@ export function TopNavigation({
 
         {/* Renders nothing unless this person holds more than one role. */}
         <RoleSwitcher current={role as SmsRole} available={availableRoles ?? []} />
+
+        {profileHref && <NotificationBell rolePrefix={profileHref.slice(0, -'/profile'.length)} />}
 
         {profileHref && (
           <Link
