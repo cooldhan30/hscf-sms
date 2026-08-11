@@ -19,11 +19,27 @@ export async function GET(request: Request) {
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
+  // Every role each listed account may act as, not just the one it is
+  // currently acting as -- the Roles column needs the full set. Fetched
+  // in one query and grouped here rather than per-row.
+  const ids = (data ?? []).map((p) => p.id)
+  const { data: grants } = await admin
+    .from('sms_profile_roles')
+    .select('profile_id, role')
+    .in('profile_id', ids.length > 0 ? ids : [''])
+
+  const rolesByProfile = new Map<string, string[]>()
+  for (const g of grants ?? []) {
+    rolesByProfile.set(g.profile_id, [...(rolesByProfile.get(g.profile_id) ?? []), g.role])
+  }
+
+  const items = (data ?? []).map((p) => ({ ...p, roles: rolesByProfile.get(p.id) ?? [p.role] }))
+
   const counts = { admin: 0, teacher: 0, student: 0, parent: 0 }
   const { data: all } = await admin.from('sms_profiles').select('role')
   for (const p of all ?? []) {
     if (p.role in counts) counts[p.role as keyof typeof counts]++
   }
 
-  return NextResponse.json({ items: data, counts })
+  return NextResponse.json({ items, counts })
 }

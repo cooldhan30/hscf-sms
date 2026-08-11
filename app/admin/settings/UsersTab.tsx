@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { FiKey, FiShield, FiUserCheck } from 'react-icons/fi'
+import { FiKey, FiShield, FiUserCheck, FiPlus, FiX } from 'react-icons/fi'
 import { SkeletonTable } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { SettingsCard } from '@/components/settings/SettingsCard'
@@ -39,10 +39,19 @@ const PERMISSIONS_MATRIX: { area: string; admin: string; teacher: string; studen
   { area: 'Settings', admin: 'Full', teacher: '—', student: '—', parent: '—' },
 ]
 
+// Every role the account may act as. Falls back to the acting role alone
+// for any response predating multi-role support.
+type UserWithRoles = SmsProfile & { roles?: string[] }
+
+// A student never gains a second role, and nobody becomes a student this
+// way -- mirrors GRANTABLE_ROLES in the API, which is the real enforcement.
+const GRANTABLE: readonly SmsRole[] = ['admin', 'teacher', 'parent']
+
 export function UsersTab() {
   const confirm = useConfirm()
   const [role, setRole] = useState<SmsRole | 'all'>('all')
-  const [users, setUsers] = useState<SmsProfile[]>([])
+  const [users, setUsers] = useState<UserWithRoles[]>([])
+  const [grantingId, setGrantingId] = useState<string | null>(null)
   const { page, setPage, pageCount, pageItems, total } = usePagination(users, 10)
   const [counts, setCounts] = useState({ admin: 0, teacher: 0, student: 0, parent: 0 })
   const [loading, setLoading] = useState(true)
@@ -91,6 +100,43 @@ export function UsersTab() {
       load()
     } else {
       toast.error(data.error || 'Failed to approve account')
+    }
+  }
+
+  async function grantRole(user: UserWithRoles, role: SmsRole) {
+    setGrantingId(null)
+    const res = await fetch(`/api/admin/settings/users/${user.id}/roles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) {
+      toast.success(`${user.first_name} can now use the ${role} portal`)
+      load()
+    } else {
+      toast.error(data.error || 'Failed to grant role')
+    }
+  }
+
+  async function revokeRole(user: UserWithRoles, role: string) {
+    const confirmed = await confirm({
+      title: `Remove ${role} access?`,
+      description:
+        `${user.first_name} ${user.last_name} will no longer be able to switch into the ${role} portal. ` +
+        `Their ${role} records are kept, so this can be granted again later.`,
+      confirmLabel: 'Remove access',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+
+    const res = await fetch(`/api/admin/settings/users/${user.id}/roles?role=${role}`, { method: 'DELETE' })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) {
+      toast.success(`${role} access removed`)
+      load()
+    } else {
+      toast.error(data.error || 'Failed to remove role')
     }
   }
 
@@ -185,7 +231,63 @@ export function UsersTab() {
                     </td>
                     <td className="px-4 py-2.5 text-stone-500 dark:text-stone-400">{u.email || '—'}</td>
                     <td className="px-4 py-2.5">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${ROLE_BADGE[u.role]}`}>{u.role}</span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {(u.roles ?? [u.role]).map((r) => (
+                          <span
+                            key={r}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${
+                              ROLE_BADGE[r as SmsRole]
+                            }`}
+                            title={r === u.role ? 'Currently acting as this role' : undefined}
+                          >
+                            {r}
+                            {/* Only removable once there are two, and never
+                                the role they are currently acting as. */}
+                            {(u.roles ?? []).length > 1 && r !== u.role && (
+                              <button
+                                onClick={() => revokeRole(u, r)}
+                                aria-label={`Remove ${r} access`}
+                                className="hover:opacity-60 transition-opacity"
+                              >
+                                <FiX className="w-3 h-3" />
+                              </button>
+                            )}
+                          </span>
+                        ))}
+
+                        {/* Students are never offered an extra role. */}
+                        {u.role !== 'pending' && u.role !== 'student' && (
+                          grantingId === u.id ? (
+                            <span className="inline-flex items-center gap-1">
+                              {GRANTABLE.filter((r) => !(u.roles ?? [u.role]).includes(r)).map((r) => (
+                                <button
+                                  key={r}
+                                  onClick={() => grantRole(u, r)}
+                                  className="px-2 py-0.5 rounded-full text-xs font-medium capitalize text-primary-700 dark:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
+                                >
+                                  {r}
+                                </button>
+                              ))}
+                              <button
+                                onClick={() => setGrantingId(null)}
+                                className="px-1.5 py-0.5 rounded-full text-xs text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            GRANTABLE.some((r) => !(u.roles ?? [u.role]).includes(r)) && (
+                              <button
+                                onClick={() => setGrantingId(u.id)}
+                                aria-label="Add another role"
+                                className="p-0.5 rounded-full text-stone-400 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
+                              >
+                                <FiPlus className="w-3.5 h-3.5" />
+                              </button>
+                            )
+                          )
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2.5">
                       <Switch checked={u.is_active} onChange={(next) => toggleActive(u, next)} />
