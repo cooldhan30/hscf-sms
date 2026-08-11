@@ -18,13 +18,14 @@ const navItems: SidebarItem[] = [
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   return (
     <RoleGuard allow="student">
-      {(profile) => (
+      {(profile, availableRoles) => (
         <DashboardLayout
           roleLabel="Student"
           navItems={navItems}
           userName={`${profile.first_name} ${profile.last_name}`.trim() || 'Student'}
           userRole={profile.role}
           userAvatarUrl={profile.avatar_url}
+          availableRoles={availableRoles}
         >
           {children}
         </DashboardLayout>

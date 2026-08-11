@@ -1,9 +1,23 @@
 import { headers } from 'next/headers'
 import { auth, clerkClient } from '@clerk/nextjs/server'
 import { createClient } from '@/lib/supabase/server'
-import type { SmsProfile } from '@/types/database'
+import type { SmsProfile, SmsRole } from '@/types/database'
 
 export { roleHomePath } from '@/lib/role-home-path'
+
+// Which portals this person may switch into. Usually one; a teacher or
+// admin who is also a parent of a student here has two. Read through the
+// caller's own client -- the "profile_roles: read own" policy scopes it,
+// so this can never report someone else's roles.
+export async function getAvailableRoles(): Promise<SmsRole[]> {
+  const { userId } = await auth()
+  if (!userId) return []
+
+  const supabase = createClient()
+  const { data } = await supabase.from('sms_profile_roles').select('role').eq('profile_id', userId)
+
+  return (data ?? []).map((r) => r.role as SmsRole)
+}
 
 // Returns the currently authenticated user's profile (role + name), or null
 // if not signed in. Call from Server Components / layouts that need to know

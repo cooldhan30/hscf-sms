@@ -20,13 +20,14 @@ const navItems: SidebarItem[] = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <RoleGuard allow="admin">
-      {(profile) => (
+      {(profile, availableRoles) => (
         <DashboardLayout
           roleLabel="Admin"
           navItems={navItems}
           userName={`${profile.first_name} ${profile.last_name}`.trim() || 'Admin'}
           userRole={profile.role}
           userAvatarUrl={profile.avatar_url}
+          availableRoles={availableRoles}
         >
           {children}
         </DashboardLayout>

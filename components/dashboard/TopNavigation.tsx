@@ -3,16 +3,20 @@
 import { SignOutButton } from '@clerk/nextjs'
 import { FiMenu, FiMoon, FiSun, FiLogOut, FiUser } from 'react-icons/fi'
 import { useTheme } from '@/components/ThemeProvider'
+import { RoleSwitcher } from './RoleSwitcher'
+import type { SmsRole } from '@/types/database'
 
 export function TopNavigation({
   name,
   role,
   avatarUrl,
+  availableRoles,
   onMenuClick,
 }: {
   name: string
   role: string
   avatarUrl?: string | null
+  availableRoles?: SmsRole[]
   onMenuClick?: () => void
 }) {
   const { theme, toggleTheme } = useTheme()
@@ -55,6 +59,9 @@ export function TopNavigation({
             <p className="text-xs text-stone-500 dark:text-stone-400 capitalize">{role}</p>
           </div>
         </div>
+
+        {/* Renders nothing unless this person holds more than one role. */}
+        <RoleSwitcher current={role as SmsRole} available={availableRoles ?? []} />
 
         <SignOutButton redirectUrl="/tamizhi/login">
           <button

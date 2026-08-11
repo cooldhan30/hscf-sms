@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getCurrentProfile, roleHomePath } from '@/lib/auth'
+import { getCurrentProfile, getAvailableRoles, roleHomePath } from '@/lib/auth'
 import type { SmsRole, SmsProfile } from '@/types/database'
 
 // Defense-in-depth: middleware already blocks cross-role access at the
@@ -10,7 +10,7 @@ export async function RoleGuard({
   children,
 }: {
   allow: SmsRole
-  children: (profile: SmsProfile) => React.ReactNode
+  children: (profile: SmsProfile, availableRoles: SmsRole[]) => React.ReactNode
 }) {
   const profile = await getCurrentProfile()
 
@@ -22,5 +22,9 @@ export async function RoleGuard({
     redirect(roleHomePath(profile.role))
   }
 
-  return <>{children(profile)}</>
+  // Fetched here rather than in each portal's layout so there is exactly
+  // one place that decides what a person may switch into.
+  const availableRoles = await getAvailableRoles()
+
+  return <>{children(profile, availableRoles)}</>
 }

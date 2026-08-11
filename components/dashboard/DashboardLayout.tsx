@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Sidebar, type SidebarItem } from './Sidebar'
 import { TopNavigation } from './TopNavigation'
+import type { SmsRole } from '@/types/database'
 
 export function DashboardLayout({
   roleLabel,
@@ -10,6 +11,7 @@ export function DashboardLayout({
   userName,
   userRole,
   userAvatarUrl,
+  availableRoles,
   children,
 }: {
   roleLabel: string
@@ -17,6 +19,7 @@ export function DashboardLayout({
   userName: string
   userRole: string
   userAvatarUrl?: string | null
+  availableRoles?: SmsRole[]
   children: React.ReactNode
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -40,6 +43,7 @@ export function DashboardLayout({
           name={userName}
           role={userRole}
           avatarUrl={userAvatarUrl}
+          availableRoles={availableRoles}
           onMenuClick={() => setMobileMenuOpen(true)}
         />
         <main id="main-content" className="flex-1 px-4 sm:px-6 py-6">
