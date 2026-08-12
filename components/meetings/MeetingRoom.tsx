@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   LiveKitRoom,
@@ -8,8 +8,16 @@ import {
   formatChatMessageLinks,
 } from '@livekit/components-react'
 import '@livekit/components-styles'
-import { FiVideo, FiAlertCircle } from 'react-icons/fi'
+import { FiVideo, FiAlertCircle, FiMaximize, FiMinimize } from 'react-icons/fi'
 import { Button } from '@/components/ui/Button'
+
+// Safari implements the Fullscreen API only under its webkit prefix and
+// never fires the unprefixed event, so both spellings are needed.
+type FullscreenTarget = HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> }
+type FullscreenDoc = Document & {
+  webkitExitFullscreen?: () => Promise<void>
+  webkitFullscreenElement?: Element | null
+}
 
 // The token is fetched on mount rather than rendered into the page from
 // the server: it is a credential with a 12h life, and keeping it out of
@@ -20,6 +28,42 @@ export function MeetingRoom({ classId, className }: { classId: string; className
   const [serverUrl, setServerUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [joining, setJoining] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  // Tracked from the document rather than from our own click, so the
+  // button stays correct when the user leaves fullscreen with Escape or
+  // the browser's own control.
+  useEffect(() => {
+    function syncFullscreenState() {
+      const doc = document as FullscreenDoc
+      setIsFullscreen(Boolean(doc.fullscreenElement ?? doc.webkitFullscreenElement))
+    }
+    document.addEventListener('fullscreenchange', syncFullscreenState)
+    document.addEventListener('webkitfullscreenchange', syncFullscreenState)
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreenState)
+      document.removeEventListener('webkitfullscreenchange', syncFullscreenState)
+    }
+  }, [])
+
+  const toggleFullscreen = useCallback(async () => {
+    const el = containerRef.current as FullscreenTarget | null
+    const doc = document as FullscreenDoc
+    if (!el) return
+
+    try {
+      if (doc.fullscreenElement ?? doc.webkitFullscreenElement) {
+        await (doc.exitFullscreen?.() ?? doc.webkitExitFullscreen?.())
+      } else {
+        await (el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.())
+      }
+    } catch {
+      // Denied, or unsupported (notably iPhone Safari, which only allows
+      // fullscreen on a <video> element). The meeting keeps working
+      // windowed, so there is nothing to report.
+    }
+  }, [])
 
   async function join() {
     setJoining(true)
@@ -55,7 +99,29 @@ export function MeetingRoom({ classId, className }: { classId: string; className
 
   if (token && serverUrl) {
     return (
-      <div className="h-[calc(100vh-8rem)] rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-800">
+      <div
+        ref={containerRef}
+        // In fullscreen the element becomes the viewport, so the windowed
+        // height cap and rounded border have to come off or they letterbox
+        // the video inside a black frame.
+        className={
+          isFullscreen
+            ? 'relative h-screen w-screen bg-stone-950'
+            : 'relative h-[calc(100vh-8rem)] rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-800'
+        }
+      >
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          // Above LiveKit's own chrome, and out of the way of the control
+          // bar it renders along the bottom.
+          className="absolute top-3 right-3 z-50 p-2 rounded-lg bg-stone-900/70 text-white backdrop-blur hover:bg-stone-900/90 transition-colors"
+        >
+          {isFullscreen ? <FiMinimize className="w-4 h-4" /> : <FiMaximize className="w-4 h-4" />}
+        </button>
+
         <LiveKitRoom
           token={token}
           serverUrl={serverUrl}
