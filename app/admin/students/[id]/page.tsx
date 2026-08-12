@@ -28,7 +28,7 @@ export default async function StudentProfilePage({ params }: { params: { id: str
 
   const { data: enrollments } = await supabase
     .from('sms_class_enrollments')
-    .select('status, class:sms_classes(*)')
+    .select('status, class:sms_classes!inner(*)')
     .eq('student_id', params.id)
     // Last year's class after a promotion is history, not somewhere the
     // student still sits.
@@ -43,7 +43,7 @@ export default async function StudentProfilePage({ params }: { params: { id: str
 
   const { data: grades } = await supabase
     .from('sms_grades')
-    .select('score, feedback, assignment:sms_assignments(title, max_score, class:sms_classes(name))')
+    .select('score, feedback, assignment:sms_assignments!inner(title, max_score, class:sms_classes!inner(name))')
     .eq('student_id', params.id)
     .returns<{ score: number | null; feedback: string | null; assignment: { title: string; max_score: number; class: { name: string } } }[]>()
 

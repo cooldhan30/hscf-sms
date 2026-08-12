@@ -15,7 +15,7 @@ export default async function StudentGradesPage() {
   // signed-in student's own grade rows only.
   const { data: grades } = await supabase
     .from('sms_grades')
-    .select('*, assignment:sms_assignments(id, title, max_score, class:sms_classes(id, name))')
+    .select('*, assignment:sms_assignments!inner(id, title, max_score, class:sms_classes!inner(id, name))')
     .eq('student_id', student?.id ?? '')
     .not('score', 'is', null)
     .order('graded_at', { ascending: false })

@@ -28,7 +28,7 @@ export default async function ParentAssignmentsPage({ searchParams }: { searchPa
     ? await Promise.all([
         supabase
           .from('sms_assignments')
-          .select('*, class:sms_classes(id, name)')
+          .select('*, class:sms_classes!inner(id, name)')
           .order('due_date', { ascending: true, nullsFirst: false }),
         supabase.from('sms_grades').select('assignment_id, score, feedback').eq('student_id', childId),
       ])

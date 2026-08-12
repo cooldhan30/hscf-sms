@@ -19,7 +19,7 @@ export default async function StudentAssignmentsPage() {
   // enrolled in.
   const { data: assignments } = await supabase
     .from('sms_assignments')
-    .select('*, class:sms_classes(id, name)')
+    .select('*, class:sms_classes!inner(id, name)')
     .order('due_date', { ascending: true, nullsFirst: false })
 
   const [{ data: myGrades }, { data: mySubmissions }] = await Promise.all([

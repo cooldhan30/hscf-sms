@@ -28,7 +28,7 @@ export default async function ParentAttendancePage({ searchParams }: { searchPar
   const { data: records } = childId
     ? await supabase
         .from('sms_attendance')
-        .select('*, class:sms_classes(id, name)')
+        .select('*, class:sms_classes!inner(id, name)')
         .eq('student_id', childId)
         .order('date', { ascending: false })
     : { data: [] }

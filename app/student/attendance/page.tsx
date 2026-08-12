@@ -17,7 +17,7 @@ export default async function StudentAttendancePage() {
   // signed-in student's own attendance records only.
   const { data: records } = await supabase
     .from('sms_attendance')
-    .select('*, class:sms_classes(id, name)')
+    .select('*, class:sms_classes!inner(id, name)')
     .eq('student_id', student?.id ?? '')
     .order('date', { ascending: false })
 

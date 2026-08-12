@@ -32,7 +32,7 @@ export default async function ParentDashboardPage() {
           supabase.from('sms_attendance').select('status').eq('student_id', child.id),
           supabase
             .from('sms_grades')
-            .select('score, assignment:sms_assignments(max_score)')
+            .select('score, assignment:sms_assignments!inner(max_score)')
             .eq('student_id', child.id)
             .not('score', 'is', null)
             .returns<{ score: number; assignment: { max_score: number } }[]>(),
@@ -55,7 +55,7 @@ export default async function ParentDashboardPage() {
     ),
     supabase
       .from('sms_assignments')
-      .select('*, class:sms_classes(id, name)')
+      .select('*, class:sms_classes!inner(id, name)')
       .gte('due_date', new Date().toISOString().slice(0, 10))
       .order('due_date', { ascending: true })
       .limit(5),

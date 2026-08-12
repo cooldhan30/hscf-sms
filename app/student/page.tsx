@@ -20,13 +20,13 @@ export default async function StudentDashboardPage() {
       supabase.from('sms_classes').select('id, name'),
       supabase
         .from('sms_assignments')
-        .select('*, class:sms_classes(id, name)')
+        .select('*, class:sms_classes!inner(id, name)')
         .gte('due_date', new Date().toISOString().slice(0, 10))
         .order('due_date', { ascending: true })
         .limit(5),
       supabase
         .from('sms_grades')
-        .select('*, assignment:sms_assignments(title, max_score, class:sms_classes(name))')
+        .select('*, assignment:sms_assignments!inner(title, max_score, class:sms_classes!inner(name))')
         .eq('student_id', studentId)
         .not('score', 'is', null)
         .order('graded_at', { ascending: false })

@@ -17,7 +17,7 @@ export default async function StudentAssignmentDetailPage({ params }: { params: 
 
   const { data: assignment } = await supabase
     .from('sms_assignments')
-    .select('*, class:sms_classes(id, name)')
+    .select('*, class:sms_classes!inner(id, name)')
     .eq('id', params.id)
     .eq('published', true)
     .single()
