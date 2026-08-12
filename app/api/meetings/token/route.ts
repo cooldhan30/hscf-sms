@@ -20,6 +20,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
+  // Checked before any work: without these, mintMeetingToken throws and
+  // the caller gets an opaque 500. A missing deployment variable is a
+  // configuration problem, not a server fault, and the message should
+  // say which one so it can be fixed without reading the logs.
+  if (!process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_API_SECRET || !process.env.NEXT_PUBLIC_LIVEKIT_URL) {
+    return NextResponse.json(
+      { error: 'Meetings are not configured yet. LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET and NEXT_PUBLIC_LIVEKIT_URL must be set.' },
+      { status: 503 }
+    )
+  }
+
   const body = await request.json().catch(() => null)
   const classId = body?.classId
 
