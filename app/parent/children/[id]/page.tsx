@@ -21,7 +21,7 @@ export default async function ParentChildDetailPage({ params }: { params: { id: 
 
   const { data: enrollments } = await supabase
     .from('sms_class_enrollments')
-    .select('status, class:sms_classes(*, teacher:sms_teachers(*, profile:sms_profiles(*)))')
+    .select('status, class:sms_classes(*, teacher:sms_teachers!sms_classes_teacher_id_fkey(*, profile:sms_profiles(*)))')
     .eq('student_id', params.id)
     .neq('status', 'promoted')
     .returns<{ status: string; class: ClassWithTeacher }[]>()

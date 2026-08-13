@@ -20,7 +20,7 @@ export default async function StudentClassesPage() {
   // RLS ("classes: student read enrolled") already scopes this to only
   // classes this student is actively enrolled in.
   const [{ data: classes }, { data: pendingRequestsData }] = await Promise.all([
-    supabase.from('sms_classes').select('*, teacher:sms_teachers(*, profile:sms_profiles(*))').order('name'),
+    supabase.from('sms_classes').select('*, teacher:sms_teachers!sms_classes_teacher_id_fkey(*, profile:sms_profiles(*))').order('name'),
     // Narrow RPC rather than an embedded sms_classes join -- a plain RLS
     // policy granting read access to a requested-but-not-yet-approved
     // class would leak into every OTHER unscoped sms_classes query in

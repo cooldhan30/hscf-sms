@@ -20,7 +20,7 @@ export default async function ClassRosterPage({ params }: { params: { id: string
 
   const { data: cls } = await supabase
     .from('sms_classes')
-    .select('*, teacher:sms_teachers(*, profile:sms_profiles(*))')
+    .select('*, teacher:sms_teachers!sms_classes_teacher_id_fkey(*, profile:sms_profiles(*))')
     .eq('id', params.id)
     .single()
 

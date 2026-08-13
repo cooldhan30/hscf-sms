@@ -40,7 +40,7 @@ export async function findDuplicateClass(
   const { data } = await admin
     .from('sms_classes')
     .select(
-      'id, name, academic_year, grade_level, schedule_day, start_time, end_time, room, teacher:sms_teachers(profile:sms_profiles(first_name, last_name))'
+      'id, name, academic_year, grade_level, schedule_day, start_time, end_time, room, teacher:sms_teachers!sms_classes_teacher_id_fkey(profile:sms_profiles(first_name, last_name))'
     )
     .eq('academic_year', academicYear)
     .returns<ClassLookupRow[]>()

@@ -12,7 +12,7 @@ export default async function AdminAttendancePage() {
 
   const { data: classes } = await admin
     .from('sms_classes')
-    .select('id, name, grade_level, teacher:sms_teachers(profile:sms_profiles(first_name, last_name))')
+    .select('id, name, grade_level, teacher:sms_teachers!sms_classes_teacher_id_fkey(profile:sms_profiles(first_name, last_name))')
     .order('name')
     .returns<
       { id: string; name: string; grade_level: string | null; teacher: { profile: { first_name: string; last_name: string } | null } | null }[]
