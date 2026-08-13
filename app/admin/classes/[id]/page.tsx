@@ -58,9 +58,19 @@ export default async function ClassRosterPage({ params }: { params: { id: string
       .returns<ClassTeacherRow[]>(),
   ])
 
-  const teacherNames = (classTeachers ?? [])
+  const membershipNames = (classTeachers ?? [])
     .map((t) => (t.teacher?.profile ? `${t.teacher.profile.first_name} ${t.teacher.profile.last_name}`.trim() : null))
-    .filter(Boolean)
+    .filter((n): n is string => Boolean(n))
+
+  // Fall back to the teacher recorded on the class itself when the
+  // membership table returns nothing -- it does not exist until 036 is
+  // applied, and a class that plainly has a teacher must never be shown
+  // as "Unassigned" just because a newer query came back empty.
+  const leadName = cls.teacher?.profile
+    ? `${cls.teacher.profile.first_name} ${cls.teacher.profile.last_name}`.trim()
+    : null
+
+  const teacherNames = membershipNames.length > 0 ? membershipNames : leadName ? [leadName] : []
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
