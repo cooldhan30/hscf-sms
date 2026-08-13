@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { JoinCodeBadge } from '@/components/classes/JoinCodeBadge'
 import { RosterClient, type EnrollmentRow } from './RosterClient'
 import { PendingTeacherRequests, type TeacherRequestRow } from './PendingTeacherRequests'
+import { ClassTeachers, type ClassTeacherRow, type TeacherOption } from './ClassTeachers'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +20,13 @@ export default async function ClassRosterPage({ params }: { params: { id: string
 
   if (!cls) notFound()
 
-  const [{ data: enrollments }, { data: allStudents }, { data: teacherRequests }] = await Promise.all([
+  const [
+    { data: enrollments },
+    { data: allStudents },
+    { data: teacherRequests },
+    { data: classTeachers },
+    { data: allTeachers },
+  ] = await Promise.all([
     supabase
       .from('sms_class_enrollments')
       .select('status, enrolled_at, student:sms_students(*)')
@@ -36,6 +43,19 @@ export default async function ClassRosterPage({ params }: { params: { id: string
       .eq('class_id', params.id)
       .eq('status', 'pending')
       .returns<TeacherRequestRow[]>(),
+    supabase
+      .from('sms_class_teachers')
+      .select('teacher_id, is_primary, teacher:sms_teachers(id, profile:sms_profiles(first_name, last_name))')
+      .eq('class_id', params.id)
+      // Lead first, then in the order they were added.
+      .order('is_primary', { ascending: false })
+      .order('assigned_at')
+      .returns<ClassTeacherRow[]>(),
+    supabase
+      .from('sms_teachers')
+      .select('id, profile:sms_profiles(first_name, last_name)')
+      .order('created_at')
+      .returns<TeacherOption[]>(),
   ])
 
   return (
@@ -69,6 +89,12 @@ export default async function ClassRosterPage({ params }: { params: { id: string
       </div>
 
       <PendingTeacherRequests classId={cls.id} requests={teacherRequests ?? []} />
+
+      <ClassTeachers
+        classId={cls.id}
+        assigned={classTeachers ?? []}
+        allTeachers={allTeachers ?? []}
+      />
 
       <RosterClient classId={cls.id} initialEnrollments={enrollments ?? []} allStudents={allStudents ?? []} />
     </div>
