@@ -5,7 +5,13 @@ import { createClient } from '@/lib/supabase/server'
 import { JoinCodeBadge } from '@/components/classes/JoinCodeBadge'
 import { RosterClient, type EnrollmentRow } from './RosterClient'
 import { PendingTeacherRequests, type TeacherRequestRow } from './PendingTeacherRequests'
-import { ClassTeachers, type ClassTeacherRow, type TeacherOption } from './ClassTeachers'
+
+// A class can be co-taught. Teachers get here only by entering the join
+// code and being approved -- this is display, not assignment.
+type ClassTeacherRow = {
+  is_primary: boolean
+  teacher: { profile: { first_name: string; last_name: string } | null } | null
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +31,6 @@ export default async function ClassRosterPage({ params }: { params: { id: string
     { data: allStudents },
     { data: teacherRequests },
     { data: classTeachers },
-    { data: allTeachers },
   ] = await Promise.all([
     supabase
       .from('sms_class_enrollments')
@@ -45,18 +50,17 @@ export default async function ClassRosterPage({ params }: { params: { id: string
       .returns<TeacherRequestRow[]>(),
     supabase
       .from('sms_class_teachers')
-      .select('teacher_id, is_primary, teacher:sms_teachers(id, profile:sms_profiles(first_name, last_name))')
+      .select('is_primary, teacher:sms_teachers(profile:sms_profiles(first_name, last_name))')
       .eq('class_id', params.id)
-      // Lead first, then in the order they were added.
+      // Lead first, then in the order they were approved.
       .order('is_primary', { ascending: false })
       .order('assigned_at')
       .returns<ClassTeacherRow[]>(),
-    supabase
-      .from('sms_teachers')
-      .select('id, profile:sms_profiles(first_name, last_name)')
-      .order('created_at')
-      .returns<TeacherOption[]>(),
   ])
+
+  const teacherNames = (classTeachers ?? [])
+    .map((t) => (t.teacher?.profile ? `${t.teacher.profile.first_name} ${t.teacher.profile.last_name}`.trim() : null))
+    .filter(Boolean)
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -70,8 +74,11 @@ export default async function ClassRosterPage({ params }: { params: { id: string
       <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-6">
         <h1 className="text-2xl font-bold text-primary-900 dark:text-white">{cls.name}</h1>
         <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-stone-600 dark:text-stone-300">
+          {/* Every approved teacher, not just the lead -- a co-taught
+              class showing one name misrepresents who can act on it. */}
           <span>
-            Teacher: {cls.teacher ? `${cls.teacher.profile.first_name} ${cls.teacher.profile.last_name}` : 'Unassigned'}
+            {teacherNames.length > 1 ? 'Teachers: ' : 'Teacher: '}
+            {teacherNames.length > 0 ? teacherNames.join(', ') : 'Unassigned'}
           </span>
           {(cls.schedule_day || cls.start_time) && (
             <span>
@@ -89,12 +96,6 @@ export default async function ClassRosterPage({ params }: { params: { id: string
       </div>
 
       <PendingTeacherRequests classId={cls.id} requests={teacherRequests ?? []} />
-
-      <ClassTeachers
-        classId={cls.id}
-        assigned={classTeachers ?? []}
-        allTeachers={allTeachers ?? []}
-      />
 
       <RosterClient classId={cls.id} initialEnrollments={enrollments ?? []} allStudents={allStudents ?? []} />
     </div>
