@@ -151,7 +151,8 @@ export function ClassesClient({
     },
     {
       header: 'Teacher',
-      accessor: (c) => (c.teacher ? `${c.teacher.profile.first_name} ${c.teacher.profile.last_name}` : 'Unassigned'),
+      accessor: (c) =>
+        c.teacher && c.teacher.profile.is_active ? `${c.teacher.profile.first_name} ${c.teacher.profile.last_name}` : 'Unassigned',
     },
     {
       header: 'Join Code',

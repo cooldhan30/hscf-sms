@@ -10,13 +10,24 @@ export const dynamic = 'force-dynamic'
 export default async function AdminAttendancePage() {
   const admin = createAdminClient()
 
-  const { data: classes } = await admin
+  const { data: rawClasses } = await admin
     .from('sms_classes')
-    .select('id, name, grade_level, teacher:sms_teachers!sms_classes_teacher_id_fkey(profile:sms_profiles(first_name, last_name))')
+    .select('id, name, grade_level, teacher:sms_teachers!sms_classes_teacher_id_fkey(profile:sms_profiles(first_name, last_name, is_active))')
     .order('name')
     .returns<
-      { id: string; name: string; grade_level: string | null; teacher: { profile: { first_name: string; last_name: string } | null } | null }[]
+      {
+        id: string
+        name: string
+        grade_level: string | null
+        teacher: { profile: { first_name: string; last_name: string; is_active: boolean } | null } | null
+      }[]
     >()
+
+  // A disabled teacher's name shouldn't keep showing next to a class.
+  const classes = (rawClasses ?? []).map((c) => ({
+    ...c,
+    teacher: c.teacher?.profile?.is_active ? c.teacher : null,
+  }))
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

@@ -56,7 +56,9 @@ export default async function ParentChildDetailPage({ params }: { params: { id: 
                 <div className="space-y-1.5 mt-2 text-sm text-stone-600 dark:text-stone-300">
                   <p className="flex items-center gap-2">
                     <FiUser className="w-4 h-4 flex-shrink-0" />
-                    {e.class.teacher ? `${e.class.teacher.profile.first_name} ${e.class.teacher.profile.last_name}` : 'Unassigned'}
+                    {e.class.teacher && e.class.teacher.profile.is_active
+                      ? `${e.class.teacher.profile.first_name} ${e.class.teacher.profile.last_name}`
+                      : 'Unassigned'}
                   </p>
                   {(e.class.schedule_day || e.class.start_time) && (
                     <p className="flex items-center gap-2">

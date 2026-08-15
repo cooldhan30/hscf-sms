@@ -5,12 +5,13 @@ import { createClient } from '@/lib/supabase/server'
 import { JoinCodeBadge } from '@/components/classes/JoinCodeBadge'
 import { RosterClient, type EnrollmentRow } from './RosterClient'
 import { PendingTeacherRequests, type TeacherRequestRow } from './PendingTeacherRequests'
+import { HeadTeacherPicker, type ClassTeacherOption } from './HeadTeacherPicker'
 
 // A class can be co-taught. Teachers get here only by entering the join
 // code and being approved -- this is display, not assignment.
 type ClassTeacherRow = {
   is_primary: boolean
-  teacher: { profile: { first_name: string; last_name: string } | null } | null
+  teacher: { id: string; profile: { first_name: string; last_name: string; is_active: boolean } | null } | null
 }
 
 export const dynamic = 'force-dynamic'
@@ -50,7 +51,7 @@ export default async function ClassRosterPage({ params }: { params: { id: string
       .returns<TeacherRequestRow[]>(),
     supabase
       .from('sms_class_teachers')
-      .select('is_primary, teacher:sms_teachers(profile:sms_profiles(first_name, last_name))')
+      .select('is_primary, teacher:sms_teachers(id, profile:sms_profiles(first_name, last_name, is_active))')
       .eq('class_id', params.id)
       // Lead first, then in the order they were approved.
       .order('is_primary', { ascending: false })
@@ -58,7 +59,11 @@ export default async function ClassRosterPage({ params }: { params: { id: string
       .returns<ClassTeacherRow[]>(),
   ])
 
-  const membershipNames = (classTeachers ?? [])
+  // A disabled teacher keeps their membership row (history stays intact)
+  // but shouldn't still read as "the teacher of this class" to admins.
+  const activeClassTeachers = (classTeachers ?? []).filter((t) => t.teacher?.profile?.is_active)
+
+  const membershipNames = activeClassTeachers
     .map((t) => (t.teacher?.profile ? `${t.teacher.profile.first_name} ${t.teacher.profile.last_name}`.trim() : null))
     .filter((n): n is string => Boolean(n))
 
@@ -66,11 +71,19 @@ export default async function ClassRosterPage({ params }: { params: { id: string
   // membership table returns nothing -- it does not exist until 036 is
   // applied, and a class that plainly has a teacher must never be shown
   // as "Unassigned" just because a newer query came back empty.
-  const leadName = cls.teacher?.profile
+  const leadName = cls.teacher?.profile?.is_active
     ? `${cls.teacher.profile.first_name} ${cls.teacher.profile.last_name}`.trim()
     : null
 
   const teacherNames = membershipNames.length > 0 ? membershipNames : leadName ? [leadName] : []
+
+  const headTeacherOptions: ClassTeacherOption[] = activeClassTeachers
+    .filter((t) => t.teacher)
+    .map((t) => ({
+      teacherId: t.teacher!.id,
+      name: `${t.teacher!.profile!.first_name} ${t.teacher!.profile!.last_name}`.trim(),
+      isPrimary: t.is_primary,
+    }))
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -106,6 +119,8 @@ export default async function ClassRosterPage({ params }: { params: { id: string
       </div>
 
       <PendingTeacherRequests classId={cls.id} requests={teacherRequests ?? []} />
+
+      <HeadTeacherPicker classId={cls.id} teachers={headTeacherOptions} />
 
       <RosterClient classId={cls.id} initialEnrollments={enrollments ?? []} allStudents={allStudents ?? []} />
     </div>

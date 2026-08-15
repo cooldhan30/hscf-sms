@@ -74,7 +74,9 @@ export default async function StudentClassesPage() {
               <div className="space-y-1.5 mt-3 text-sm text-stone-600 dark:text-stone-300">
                 <p className="flex items-center gap-2">
                   <FiUser className="w-4 h-4 flex-shrink-0" />
-                  {c.teacher ? `${c.teacher.profile.first_name} ${c.teacher.profile.last_name}` : 'Unassigned'}
+                  {c.teacher && c.teacher.profile.is_active
+                    ? `${c.teacher.profile.first_name} ${c.teacher.profile.last_name}`
+                    : 'Unassigned'}
                 </p>
                 {(c.schedule_day || c.start_time) && (
                   <p className="flex items-center gap-2">
