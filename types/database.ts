@@ -35,6 +35,7 @@ export interface SmsStudent {
   enrollment_status: 'active' | 'inactive' | 'graduated' | 'withdrawn'
   academic_year: string
   source_registration_id: string | null
+  deleted_at: string | null
   created_at: string
   updated_at: string
 }

@@ -3,10 +3,11 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { FiSearch, FiPlus, FiEdit2, FiEye } from 'react-icons/fi'
+import { FiSearch, FiPlus, FiEdit2, FiEye, FiSlash, FiCheckCircle, FiTrash2, FiRotateCcw } from 'react-icons/fi'
 import { DataTable, type DataTableColumn } from '@/components/dashboard/DataTable'
 import { Modal } from '@/components/dashboard/Modal'
 import { Button } from '@/components/ui/Button'
+import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { GRADE_LEVEL_OPTIONS } from '@/lib/constants'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { toast } from '@/lib/toast'
@@ -41,8 +42,16 @@ const EMPTY_FORM: FormState = {
   parentPhone: '',
 }
 
-export function StudentsClient({ initialStudents }: { initialStudents: StudentRow[] }) {
+export function StudentsClient({
+  initialStudents,
+  deletedStudents,
+}: {
+  initialStudents: StudentRow[]
+  deletedStudents: StudentRow[]
+}) {
   const router = useRouter()
+  const confirm = useConfirm()
+  const [tab, setTab] = useState<'active' | 'deleted'>('active')
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 200)
   const [modalOpen, setModalOpen] = useState(false)
@@ -50,14 +59,101 @@ export function StudentsClient({ initialStudents }: { initialStudents: StudentRo
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  const sourceStudents = tab === 'active' ? initialStudents : deletedStudents
+
   const filtered = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase()
-    if (!q) return initialStudents
-    return initialStudents.filter((s) => {
+    if (!q) return sourceStudents
+    return sourceStudents.filter((s) => {
       const name = `${s.first_name} ${s.last_name}`.toLowerCase()
       return name.includes(q) || (s.grade_level ?? '').toLowerCase().includes(q)
     })
-  }, [initialStudents, debouncedSearch])
+  }, [sourceStudents, debouncedSearch])
+
+  async function toggleActive(s: StudentRow) {
+    if (!s.profile) return
+    const nextActive = !s.profile.is_active
+    const name = `${s.first_name} ${s.last_name}`
+    const confirmed = await confirm({
+      title: nextActive ? `Re-enable ${name}?` : `Disable ${name}?`,
+      description: nextActive ? undefined : 'They will lose access immediately.',
+      confirmLabel: nextActive ? 'Re-enable' : 'Disable',
+      tone: nextActive ? 'default' : 'danger',
+    })
+    if (!confirmed) return
+
+    const res = await fetch(`/api/admin/students/${s.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isActive: nextActive }),
+    })
+
+    if (res.ok) {
+      toast.success(nextActive ? `${name} re-enabled` : `${name} disabled`)
+      router.refresh()
+    } else {
+      toast.error('Failed to update student status')
+    }
+  }
+
+  async function deleteStudent(s: StudentRow) {
+    const name = `${s.first_name} ${s.last_name}`
+    const confirmed = await confirm({
+      title: `Delete ${name}?`,
+      description: 'They lose access immediately and move to the Deleted tab. Their enrollment, attendance, and grade history is kept, and they can be restored later.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+
+    const res = await fetch(`/api/admin/students/${s.id}`, { method: 'DELETE' })
+    const data = await res.json().catch(() => ({}))
+
+    if (res.ok) {
+      toast.success(`${name} deleted`)
+      router.refresh()
+    } else {
+      toast.error(data.error || 'Failed to delete student')
+    }
+  }
+
+  async function restoreStudent(s: StudentRow) {
+    const name = `${s.first_name} ${s.last_name}`
+    const res = await fetch(`/api/admin/students/${s.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restore: true }),
+    })
+
+    if (res.ok) {
+      toast.success(`${name} restored`)
+      router.refresh()
+    } else {
+      toast.error('Failed to restore student')
+    }
+  }
+
+  async function purgeStudent(s: StudentRow) {
+    const name = `${s.first_name} ${s.last_name}`
+    const confirmed = await confirm({
+      title: `Permanently delete ${name}?`,
+      description:
+        'This cannot be undone. Their enrollment, attendance, grades, submissions, payments, and login (if any) are erased entirely.',
+      confirmLabel: 'Permanently Delete',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+
+    const res = await fetch(`/api/admin/students/${s.id}/purge`, { method: 'DELETE' })
+    const data = await res.json().catch(() => ({}))
+
+    if (res.ok) {
+      toast.success(`${name} permanently deleted`)
+      router.refresh()
+    } else {
+      toast.error(data.error || 'Failed to permanently delete student')
+    }
+  }
 
   function openAdd() {
     setForm(EMPTY_FORM)
@@ -161,37 +257,98 @@ export function StudentsClient({ initialStudents }: { initialStudents: StudentRo
     {
       header: 'Status',
       accessor: (s) => (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-primary-100 text-primary-800 dark:bg-primary-950 dark:text-primary-300 capitalize">
-          {s.enrollment_status}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-primary-100 text-primary-800 dark:bg-primary-950 dark:text-primary-300 capitalize">
+            {s.enrollment_status}
+          </span>
+          {s.profile && !s.profile.is_active && (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-stone-200 text-stone-600 dark:bg-stone-800 dark:text-stone-400">
+              Disabled
+            </span>
+          )}
+        </div>
       ),
     },
     {
       header: '',
-      accessor: (s) => (
-        <div className="flex items-center gap-2 justify-end">
-          <Link
-            href={`/admin/students/${s.id}`}
-            className="p-2 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors inline-flex"
-            aria-label="View student profile"
-          >
-            <FiEye className="w-4 h-4" />
-          </Link>
-          <button
-            onClick={() => openEdit(s)}
-            className="p-2 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
-            aria-label="Edit student"
-          >
-            <FiEdit2 className="w-4 h-4" />
-          </button>
-        </div>
-      ),
+      accessor: (s) =>
+        tab === 'deleted' ? (
+          <div className="flex items-center gap-2 justify-end">
+            <button
+              onClick={() => restoreStudent(s)}
+              className="p-2 rounded-lg text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
+              aria-label="Restore student"
+            >
+              <FiRotateCcw className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => purgeStudent(s)}
+              className="p-2 rounded-lg text-terracotta-600 hover:bg-terracotta-50 dark:hover:bg-terracotta-950/40 transition-colors"
+              aria-label="Permanently delete student"
+            >
+              <FiTrash2 className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 justify-end">
+            <Link
+              href={`/admin/students/${s.id}`}
+              className="p-2 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors inline-flex"
+              aria-label="View student profile"
+            >
+              <FiEye className="w-4 h-4" />
+            </Link>
+            <button
+              onClick={() => openEdit(s)}
+              className="p-2 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
+              aria-label="Edit student"
+            >
+              <FiEdit2 className="w-4 h-4" />
+            </button>
+            {s.profile && (
+              <button
+                onClick={() => toggleActive(s)}
+                className={`p-2 rounded-lg transition-colors ${
+                  s.profile.is_active
+                    ? 'text-terracotta-600 hover:bg-terracotta-50 dark:hover:bg-terracotta-950/40'
+                    : 'text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950/40'
+                }`}
+                aria-label={s.profile.is_active ? 'Disable student' : 'Enable student'}
+              >
+                {s.profile.is_active ? <FiSlash className="w-4 h-4" /> : <FiCheckCircle className="w-4 h-4" />}
+              </button>
+            )}
+            <button
+              onClick={() => deleteStudent(s)}
+              className="p-2 rounded-lg text-terracotta-600 hover:bg-terracotta-50 dark:hover:bg-terracotta-950/40 transition-colors"
+              aria-label="Delete student"
+            >
+              <FiTrash2 className="w-4 h-4" />
+            </button>
+          </div>
+        ),
       className: 'text-right',
     },
   ]
 
   return (
     <div className="space-y-4">
+      <div className="flex gap-1 border-b border-stone-200 dark:border-stone-800">
+        {(['active', 'deleted'] as const).map((key) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+              tab === key
+                ? 'border-primary-600 text-primary-700 dark:text-primary-300'
+                : 'border-transparent text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200'
+            }`}
+          >
+            {key === 'active' ? 'Active' : `Deleted (${deletedStudents.length})`}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
@@ -203,9 +360,11 @@ export function StudentsClient({ initialStudents }: { initialStudents: StudentRo
             className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
           />
         </div>
-        <Button variant="primary" icon={<FiPlus />} onClick={openAdd}>
-          Add Student
-        </Button>
+        {tab === 'active' && (
+          <Button variant="primary" icon={<FiPlus />} onClick={openAdd}>
+            Add Student
+          </Button>
+        )}
       </div>
 
       <DataTable

@@ -6,10 +6,13 @@ export const dynamic = 'force-dynamic'
 export default async function AdminStudentsPage() {
   const supabase = createClient()
 
-  const { data: students } = await supabase
+  const { data: allStudents } = await supabase
     .from('sms_students')
     .select('*, profile:sms_profiles(*)')
     .order('created_at', { ascending: false })
+
+  const students = (allStudents ?? []).filter((s) => !s.deleted_at)
+  const deletedStudents = (allStudents ?? []).filter((s) => s.deleted_at)
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -20,7 +23,7 @@ export default async function AdminStudentsPage() {
         </p>
       </div>
 
-      <StudentsClient initialStudents={students ?? []} />
+      <StudentsClient initialStudents={students} deletedStudents={deletedStudents} />
     </div>
   )
 }

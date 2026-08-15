@@ -193,6 +193,28 @@ export function TeachersClient({
     }
   }
 
+  async function purgeTeacher(t: TeacherRow) {
+    const name = `${t.profile.first_name} ${t.profile.last_name}`
+    const confirmed = await confirm({
+      title: `Permanently delete ${name}?`,
+      description:
+        'This cannot be undone. Their login and profile are erased entirely. Attendance, grades, and assignments they recorded stay on students’ records but lose the "by" attribution; chat messages they sent are removed.',
+      confirmLabel: 'Permanently Delete',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+
+    const res = await fetch(`/api/admin/teachers/${t.id}/purge`, { method: 'DELETE' })
+    const data = await res.json().catch(() => ({}))
+
+    if (res.ok) {
+      toast.success(`${name} permanently deleted`)
+      router.refresh()
+    } else {
+      toast.error(data.error || 'Failed to permanently delete teacher')
+    }
+  }
+
   const columns: DataTableColumn<TeacherRow>[] = [
     {
       header: 'Name',
@@ -233,6 +255,13 @@ export function TeachersClient({
               aria-label="Restore teacher"
             >
               <FiRotateCcw className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => purgeTeacher(t)}
+              className="p-2 rounded-lg text-terracotta-600 hover:bg-terracotta-50 dark:hover:bg-terracotta-950/40 transition-colors"
+              aria-label="Permanently delete teacher"
+            >
+              <FiTrash2 className="w-4 h-4" />
             </button>
           </div>
         ) : (
