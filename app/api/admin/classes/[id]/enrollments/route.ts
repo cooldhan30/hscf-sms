@@ -27,6 +27,20 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
+  // The normal path (a teacher approving sms_class_join_requests) closes
+  // the student's own request out via a DB trigger. Enrolling directly
+  // here skips that entirely -- most often because the class has no
+  // teacher yet to approve anything -- so if the student already had a
+  // pending request for this class, it's resolved here too. Otherwise
+  // it's left dangling at "pending" forever, showing as still-waiting
+  // on their own Classes page even though they're already enrolled.
+  await admin
+    .from('sms_class_join_requests')
+    .update({ status: 'approved', resolved_at: new Date().toISOString() })
+    .eq('class_id', params.id)
+    .eq('student_id', studentId)
+    .eq('status', 'pending')
+
   return NextResponse.json({ success: true }, { status: 201 })
 }
 
