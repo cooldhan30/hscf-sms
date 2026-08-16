@@ -1,0 +1,94 @@
+name: Tamizhi Backup to B2
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client curl
+          curl https://rclone.org/install.sh | sudo bash
+
+      - name: Set date variables
+        id: dates
+        run: |
+          echo "date_only=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+          echo "day_of_week=$(date +%u)" >> "$GITHUB_OUTPUT"
+
+      - name: Dump Postgres database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          mkdir -p /tmp/backup
+          pg_dump "$DATABASE_URL" -F c -f "/tmp/backup/tamizhi_db_${{ steps.dates.outputs.date_only }}.dump"
+
+      - name: Sync Supabase Storage to temp dir
+        env:
+          RCLONE_CONFIG_SUPATAMIZHI_TYPE: s3
+          RCLONE_CONFIG_SUPATAMIZHI_PROVIDER: Other
+          RCLONE_CONFIG_SUPATAMIZHI_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY }}
+          RCLONE_CONFIG_SUPATAMIZHI_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_KEY }}
+          RCLONE_CONFIG_SUPATAMIZHI_ENDPOINT: ${{ secrets.SUPABASE_S3_ENDPOINT }}
+          RCLONE_CONFIG_SUPATAMIZHI_REGION: ${{ secrets.SUPABASE_S3_REGION }}
+        run: |
+          mkdir -p /tmp/backup/storage
+          rclone sync "supatamizhi:${{ secrets.SUPABASE_S3_BUCKET }}" /tmp/backup/storage --checksum
+
+      - name: Export Auth users (Mondays only)
+        if: steps.dates.outputs.day_of_week == '1'
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          curl -sf "https://${SUPABASE_PROJECT_REF}.supabase.co/auth/v1/admin/users" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -o "/tmp/backup/tamizhi_auth_${{ steps.dates.outputs.date_only }}.json"
+
+      - name: Upload everything to Backblaze B2
+        env:
+          RCLONE_CONFIG_B2TAMIZHI_TYPE: b2
+          RCLONE_CONFIG_B2TAMIZHI_ACCOUNT: ${{ secrets.B2_KEY_ID }}
+          RCLONE_CONFIG_B2TAMIZHI_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+        run: |
+          rclone copy /tmp/backup/ "b2tamizhi:${{ secrets.B2_BUCKET }}" --checksum
+
+      - name: Alert on failure (Discord)
+        if: failure()
+        run: |
+          curl -sf -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"❌ **Tamizhi Backup FAILED** — check the run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+
+      - name: Alert on failure (Email)
+        if: failure()
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 - <<'PYEOF'
+          import smtplib, ssl, os
+          from email.mime.text import MIMEText
+          msg = MIMEText(f"Tamizhi backup failed. Check the run: {os.environ['RUN_URL']}")
+          msg["Subject"] = "Tamizhi Backup FAILED"
+          msg["From"] = os.environ["ALERT_EMAIL_FROM"]
+          msg["To"] = os.environ["ALERT_EMAIL_TO"]
+          context = ssl.create_default_context()
+          with smtplib.SMTP(os.environ["SMTP_HOST"], int(os.environ["SMTP_PORT"])) as server:
+              server.starttls(context=context)
+              server.login(os.environ["SMTP_USER"], os.environ["SMTP_PASS"])
+              server.sendmail(os.environ["ALERT_EMAIL_FROM"], [os.environ["ALERT_EMAIL_TO"]], msg.as_string())
+          PYEOF
