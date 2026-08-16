@@ -30,7 +30,7 @@ jobs:
           mkdir -p /tmp/backup
           pg_dump "$DATABASE_URL" -F c -f "/tmp/backup/tamizhi_db_${{ steps.dates.outputs.date_only }}.dump"
 
-      - name: Sync Supabase Storage to temp dir
+      - name: Sync Supabase Storage buckets to temp dir
         env:
           RCLONE_CONFIG_SUPATAMIZHI_TYPE: s3
           RCLONE_CONFIG_SUPATAMIZHI_PROVIDER: Other
@@ -40,7 +40,12 @@ jobs:
           RCLONE_CONFIG_SUPATAMIZHI_REGION: ${{ secrets.SUPABASE_S3_REGION }}
         run: |
           mkdir -p /tmp/backup/storage
-          rclone sync "supatamizhi:${{ secrets.SUPABASE_S3_BUCKET }}" /tmp/backup/storage --checksum
+          IFS=',' read -ra BUCKETS <<< "${{ secrets.SUPABASE_S3_BUCKET }}"
+          for bucket in "${BUCKETS[@]}"; do
+            echo "Syncing bucket: $bucket"
+            mkdir -p "/tmp/backup/storage/$bucket"
+            rclone sync "supatamizhi:$bucket" "/tmp/backup/storage/$bucket" --checksum
+          done
 
       - name: Export Auth users (Mondays only)
         if: steps.dates.outputs.day_of_week == '1'
