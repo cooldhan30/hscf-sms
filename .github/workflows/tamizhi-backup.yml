@@ -33,7 +33,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           mkdir -p /tmp/backup
-          pg_dump "$DATABASE_URL" -F c -f "/tmp/backup/tamizhi_db_${{ steps.dates.outputs.date_only }}.dump"
+          /usr/lib/postgresql/17/bin/pg_dump "$DATABASE_URL" -F c -f "/tmp/backup/tamizhi_db_${{ steps.dates.outputs.date_only }}.dump"
 
       - name: Sync Supabase Storage buckets to temp dir
         env:
