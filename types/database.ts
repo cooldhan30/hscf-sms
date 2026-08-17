@@ -163,6 +163,19 @@ export interface SmsAssignment {
   updated_at: string
 }
 
+export interface SmsResource {
+  id: string
+  class_id: string | null
+  title: string
+  description: string | null
+  file_url: string
+  file_type: string | null
+  file_size: number | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface SmsSubmission {
   id: string
   assignment_id: string

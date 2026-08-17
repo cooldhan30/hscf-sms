@@ -6,7 +6,7 @@ import { requireStudent } from '@/lib/require-student'
 import { getB2UploadUrl } from '@/lib/storage/b2'
 import { optionalString } from '@/lib/validation'
 
-type Bucket = 'profile-pictures' | 'assignment-images' | 'submissions'
+type Bucket = 'profile-pictures' | 'assignment-images' | 'submissions' | 'resources'
 
 const BUCKET_RULES: Record<Bucket, { maxBytes: number; typePrefix: string | null }> = {
   'profile-pictures': { maxBytes: 5 * 1024 * 1024, typePrefix: 'image/' },
@@ -14,6 +14,9 @@ const BUCKET_RULES: Record<Bucket, { maxBytes: number; typePrefix: string | null
   // No prior client-side cap existed for submissions (file or recorded
   // audio) -- this is a new sanity bound, not a preserved one.
   submissions: { maxBytes: 50 * 1024 * 1024, typePrefix: null },
+  // Resources can be video/audio/pdf/anything -- no type restriction,
+  // just a generous size cap.
+  resources: { maxBytes: 200 * 1024 * 1024, typePrefix: null },
 }
 
 // POST /api/storage/upload-url -- the single chokepoint for every upload
@@ -76,7 +79,7 @@ export async function POST(request: Request) {
     if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
     supabase = guard.supabase
     ownerId = guard.profile.id
-  } else {
+  } else if (bucket === 'submissions') {
     if (!assignmentId) {
       return NextResponse.json({ error: 'assignmentId is required for submissions' }, { status: 400 })
     }
@@ -84,6 +87,16 @@ export async function POST(request: Request) {
     if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
     supabase = guard.supabase
     ownerId = guard.profile.id
+  } else {
+    // resources: teacher or admin only.
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    supabase = createClient()
+    const { data: profile } = await supabase.from('sms_profiles').select('id, role, is_active').eq('id', userId).single()
+    if (!profile || !profile.is_active || (profile.role !== 'teacher' && profile.role !== 'admin')) {
+      return NextResponse.json({ error: 'Teacher or admin access required' }, { status: 403 })
+    }
+    ownerId = userId
   }
 
   const ext = fileName.includes('.') ? fileName.split('.').pop() : null

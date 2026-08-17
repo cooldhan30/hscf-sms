@@ -1,4 +1,4 @@
-import { FiHome, FiBookOpen, FiCheckSquare, FiFileText, FiAward, FiClipboard, FiMessageCircle, FiVideo } from 'react-icons/fi'
+import { FiHome, FiBookOpen, FiCheckSquare, FiFileText, FiAward, FiClipboard, FiMessageCircle, FiVideo, FiFolder } from 'react-icons/fi'
 import { RoleGuard, DashboardLayout, type SidebarItem } from '@/components/dashboard'
 
 const iconClass = 'w-4 h-4 flex-shrink-0'
@@ -9,6 +9,7 @@ const navItems: SidebarItem[] = [
   { label: 'Attendance', href: '/teacher/attendance', icon: <FiCheckSquare className={iconClass} /> },
   { label: 'Assignments', href: '/teacher/assignments', icon: <FiFileText className={iconClass} /> },
   { label: 'Gradebook', href: '/teacher/gradebook', icon: <FiAward className={iconClass} /> },
+  { label: 'Resources', href: '/teacher/resources', icon: <FiFolder className={iconClass} /> },
   { label: 'Announcements', href: '/teacher/announcements', icon: <FiClipboard className={iconClass} /> },
   { label: 'Meetings', href: '/teacher/meetings', icon: <FiVideo className={iconClass} /> },
   { label: 'Chat', href: '/teacher/chat', icon: <FiMessageCircle className={iconClass} /> },

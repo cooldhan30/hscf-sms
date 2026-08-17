@@ -1,0 +1,426 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  FiUpload,
+  FiFile,
+  FiImage,
+  FiVideo,
+  FiMusic,
+  FiFileText,
+  FiTrash2,
+  FiEye,
+  FiDownload,
+  FiX,
+} from 'react-icons/fi'
+import { Modal } from '@/components/dashboard/Modal'
+import { Button } from '@/components/ui/Button'
+import { EmptyState } from '@/components/dashboard/EmptyState'
+import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
+import { useSupabaseBrowserClient } from '@/lib/supabase/client'
+import { uploadFile } from '@/lib/storage/uploadFile'
+import { toast } from '@/lib/toast'
+
+export interface ResourceRow {
+  id: string
+  class_id: string | null
+  title: string
+  description: string | null
+  file_url: string
+  file_type: string | null
+  file_size: number | null
+  created_by: string | null
+  created_at: string
+  class: { id: string; name: string } | null
+  uploader: { first_name: string; last_name: string } | null
+}
+
+const IMAGE_TYPES = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']
+const VIDEO_TYPES = ['mp4', 'mov', 'webm', 'avi']
+const AUDIO_TYPES = ['mp3', 'wav', 'm4a', 'ogg']
+const PDF_TYPES = ['pdf']
+
+function kindOf(fileType: string | null): 'image' | 'video' | 'audio' | 'pdf' | 'other' {
+  if (!fileType) return 'other'
+  const t = fileType.toLowerCase()
+  if (IMAGE_TYPES.includes(t)) return 'image'
+  if (VIDEO_TYPES.includes(t)) return 'video'
+  if (AUDIO_TYPES.includes(t)) return 'audio'
+  if (PDF_TYPES.includes(t)) return 'pdf'
+  return 'other'
+}
+
+function ThumbIcon({ fileType }: { fileType: string | null }) {
+  const kind = kindOf(fileType)
+  const cls = 'w-8 h-8'
+  if (kind === 'image') return <FiImage className={cls} />
+  if (kind === 'video') return <FiVideo className={cls} />
+  if (kind === 'audio') return <FiMusic className={cls} />
+  if (kind === 'pdf') return <FiFileText className={cls} />
+  return <FiFile className={cls} />
+}
+
+function formatSize(bytes: number | null): string {
+  if (!bytes) return '—'
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+export function ResourcesClient({
+  initialResources,
+  classes,
+  currentProfileId,
+  canUpload,
+  canUploadAllClasses,
+  teacherClassIds,
+}: {
+  initialResources: ResourceRow[]
+  classes: { id: string; name: string }[]
+  currentProfileId: string
+  canUpload: boolean
+  canUploadAllClasses: boolean
+  teacherClassIds: string[]
+}) {
+  const router = useRouter()
+  const confirm = useConfirm()
+  const supabase = useSupabaseBrowserClient()
+
+  const [classFilter, setClassFilter] = useState(teacherClassIds.length > 0 ? 'mine' : 'all')
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [uploadOpen, setUploadOpen] = useState(false)
+  const [preview, setPreview] = useState<ResourceRow | null>(null)
+
+  const [file, setFile] = useState<File | null>(null)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [uploadClassId, setUploadClassId] = useState<string>(teacherClassIds[0] ?? classes[0]?.id ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const availableTypes = useMemo(() => {
+    const types = new Set<string>()
+    initialResources.forEach((r) => {
+      if (r.file_type) types.add(r.file_type.toLowerCase())
+    })
+    return Array.from(types).sort()
+  }, [initialResources])
+
+  const filtered = useMemo(() => {
+    return initialResources.filter((r) => {
+      if (classFilter === 'mine') {
+        if (!r.class_id || !teacherClassIds.includes(r.class_id)) return false
+      } else if (classFilter !== 'all') {
+        if (r.class_id !== classFilter) return false
+      }
+      if (typeFilter !== 'all' && (r.file_type ?? '').toLowerCase() !== typeFilter) return false
+      return true
+    })
+  }, [initialResources, classFilter, typeFilter, teacherClassIds])
+
+  function openUpload() {
+    setFile(null)
+    setTitle('')
+    setDescription('')
+    setUploadClassId(teacherClassIds[0] ?? '')
+    setError(null)
+    setUploadOpen(true)
+  }
+
+  async function handleUpload(e: React.FormEvent) {
+    e.preventDefault()
+    if (!file) {
+      setError('Choose a file to upload')
+      return
+    }
+    setSaving(true)
+    setError(null)
+
+    try {
+      const { publicUrl } = await uploadFile({ supabase, bucket: 'resources', file })
+      if (!publicUrl) throw new Error('Upload succeeded but no URL was returned')
+
+      const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : null
+
+      const res = await fetch('/api/resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description: description || null,
+          fileUrl: publicUrl,
+          fileType: ext,
+          fileSize: file.size,
+          classId: uploadClassId || null,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to save resource')
+
+      setUploadOpen(false)
+      toast.success('Resource uploaded')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(resource: ResourceRow) {
+    const confirmed = await confirm({
+      title: `Delete "${resource.title}"?`,
+      description: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+
+    const res = await fetch(`/api/resources/${resource.id}`, { method: 'DELETE' })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) {
+      toast.success('Resource deleted')
+      setPreview(null)
+      router.refresh()
+    } else {
+      toast.error(data.error || 'Failed to delete resource')
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-3">
+          <select
+            value={classFilter}
+            onChange={(e) => setClassFilter(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+          >
+            {teacherClassIds.length > 0 && <option value="mine">My Classes</option>}
+            <option value="all">All Classes</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+          >
+            <option value="all">All File Types</option>
+            {availableTypes.map((t) => (
+              <option key={t} value={t}>
+                .{t}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {canUpload && (
+          <Button variant="primary" icon={<FiUpload />} onClick={openUpload}>
+            Upload Resource
+          </Button>
+        )}
+      </div>
+
+      {filtered.length === 0 ? (
+        <EmptyState title="No resources found" description="Try a different filter, or upload the first one." />
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {filtered.map((r) => (
+            <div
+              key={r.id}
+              className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 overflow-hidden flex flex-col"
+            >
+              <button
+                type="button"
+                onClick={() => setPreview(r)}
+                className="aspect-square flex items-center justify-center bg-stone-50 dark:bg-stone-950/40 text-stone-400 dark:text-stone-600 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+              >
+                {kindOf(r.file_type) === 'image' ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- resource thumbnail, arbitrary Storage URL
+                  <img src={r.file_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <ThumbIcon fileType={r.file_type} />
+                )}
+              </button>
+              <div className="p-3 flex-1 flex flex-col gap-1">
+                <p className="text-sm font-semibold text-stone-800 dark:text-stone-100 line-clamp-2">{r.title}</p>
+                <p className="text-xs text-stone-400 dark:text-stone-500">
+                  {r.class?.name ?? 'All Classes'}
+                </p>
+                <div className="mt-auto flex items-center justify-between pt-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPreview(r)}
+                      className="p-1.5 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
+                      aria-label="Preview"
+                    >
+                      <FiEye className="w-4 h-4" />
+                    </button>
+                    <a
+                      href={r.file_url}
+                      download
+                      className="p-1.5 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors inline-flex"
+                      aria-label="Download"
+                    >
+                      <FiDownload className="w-4 h-4" />
+                    </a>
+                  </div>
+                  {r.created_by === currentProfileId && (
+                    <button
+                      onClick={() => handleDelete(r)}
+                      className="p-1.5 rounded-lg text-terracotta-600 hover:bg-terracotta-50 dark:hover:bg-terracotta-950/40 transition-colors"
+                      aria-label="Delete"
+                    >
+                      <FiTrash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal open={uploadOpen} title="Upload Resource" onClose={() => setUploadOpen(false)}>
+        <form onSubmit={handleUpload} className="space-y-4">
+          {error && (
+            <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">File</label>
+            <input
+              type="file"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-stone-600 dark:text-stone-300"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Name</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
+              Description (optional)
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Class</label>
+            <select
+              value={uploadClassId}
+              onChange={(e) => setUploadClassId(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+            >
+              <option value="">All Classes / Everyone</option>
+              {(canUploadAllClasses ? classes : classes.filter((c) => teacherClassIds.includes(c.id))).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <Button type="submit" variant="primary" fullWidth disabled={saving}>
+            {saving ? 'Uploading...' : 'Upload'}
+          </Button>
+        </form>
+      </Modal>
+
+      <Modal open={preview !== null} title={preview?.title ?? ''} onClose={() => setPreview(null)}>
+        {preview && (
+          <div className="space-y-4">
+            <div className="rounded-xl overflow-hidden bg-stone-50 dark:bg-stone-950/40 flex items-center justify-center min-h-[10rem]">
+              {kindOf(preview.file_type) === 'image' && (
+                // eslint-disable-next-line @next/next/no-img-element -- resource preview, arbitrary Storage URL
+                <img src={preview.file_url} alt="" className="max-h-96 w-full object-contain" />
+              )}
+              {kindOf(preview.file_type) === 'video' && (
+                <video controls src={preview.file_url} className="max-h-96 w-full" />
+              )}
+              {kindOf(preview.file_type) === 'audio' && (
+                <audio controls src={preview.file_url} className="w-full m-4" />
+              )}
+              {kindOf(preview.file_type) === 'pdf' && (
+                <iframe src={preview.file_url} className="w-full h-96" title={preview.title} />
+              )}
+              {kindOf(preview.file_type) === 'other' && (
+                <div className="py-10 text-stone-400 dark:text-stone-600 flex flex-col items-center gap-2">
+                  <ThumbIcon fileType={preview.file_type} />
+                  <p className="text-sm">No preview available</p>
+                </div>
+              )}
+            </div>
+
+            {preview.description && (
+              <p className="text-sm text-stone-600 dark:text-stone-300">{preview.description}</p>
+            )}
+
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <dt className="text-stone-400 dark:text-stone-500">File type</dt>
+              <dd className="text-stone-700 dark:text-stone-200">.{preview.file_type ?? 'unknown'}</dd>
+              <dt className="text-stone-400 dark:text-stone-500">File size</dt>
+              <dd className="text-stone-700 dark:text-stone-200">{formatSize(preview.file_size)}</dd>
+              <dt className="text-stone-400 dark:text-stone-500">Class</dt>
+              <dd className="text-stone-700 dark:text-stone-200">{preview.class?.name ?? 'All Classes'}</dd>
+              <dt className="text-stone-400 dark:text-stone-500">Uploaded by</dt>
+              <dd className="text-stone-700 dark:text-stone-200">
+                {preview.uploader ? `${preview.uploader.first_name} ${preview.uploader.last_name}` : 'Unknown'}
+              </dd>
+              <dt className="text-stone-400 dark:text-stone-500">Uploaded</dt>
+              <dd className="text-stone-700 dark:text-stone-200">{new Date(preview.created_at).toLocaleDateString()}</dd>
+            </dl>
+
+            <div className="flex items-center gap-2">
+              <a
+                href={preview.file_url}
+                download
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary-700 text-white text-sm font-semibold hover:bg-primary-800 transition-colors"
+              >
+                <FiDownload className="w-4 h-4" /> Download
+              </a>
+              {preview.created_by === currentProfileId && (
+                <button
+                  onClick={() => handleDelete(preview)}
+                  className="p-2 rounded-lg text-terracotta-600 hover:bg-terracotta-50 dark:hover:bg-terracotta-950/40 transition-colors"
+                  aria-label="Delete"
+                >
+                  <FiTrash2 className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                onClick={() => setPreview(null)}
+                className="p-2 rounded-lg text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                aria-label="Close"
+              >
+                <FiX className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  )
+}
