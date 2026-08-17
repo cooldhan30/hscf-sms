@@ -10,6 +10,7 @@ import { AudioPlayer } from '@/components/submissions/AudioPlayer'
 import { useSupabaseBrowserClient } from '@/lib/supabase/client'
 import { uploadFile } from '@/lib/storage/uploadFile'
 import { previewMaxPoints } from '@/lib/points'
+import { isPastDueDate } from '@/lib/dates'
 import { toast } from '@/lib/toast'
 
 interface ExistingSubmission {
@@ -44,7 +45,7 @@ export function SubmissionForm({
   const [submitting, setSubmitting] = useState(false)
 
   const now = new Date()
-  const isOverdue = dueDate ? now > new Date(dueDate) : false
+  const isOverdue = dueDate ? isPastDueDate(dueDate, now) : false
   const decayedMax =
     isOverdue && !existingSubmission && deductionPerDay > 0
       ? previewMaxPoints({ maxScore, deductionPerDay, dueDate, now })

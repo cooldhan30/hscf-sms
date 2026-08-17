@@ -4,6 +4,7 @@ import { FiArrowLeft, FiCalendar } from 'react-icons/fi'
 import { createClient } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
 import { getSubmissionSignedUrl } from '@/lib/storage/submissionUrl'
+import { formatDateOnly } from '@/lib/dates'
 import { SubmissionForm } from './SubmissionForm'
 
 export const dynamic = 'force-dynamic'
@@ -74,7 +75,7 @@ export default async function StudentAssignmentDetailPage({ params }: { params: 
         <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-stone-500 dark:text-stone-400">
           {assignment.due_date && (
             <span className="flex items-center gap-1.5">
-              <FiCalendar className="w-3.5 h-3.5" /> Due {new Date(assignment.due_date).toLocaleDateString()}
+              <FiCalendar className="w-3.5 h-3.5" /> Due {formatDateOnly(assignment.due_date)}
             </span>
           )}
           <span>Out of {assignment.max_score}</span>

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { previewMaxPoints } from '@/lib/points'
+import { isPastDueDate, formatDateOnly } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,7 +47,7 @@ export default async function StudentAssignmentsPage() {
             const grade = gradeByAssignment.get(a.id)
             const isGraded = grade && grade.score !== null && grade.score !== undefined
             const submission = submissionByAssignment.get(a.id)
-            const isOverdue = a.due_date ? now > new Date(a.due_date) : false
+            const isOverdue = a.due_date ? isPastDueDate(a.due_date, now) : false
             const decayedMax =
               isOverdue && !submission && a.points_deduction_per_day > 0
                 ? previewMaxPoints({
@@ -72,7 +73,7 @@ export default async function StudentAssignmentsPage() {
                     <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-stone-500 dark:text-stone-400">
                       {a.due_date && (
                         <span className="flex items-center gap-1.5">
-                          <FiCalendar className="w-3.5 h-3.5" /> Due {new Date(a.due_date).toLocaleDateString()}
+                          <FiCalendar className="w-3.5 h-3.5" /> Due {formatDateOnly(a.due_date)}
                         </span>
                       )}
                       <span>Out of {a.max_score}</span>

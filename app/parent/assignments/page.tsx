@@ -5,6 +5,7 @@ import { auth } from '@clerk/nextjs/server'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { ChildSelector } from '../ChildSelector'
 import { resolveSelectedChildId, type ChildOption } from '../child-utils'
+import { formatDateOnly } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,7 +73,7 @@ export default async function ParentAssignmentsPage({ searchParams }: { searchPa
                     </div>
                     {a.due_date && (
                       <span className="flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400">
-                        <FiCalendar className="w-3.5 h-3.5" /> {new Date(a.due_date).toLocaleDateString()}
+                        <FiCalendar className="w-3.5 h-3.5" /> {formatDateOnly(a.due_date)}
                       </span>
                     )}
                   </div>

@@ -8,6 +8,7 @@ import { Modal } from '@/components/dashboard/Modal'
 import { Button } from '@/components/ui/Button'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { AssignmentImageUpload } from '@/components/assignments/AssignmentImageUpload'
+import { formatDateOnly } from '@/lib/dates'
 import { toast } from '@/lib/toast'
 import type { SmsAssignment, SmsClass } from '@/types/database'
 
@@ -163,7 +164,7 @@ export function AssignmentsClient({
         </div>
       ),
     },
-    { header: 'Due', accessor: (a) => (a.due_date ? new Date(a.due_date).toLocaleDateString() : '—') },
+    { header: 'Due', accessor: (a) => (a.due_date ? formatDateOnly(a.due_date) : '—') },
     { header: 'Max Score', accessor: (a) => a.max_score },
     {
       header: 'Status',
