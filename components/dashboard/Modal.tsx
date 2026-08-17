@@ -7,16 +7,23 @@ import { FiX } from 'react-icons/fi'
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+const MAX_WIDTH = {
+  default: 'max-w-lg',
+  large: 'max-w-4xl',
+} as const
+
 export function Modal({
   open,
   title,
   onClose,
   children,
+  size = 'default',
 }: {
   open: boolean
   title: string
   onClose: () => void
   children: React.ReactNode
+  size?: 'default' | 'large'
 }) {
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -93,7 +100,7 @@ export function Modal({
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-stone-900 shadow-xl border border-stone-200 dark:border-stone-800"
+            className={`w-full ${MAX_WIDTH[size]} max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-stone-900 shadow-xl border border-stone-200 dark:border-stone-800`}
             initial={{ opacity: 0, scale: 0.96, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 10 }}

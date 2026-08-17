@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FiUpload,
@@ -40,14 +40,20 @@ const IMAGE_TYPES = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']
 const VIDEO_TYPES = ['mp4', 'mov', 'webm', 'avi']
 const AUDIO_TYPES = ['mp3', 'wav', 'm4a', 'ogg']
 const PDF_TYPES = ['pdf']
+const OFFICE_TYPES = ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx']
+const TEXT_TYPES = ['txt', 'csv', 'md', 'json', 'log']
 
-function kindOf(fileType: string | null): 'image' | 'video' | 'audio' | 'pdf' | 'other' {
+type Kind = 'image' | 'video' | 'audio' | 'pdf' | 'office' | 'text' | 'other'
+
+function kindOf(fileType: string | null): Kind {
   if (!fileType) return 'other'
   const t = fileType.toLowerCase()
   if (IMAGE_TYPES.includes(t)) return 'image'
   if (VIDEO_TYPES.includes(t)) return 'video'
   if (AUDIO_TYPES.includes(t)) return 'audio'
   if (PDF_TYPES.includes(t)) return 'pdf'
+  if (OFFICE_TYPES.includes(t)) return 'office'
+  if (TEXT_TYPES.includes(t)) return 'text'
   return 'other'
 }
 
@@ -57,7 +63,7 @@ function ThumbIcon({ fileType }: { fileType: string | null }) {
   if (kind === 'image') return <FiImage className={cls} />
   if (kind === 'video') return <FiVideo className={cls} />
   if (kind === 'audio') return <FiMusic className={cls} />
-  if (kind === 'pdf') return <FiFileText className={cls} />
+  if (kind === 'pdf' || kind === 'office' || kind === 'text') return <FiFileText className={cls} />
   return <FiFile className={cls} />
 }
 
@@ -65,6 +71,53 @@ function formatSize(bytes: number | null): string {
   if (!bytes) return '—'
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// .doc/.xls/.ppt (and their -x variants) have no native browser renderer
+// -- Microsoft's own viewer can render any public URL, so this reuses it
+// rather than requiring a download to read them.
+function officeViewerUrl(fileUrl: string): string {
+  return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`
+}
+
+// Plain-text formats render better as text than in the object/iframe
+// path other kinds use -- fetched once per preview open, not on every
+// render.
+function TextFilePreview({ fileUrl }: { fileUrl: string }) {
+  const [text, setText] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setText(null)
+    setFailed(false)
+    fetch(fileUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error('fetch failed')
+        return res.text()
+      })
+      .then((body) => {
+        if (!cancelled) setText(body)
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [fileUrl])
+
+  if (failed) {
+    return <p className="p-4 text-sm text-stone-500 dark:text-stone-400">Couldn't load a preview for this file.</p>
+  }
+  if (text === null) {
+    return <p className="p-4 text-sm text-stone-500 dark:text-stone-400">Loading preview...</p>
+  }
+  return (
+    <pre className="w-full h-[65vh] overflow-auto p-4 text-xs text-stone-700 dark:text-stone-200 whitespace-pre-wrap break-words">
+      {text}
+    </pre>
+  )
 }
 
 export function ResourcesClient({
@@ -349,27 +402,31 @@ export function ResourcesClient({
         </form>
       </Modal>
 
-      <Modal open={preview !== null} title={preview?.title ?? ''} onClose={() => setPreview(null)}>
+      <Modal open={preview !== null} title={preview?.title ?? ''} onClose={() => setPreview(null)} size="large">
         {preview && (
           <div className="space-y-4">
             <div className="rounded-xl overflow-hidden bg-stone-50 dark:bg-stone-950/40 flex items-center justify-center min-h-[10rem]">
               {kindOf(preview.file_type) === 'image' && (
                 // eslint-disable-next-line @next/next/no-img-element -- resource preview, arbitrary Storage URL
-                <img src={preview.file_url} alt="" className="max-h-96 w-full object-contain" />
+                <img src={preview.file_url} alt="" className="max-h-[70vh] w-full object-contain" />
               )}
               {kindOf(preview.file_type) === 'video' && (
-                <video controls src={preview.file_url} className="max-h-96 w-full" />
+                <video controls src={preview.file_url} className="max-h-[70vh] w-full" />
               )}
               {kindOf(preview.file_type) === 'audio' && (
                 <audio controls src={preview.file_url} className="w-full m-4" />
               )}
               {kindOf(preview.file_type) === 'pdf' && (
-                <iframe src={preview.file_url} className="w-full h-96" title={preview.title} />
+                <iframe src={preview.file_url} className="w-full h-[70vh]" title={preview.title} />
               )}
+              {kindOf(preview.file_type) === 'office' && (
+                <iframe src={officeViewerUrl(preview.file_url)} className="w-full h-[70vh]" title={preview.title} />
+              )}
+              {kindOf(preview.file_type) === 'text' && <TextFilePreview fileUrl={preview.file_url} />}
               {kindOf(preview.file_type) === 'other' && (
                 <div className="py-10 text-stone-400 dark:text-stone-600 flex flex-col items-center gap-2">
                   <ThumbIcon fileType={preview.file_type} />
-                  <p className="text-sm">No preview available</p>
+                  <p className="text-sm">No preview available for this file type -- download to view it.</p>
                 </div>
               )}
             </div>
