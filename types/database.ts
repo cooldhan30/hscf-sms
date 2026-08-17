@@ -170,6 +170,7 @@ export interface SmsSubmission {
   content: string | null
   file_url: string | null
   audio_url: string | null
+  storage_provider: 'supabase' | 'b2'
   submitted_at: string
   updated_at: string
 }

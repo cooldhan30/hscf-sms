@@ -4,15 +4,17 @@ import { useRef, useState } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import { FiImage, FiUpload, FiX } from 'react-icons/fi'
 import { useSupabaseBrowserClient } from '@/lib/supabase/client'
+import { uploadFile } from '@/lib/storage/uploadFile'
 import { toast } from '@/lib/toast'
 
 const MAX_BYTES = 8 * 1024 * 1024 // 8MB
 
 // Uploads to the public 'assignment-images' bucket (see migration 029)
-// and hands the resulting public URL back via onUploaded -- same
-// upload-then-hand-back-URL split as AvatarUpload, so the parent form
-// still owns actually persisting it alongside the rest of the assignment
-// fields (only saved for real once the teacher submits the form).
+// via /api/storage/upload-url, and hands the resulting public URL back
+// via onUploaded -- same upload-then-hand-back-URL split as AvatarUpload,
+// so the parent form still owns actually persisting it alongside the
+// rest of the assignment fields (only saved for real once the teacher
+// submits the form).
 export function AssignmentImageUpload({
   currentUrl,
   onUploaded,
@@ -41,20 +43,15 @@ export function AssignmentImageUpload({
     }
 
     setUploading(true)
-    const ext = file.name.split('.').pop() || 'jpg'
-    const path = `${userId}/${Date.now()}.${ext}`
-
-    const { error } = await supabase.storage.from('assignment-images').upload(path, file, { upsert: true })
-    if (error) {
+    try {
+      const { publicUrl } = await uploadFile({ supabase, bucket: 'assignment-images', file })
+      setPreviewUrl(publicUrl ?? '')
+      onUploaded(publicUrl ?? '')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to upload image')
+    } finally {
       setUploading(false)
-      toast.error(error.message || 'Failed to upload image')
-      return
     }
-
-    const { data } = supabase.storage.from('assignment-images').getPublicUrl(path)
-    setUploading(false)
-    setPreviewUrl(data.publicUrl)
-    onUploaded(data.publicUrl)
   }
 
   function remove() {

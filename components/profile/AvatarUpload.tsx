@@ -4,15 +4,18 @@ import { useRef, useState } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import { FiUser, FiCamera } from 'react-icons/fi'
 import { useSupabaseBrowserClient } from '@/lib/supabase/client'
+import { uploadFile } from '@/lib/storage/uploadFile'
 import { toast } from '@/lib/toast'
 
 const MAX_BYTES = 5 * 1024 * 1024 // 5MB
 
-// Uploads directly to the public 'profile-pictures' Storage bucket (see
-// migration 027) and hands the resulting public URL back to the parent
-// via onUploaded -- the parent still owns actually persisting that URL
-// (each profile form already PATCHes avatarUrl alongside its other
-// fields, so this only handles the upload step, not the save).
+// Uploads to the public 'profile-pictures' Storage bucket (see migration
+// 027) via /api/storage/upload-url, and hands the resulting public URL
+// back to the parent via onUploaded -- the parent still owns actually
+// persisting that URL (each profile form already PATCHes avatarUrl
+// alongside its other fields, so this only handles the upload step, not
+// the save). Size/type validated server-side; checked here too only for
+// instant feedback.
 export function AvatarUpload({
   currentUrl,
   onUploaded,
@@ -41,20 +44,15 @@ export function AvatarUpload({
     }
 
     setUploading(true)
-    const ext = file.name.split('.').pop() || 'jpg'
-    const path = `${userId}/${Date.now()}.${ext}`
-
-    const { error } = await supabase.storage.from('profile-pictures').upload(path, file, { upsert: true })
-    if (error) {
+    try {
+      const { publicUrl } = await uploadFile({ supabase, bucket: 'profile-pictures', file })
+      setPreviewUrl(publicUrl ?? '')
+      onUploaded(publicUrl ?? '')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to upload image')
+    } finally {
       setUploading(false)
-      toast.error(error.message || 'Failed to upload image')
-      return
     }
-
-    const { data } = supabase.storage.from('profile-pictures').getPublicUrl(path)
-    setUploading(false)
-    setPreviewUrl(data.publicUrl)
-    onUploaded(data.publicUrl)
   }
 
   return (

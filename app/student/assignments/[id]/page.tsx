@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { FiArrowLeft, FiCalendar } from 'react-icons/fi'
 import { createClient } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
+import { getSubmissionSignedUrl } from '@/lib/storage/submissionUrl'
 import { SubmissionForm } from './SubmissionForm'
 
 export const dynamic = 'force-dynamic'
@@ -43,12 +44,10 @@ export default async function StudentAssignmentDetailPage({ params }: { params: 
   let fileSignedUrl: string | null = null
   let audioSignedUrl: string | null = null
   if (submission?.file_url) {
-    const { data } = await supabase.storage.from('submissions').createSignedUrl(submission.file_url, SIGNED_URL_TTL_SECONDS)
-    fileSignedUrl = data?.signedUrl ?? null
+    fileSignedUrl = await getSubmissionSignedUrl(supabase, submission.file_url, submission.storage_provider, SIGNED_URL_TTL_SECONDS)
   }
   if (submission?.audio_url) {
-    const { data } = await supabase.storage.from('submissions').createSignedUrl(submission.audio_url, SIGNED_URL_TTL_SECONDS)
-    audioSignedUrl = data?.signedUrl ?? null
+    audioSignedUrl = await getSubmissionSignedUrl(supabase, submission.audio_url, submission.storage_provider, SIGNED_URL_TTL_SECONDS)
   }
 
   return (

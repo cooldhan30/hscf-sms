@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   if (!guard.ok) {
     return NextResponse.json({ error: guard.error }, { status: guard.status })
   }
-  const { supabase, teacher } = guard
+  const { supabase } = guard
 
   const { searchParams } = new URL(request.url)
   const classId = searchParams.get('classId')
@@ -25,14 +25,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'classId and either date or month query params are required' }, { status: 400 })
   }
 
-  const { data: cls } = await supabase
-    .from('sms_classes')
-    .select('id')
-    .eq('id', classId)
-    .eq('teacher_id', teacher.id)
-    .single()
-
-  if (!cls) {
+  // A class can be co-taught (migration 036) -- teacher_id on sms_classes
+  // is only the lead/primary teacher, so checking it directly here would
+  // wrongly reject a co-teacher RLS itself already allows. This RPC is
+  // the same helper "attendance: teacher manage own class" routes
+  // through, so this check can never drift from what RLS actually permits.
+  const { data: owns } = await supabase.rpc('sms_teacher_owns_class', { p_class_id: classId })
+  if (!owns) {
     return NextResponse.json({ error: 'Class not found or not assigned to you' }, { status: 403 })
   }
 
@@ -76,7 +75,7 @@ export async function POST(request: Request) {
   if (!guard.ok) {
     return NextResponse.json({ error: guard.error }, { status: guard.status })
   }
-  const { supabase, teacher, profile } = guard
+  const { supabase, profile } = guard
 
   const body = await request.json().catch(() => null)
   if (!body) {
@@ -88,14 +87,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'classId, date, and a non-empty records array are required' }, { status: 400 })
   }
 
-  const { data: cls } = await supabase
-    .from('sms_classes')
-    .select('id')
-    .eq('id', classId)
-    .eq('teacher_id', teacher.id)
-    .single()
-
-  if (!cls) {
+  // A class can be co-taught (migration 036) -- teacher_id on sms_classes
+  // is only the lead/primary teacher, so checking it directly here would
+  // wrongly reject a co-teacher RLS itself already allows. This RPC is
+  // the same helper "attendance: teacher manage own class" routes
+  // through, so this check can never drift from what RLS actually permits.
+  const { data: owns } = await supabase.rpc('sms_teacher_owns_class', { p_class_id: classId })
+  if (!owns) {
     return NextResponse.json({ error: 'Class not found or not assigned to you' }, { status: 403 })
   }
 

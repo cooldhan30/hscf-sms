@@ -28,6 +28,7 @@ export async function POST(request: Request) {
   const content = optionalString(body.content)
   const filePath = optionalString(body.filePath)
   const audioPath = optionalString(body.audioPath)
+  const storageProvider = body.storageProvider === 'b2' ? 'b2' : 'supabase'
 
   if (!content && !filePath && !audioPath) {
     return NextResponse.json({ error: 'Provide text, a file, or an audio recording' }, { status: 400 })
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
   // Confirmed as a real bug: 2026-08-09.
   const { data: existing } = await supabase
     .from('sms_submissions')
-    .select('file_url, audio_url')
+    .select('file_url, audio_url, storage_provider')
     .eq('assignment_id', assignmentId)
     .eq('student_id', student.id)
     .maybeSingle()
@@ -70,6 +71,11 @@ export async function POST(request: Request) {
           content,
           file_url: filePath ?? existing?.file_url ?? null,
           audio_url: audioPath ?? existing?.audio_url ?? null,
+          // Same reasoning as file_url/audio_url above: only touch this
+          // when a new file/recording actually came in this request,
+          // otherwise a text-only resubmit would stamp 'supabase' over
+          // an existing 'b2' row despite not touching its file at all.
+          storage_provider: filePath || audioPath ? storageProvider : existing?.storage_provider ?? 'supabase',
           submitted_at: new Date().toISOString(),
         },
       ],

@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   if (!guard.ok) {
     return NextResponse.json({ error: guard.error }, { status: guard.status })
   }
-  const { supabase, teacher, profile } = guard
+  const { supabase, profile } = guard
 
   const body = await request.json().catch(() => null)
   if (!body) {
@@ -42,28 +42,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: errors.join('; ') }, { status: 400 })
   }
 
-  // Confirm every targeted class actually belongs to this teacher.
+  // Confirm every targeted class actually belongs to this teacher. A
+  // class can be co-taught (migration 036) -- teacher_id on sms_classes
+  // is only the lead/primary teacher, so filtering on it directly would
+  // wrongly reject a co-teacher RLS itself already allows. Checked via
+  // the same sms_teacher_owns_class helper RLS routes through, one call
+  // per candidate class since there's no batch form of the RPC.
   if (audienceType === 'class') {
-    const { data: ownedClasses } = await supabase
-      .from('sms_classes')
-      .select('id')
-      .eq('teacher_id', teacher.id)
-      .in('id', classIds)
+    const ownershipChecks = await Promise.all(
+      classIds.map((id) => supabase.rpc('sms_teacher_owns_class', { p_class_id: id }))
+    )
+    const allOwned = ownershipChecks.every((r) => r.data === true)
 
-    if (!ownedClasses || ownedClasses.length !== classIds.length) {
+    if (!allOwned) {
       return NextResponse.json({ error: 'One or more selected classes are not assigned to you' }, { status: 403 })
     }
   }
 
   if (audienceType === 'grade') {
-    const { data: gradeClasses } = await supabase
-      .from('sms_classes')
-      .select('id')
-      .eq('teacher_id', teacher.id)
-      .eq('grade_level', gradeLevel)
-      .limit(1)
+    const { data: gradeClasses } = await supabase.from('sms_classes').select('id').eq('grade_level', gradeLevel)
 
-    if (!gradeClasses || gradeClasses.length === 0) {
+    const ownershipChecks = await Promise.all(
+      (gradeClasses ?? []).map((c) => supabase.rpc('sms_teacher_owns_class', { p_class_id: c.id }))
+    )
+    const ownsAny = ownershipChecks.some((r) => r.data === true)
+
+    if (!ownsAny) {
       return NextResponse.json({ error: 'You have no classes at that grade level' }, { status: 403 })
     }
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/require-teacher'
+import { getSubmissionSignedUrl } from '@/lib/storage/submissionUrl'
 
 // GET /api/teacher/grades?classId=&assignmentId= -- the class roster
 // LEFT JOINed with any existing grade for that assignment, so every
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
   if (!guard.ok) {
     return NextResponse.json({ error: guard.error }, { status: guard.status })
   }
-  const { supabase, teacher } = guard
+  const { supabase } = guard
 
   const { searchParams } = new URL(request.url)
   const classId = searchParams.get('classId')
@@ -20,14 +21,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'classId and assignmentId query params are required' }, { status: 400 })
   }
 
-  const { data: cls } = await supabase
-    .from('sms_classes')
-    .select('id')
-    .eq('id', classId)
-    .eq('teacher_id', teacher.id)
-    .single()
-
-  if (!cls) {
+  // A class can be co-taught (migration 036) -- teacher_id on sms_classes
+  // is only the lead/primary teacher, so checking it directly here would
+  // wrongly reject a co-teacher RLS itself already allows. This RPC is
+  // the same helper "grades: teacher manage own assignment" routes
+  // through (via sms_teacher_owns_assignment), so this check can never
+  // drift from what RLS actually permits.
+  const { data: owns } = await supabase.rpc('sms_teacher_owns_class', { p_class_id: classId })
+  if (!owns) {
     return NextResponse.json({ error: 'Class not found or not assigned to you' }, { status: 403 })
   }
 
@@ -48,18 +49,8 @@ export async function GET(request: Request) {
   const submissionsWithUrls = await Promise.all(
     (submissions ?? []).map(async (s) => {
       const [fileSignedUrl, audioSignedUrl] = await Promise.all([
-        s.file_url
-          ? supabase.storage
-              .from('submissions')
-              .createSignedUrl(s.file_url, 3600)
-              .then((r) => r.data?.signedUrl ?? null)
-          : null,
-        s.audio_url
-          ? supabase.storage
-              .from('submissions')
-              .createSignedUrl(s.audio_url, 3600)
-              .then((r) => r.data?.signedUrl ?? null)
-          : null,
+        s.file_url ? getSubmissionSignedUrl(supabase, s.file_url, s.storage_provider, 3600) : null,
+        s.audio_url ? getSubmissionSignedUrl(supabase, s.audio_url, s.storage_provider, 3600) : null,
       ])
       return { ...s, fileSignedUrl, audioSignedUrl }
     })

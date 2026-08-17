@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { AudioRecorder } from '@/components/submissions/AudioRecorder'
 import { AudioPlayer } from '@/components/submissions/AudioPlayer'
 import { useSupabaseBrowserClient } from '@/lib/supabase/client'
+import { uploadFile } from '@/lib/storage/uploadFile'
 import { previewMaxPoints } from '@/lib/points'
 import { toast } from '@/lib/toast'
 
@@ -60,25 +61,24 @@ export function SubmissionForm({
     try {
       let filePath: string | undefined
       let audioPath: string | undefined
+      let storageProvider: 'supabase' | 'b2' | undefined
 
       if (file) {
-        const path = `${userId}/${assignmentId}/${Date.now()}-${file.name}`
-        const { error } = await supabase.storage.from('submissions').upload(path, file, { upsert: true })
-        if (error) throw error
-        filePath = path
+        const result = await uploadFile({ supabase, bucket: 'submissions', file, assignmentId })
+        filePath = result.path
+        storageProvider = result.provider
       }
 
       if (audioBlob) {
-        const path = `${userId}/${assignmentId}/${Date.now()}-recording.webm`
-        const { error } = await supabase.storage.from('submissions').upload(path, audioBlob, { upsert: true })
-        if (error) throw error
-        audioPath = path
+        const result = await uploadFile({ supabase, bucket: 'submissions', file: audioBlob, assignmentId })
+        audioPath = result.path
+        storageProvider = result.provider
       }
 
       const res = await fetch('/api/student/submissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignmentId, content: content.trim() || null, filePath, audioPath }),
+        body: JSON.stringify({ assignmentId, content: content.trim() || null, filePath, audioPath, storageProvider }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Failed to submit')
