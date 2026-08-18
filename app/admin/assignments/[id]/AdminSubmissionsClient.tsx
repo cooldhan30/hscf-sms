@@ -42,7 +42,7 @@ export function AdminSubmissionsClient({
   async function handleDeleteSubmission(s: AdminSubmissionRow) {
     const confirmed = await confirm({
       title: `Delete ${s.studentName}'s submission?`,
-      description: 'Removes their submitted text/file/audio for this assignment. Any existing grade is kept. This cannot be undone.',
+      description: 'Removes their submitted text/file/audio and any grade/feedback for this assignment. This cannot be undone.',
       confirmLabel: 'Delete',
       tone: 'danger',
     })
