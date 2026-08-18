@@ -62,24 +62,36 @@ export function SubmissionForm({
     try {
       let filePath: string | undefined
       let audioPath: string | undefined
+      let fileSize: number | undefined
+      let audioSize: number | undefined
       let storageProvider: 'supabase' | 'b2' | undefined
 
       if (file) {
         const result = await uploadFile({ supabase, bucket: 'submissions', file, assignmentId })
         filePath = result.path
+        fileSize = file.size
         storageProvider = result.provider
       }
 
       if (audioBlob) {
         const result = await uploadFile({ supabase, bucket: 'submissions', file: audioBlob, assignmentId })
         audioPath = result.path
+        audioSize = audioBlob.size
         storageProvider = result.provider
       }
 
       const res = await fetch('/api/student/submissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignmentId, content: content.trim() || null, filePath, audioPath, storageProvider }),
+        body: JSON.stringify({
+          assignmentId,
+          content: content.trim() || null,
+          filePath,
+          audioPath,
+          fileSize,
+          audioSize,
+          storageProvider,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Failed to submit')

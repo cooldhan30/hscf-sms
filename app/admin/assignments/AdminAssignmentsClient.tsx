@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { FiTrash2, FiFileText, FiBook } from 'react-icons/fi'
 import { DataTable, type DataTableColumn } from '@/components/dashboard/DataTable'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
@@ -63,14 +64,14 @@ export function AdminAssignmentsClient({ initialAssignments }: { initialAssignme
     {
       header: 'Title',
       accessor: (a) => (
-        <div className="flex items-center gap-2">
+        <Link href={`/admin/assignments/${a.id}`} className="flex items-center gap-2 hover:underline">
           {a.resource_id ? (
             <FiBook className="w-4 h-4 flex-shrink-0 text-primary-600 dark:text-primary-400" aria-label="Reading exercise" />
           ) : (
             <FiFileText className="w-4 h-4 flex-shrink-0 text-stone-400" />
           )}
           <span className="font-semibold text-stone-800 dark:text-stone-100">{a.title}</span>
-        </div>
+        </Link>
       ),
     },
     { header: 'Class', accessor: (a) => a.class?.name ?? '—' },

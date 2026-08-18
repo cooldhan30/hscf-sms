@@ -1,5 +1,5 @@
 import 'server-only'
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 const UPLOAD_URL_TTL_SECONDS = 15 * 60
@@ -39,4 +39,11 @@ export async function getB2ReadUrl(key: string, ttlSeconds: number): Promise<str
     Key: key,
   })
   return getSignedUrl(b2Client(), command, { expiresIn: ttlSeconds })
+}
+
+// Best-effort: used when an admin deletes a submission or an entire
+// assignment's worth of them, so those bytes actually get reclaimed
+// instead of leaking on B2 forever once the DB row is gone.
+export async function deleteB2Object(key: string): Promise<void> {
+  await b2Client().send(new DeleteObjectCommand({ Bucket: process.env.B2_BUCKET!, Key: key }))
 }

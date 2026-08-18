@@ -28,6 +28,8 @@ export async function POST(request: Request) {
   const content = optionalString(body.content)
   const filePath = optionalString(body.filePath)
   const audioPath = optionalString(body.audioPath)
+  const fileSize = typeof body.fileSize === 'number' && body.fileSize > 0 ? body.fileSize : null
+  const audioSize = typeof body.audioSize === 'number' && body.audioSize > 0 ? body.audioSize : null
   const storageProvider = body.storageProvider === 'b2' ? 'b2' : 'supabase'
 
   if (!content && !filePath && !audioPath) {
@@ -56,7 +58,7 @@ export async function POST(request: Request) {
   // Confirmed as a real bug: 2026-08-09.
   const { data: existing } = await supabase
     .from('sms_submissions')
-    .select('file_url, audio_url, storage_provider')
+    .select('file_url, audio_url, file_size, audio_size, storage_provider')
     .eq('assignment_id', assignmentId)
     .eq('student_id', student.id)
     .maybeSingle()
@@ -71,6 +73,8 @@ export async function POST(request: Request) {
           content,
           file_url: filePath ?? existing?.file_url ?? null,
           audio_url: audioPath ?? existing?.audio_url ?? null,
+          file_size: filePath ? fileSize : existing?.file_size ?? null,
+          audio_size: audioPath ? audioSize : existing?.audio_size ?? null,
           // Same reasoning as file_url/audio_url above: only touch this
           // when a new file/recording actually came in this request,
           // otherwise a text-only resubmit would stamp 'supabase' over
