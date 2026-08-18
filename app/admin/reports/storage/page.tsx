@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getBucketTotalSize } from '@/lib/storage/bucketSize'
 import { StorageReportClient, type ClassStorageRow, type TeacherStorageRow } from './StorageReportClient'
+import { OrphanedImagesClient } from './OrphanedImagesClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -117,6 +118,8 @@ export default async function StorageReportPage() {
         classes={Array.from(classMap.values())}
         uploaders={Array.from(teacherMap.values())}
       />
+
+      <OrphanedImagesClient />
     </div>
   )
 }
