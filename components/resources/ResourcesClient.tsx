@@ -13,6 +13,8 @@ import {
   FiEye,
   FiDownload,
   FiX,
+  FiSend,
+  FiCheckCircle,
 } from 'react-icons/fi'
 import { Modal } from '@/components/dashboard/Modal'
 import { Button } from '@/components/ui/Button'
@@ -121,6 +123,8 @@ export function ResourcesClient({
   canUpload,
   canUploadAllClasses,
   teacherClassIds,
+  canAssign = false,
+  resourceAssignments = {},
 }: {
   initialResources: ResourceRow[]
   classes: { id: string; name: string }[]
@@ -128,6 +132,8 @@ export function ResourcesClient({
   canUpload: boolean
   canUploadAllClasses: boolean
   teacherClassIds: string[]
+  canAssign?: boolean
+  resourceAssignments?: Record<string, { assignmentId: string; completed: boolean }>
 }) {
   const router = useRouter()
   const confirm = useConfirm()
@@ -143,6 +149,15 @@ export function ResourcesClient({
   const [uploadClassId, setUploadClassId] = useState<string>(teacherClassIds[0] ?? classes[0]?.id ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [assignTarget, setAssignTarget] = useState<ResourceRow | null>(null)
+  const [assignClassId, setAssignClassId] = useState<string>(teacherClassIds[0] ?? '')
+  const [assignDueDate, setAssignDueDate] = useState('')
+  const [assignMaxScore, setAssignMaxScore] = useState('100')
+  const [assignPenalty, setAssignPenalty] = useState('0')
+  const [assigning, setAssigning] = useState(false)
+  const [assignError, setAssignError] = useState<string | null>(null)
+  const [completingId, setCompletingId] = useState<string | null>(null)
 
   const availableTypes = useMemo(() => {
     const types = new Set<string>()
@@ -259,6 +274,80 @@ export function ResourcesClient({
     }
   }
 
+  function openAssign(resource: ResourceRow) {
+    setAssignTarget(resource)
+    setAssignClassId(resource.class_id && teacherClassIds.includes(resource.class_id) ? resource.class_id : teacherClassIds[0] ?? '')
+    setAssignDueDate('')
+    setAssignMaxScore('100')
+    setAssignPenalty('0')
+    setAssignError(null)
+  }
+
+  // Assigning a resource just creates a normal sms_assignments row
+  // linked back to it (resource_id) -- due date, scoring, and the late
+  // decay preview are the exact same machinery every other assignment
+  // already uses, so nothing about grading needed to be rebuilt here.
+  async function handleAssign(e: React.FormEvent) {
+    e.preventDefault()
+    if (!assignTarget) return
+    if (!assignClassId) {
+      setAssignError('Choose a class')
+      return
+    }
+    setAssigning(true)
+    setAssignError(null)
+
+    const res = await fetch('/api/teacher/assignments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        classId: assignClassId,
+        title: assignTarget.title,
+        description: assignTarget.description,
+        dueDate: assignDueDate || null,
+        maxScore: assignMaxScore,
+        pointsDeductionPerDay: assignPenalty,
+        published: true,
+        resourceId: assignTarget.id,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setAssigning(false)
+
+    if (res.ok) {
+      toast.success(`Assigned "${assignTarget.title}" to your class`)
+      setAssignTarget(null)
+      router.refresh()
+    } else {
+      setAssignError(data.error || 'Failed to assign resource')
+    }
+  }
+
+  // Marking a reading resource complete IS submitting the linked
+  // assignment -- reuses the same student-submissions endpoint every
+  // text/file/audio assignment already POSTs to, just with a fixed
+  // "Completed" content instead of a form's fields.
+  async function handleMarkComplete(resource: ResourceRow) {
+    const assignment = resourceAssignments[resource.id]
+    if (!assignment || assignment.completed) return
+
+    setCompletingId(resource.id)
+    const res = await fetch('/api/student/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assignmentId: assignment.assignmentId, content: 'Completed' }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setCompletingId(null)
+
+    if (res.ok) {
+      toast.success('Marked as complete')
+      router.refresh()
+    } else {
+      toast.error(data.error || 'Failed to mark as complete')
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
@@ -340,6 +429,30 @@ export function ResourcesClient({
                     >
                       <FiDownload className="w-4 h-4" />
                     </button>
+                    {canAssign && (
+                      <button
+                        onClick={() => openAssign(r)}
+                        className="p-1.5 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
+                        aria-label="Assign as reading exercise"
+                      >
+                        <FiSend className="w-4 h-4" />
+                      </button>
+                    )}
+                    {resourceAssignments[r.id] &&
+                      (resourceAssignments[r.id].completed ? (
+                        <span className="p-1.5 text-primary-600 dark:text-primary-400" aria-label="Completed">
+                          <FiCheckCircle className="w-4 h-4" />
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleMarkComplete(r)}
+                          disabled={completingId === r.id}
+                          className="p-1.5 rounded-lg text-stone-400 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors disabled:opacity-60"
+                          aria-label="Mark as complete"
+                        >
+                          <FiCheckCircle className="w-4 h-4" />
+                        </button>
+                      ))}
                   </div>
                   {r.created_by === currentProfileId && (
                     <button
@@ -473,6 +586,74 @@ export function ResourcesClient({
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal open={assignTarget !== null} title={`Assign "${assignTarget?.title ?? ''}"`} onClose={() => setAssignTarget(null)}>
+        <form onSubmit={handleAssign} className="space-y-4">
+          {assignError && (
+            <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">
+              {assignError}
+            </p>
+          )}
+
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Class</label>
+            <select
+              value={assignClassId}
+              onChange={(e) => setAssignClassId(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+            >
+              {teacherClassIds.length === 0 && <option value="">No classes assigned to you</option>}
+              {classes
+                .filter((c) => teacherClassIds.includes(c.id))
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Due Date</label>
+              <input
+                type="date"
+                value={assignDueDate}
+                onChange={(e) => setAssignDueDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Max Score</label>
+              <input
+                type="number"
+                min="1"
+                value={assignMaxScore}
+                onChange={(e) => setAssignMaxScore(e.target.value)}
+                required
+                className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
+              Late Penalty (points/day)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={assignPenalty}
+              onChange={(e) => setAssignPenalty(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+            />
+          </div>
+
+          <Button type="submit" variant="primary" fullWidth disabled={assigning || teacherClassIds.length === 0}>
+            {assigning ? 'Assigning...' : 'Assign'}
+          </Button>
+        </form>
       </Modal>
     </div>
   )

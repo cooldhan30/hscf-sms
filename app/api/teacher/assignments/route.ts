@@ -35,6 +35,7 @@ export async function POST(request: Request) {
   }
   const published = Boolean(body.published)
   const imageUrl = optionalString(body.imageUrl)
+  const resourceId = optionalString(body.resourceId)
 
   if (errors.length > 0) {
     return NextResponse.json({ error: errors.join('; ') }, { status: 400 })
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
         points_deduction_per_day: pointsDeductionPerDay,
         published,
         image_url: imageUrl,
+        resource_id: resourceId,
         created_by: profile.id,
       },
     ])

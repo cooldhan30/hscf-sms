@@ -158,6 +158,7 @@ export interface SmsAssignment {
   points_deduction_per_day: number
   allow_submission_types: string[]
   image_url: string | null
+  resource_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string

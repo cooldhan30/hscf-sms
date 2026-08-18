@@ -44,6 +44,7 @@ export default async function TeacherResourcesPage() {
         canUpload
         canUploadAllClasses={false}
         teacherClassIds={teacherClassIds}
+        canAssign
       />
     </div>
   )
