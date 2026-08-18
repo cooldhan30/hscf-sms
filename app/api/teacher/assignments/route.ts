@@ -52,6 +52,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Class not found or not assigned to you' }, { status: 403 })
   }
 
+  // A resource has no built-in "already assigned" indicator on the
+  // Resources page, so clicking Assign twice for the same class silently
+  // created a second, identical-looking assignment -- confirmed as a
+  // real bug: an admin who deleted one kept seeing it "reappear" because
+  // it was actually a new row each time, not a delete/cache failure.
+  if (resourceId) {
+    const { data: existing } = await supabase
+      .from('sms_assignments')
+      .select('id, title')
+      .eq('resource_id', resourceId)
+      .eq('class_id', classId)
+      .maybeSingle()
+
+    if (existing) {
+      return NextResponse.json(
+        { error: `This resource is already assigned to this class as "${existing.title}". Delete or edit that one instead of assigning it again.` },
+        { status: 409 }
+      )
+    }
+  }
+
   const { data: assignment, error } = await supabase
     .from('sms_assignments')
     .insert([
