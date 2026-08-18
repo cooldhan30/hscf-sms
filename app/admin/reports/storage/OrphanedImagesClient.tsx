@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { FiTrash2, FiAlertTriangle } from 'react-icons/fi'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
@@ -25,6 +26,7 @@ function formatBytes(bytes: number): string {
 // attribute them to, which is exactly why an admin needs a direct way
 // to find and remove them instead of just seeing an "Untracked" total.
 export function OrphanedImagesClient() {
+  const router = useRouter()
   const confirm = useConfirm()
   const [items, setItems] = useState<OrphanedImage[] | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -57,6 +59,10 @@ export function OrphanedImagesClient() {
     if (res.ok) {
       toast.success('Image deleted')
       setItems((prev) => (prev ?? []).filter((i) => i.path !== item.path))
+      // The stat cards and "By Class" table above are computed server-side
+      // from the bucket listing at page load -- without this they'd keep
+      // showing the pre-delete totals until a manual reload.
+      router.refresh()
     } else {
       toast.error(data.error || 'Failed to delete image')
     }
