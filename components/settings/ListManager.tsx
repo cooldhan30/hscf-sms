@@ -50,7 +50,7 @@ export function ListManager<T extends { id: string }>({
   itemLabel?: (row: T) => string
 }) {
   const confirm = useConfirm()
-  const { page, setPage, pageCount, pageItems, total } = usePagination(rows, 10)
+  const { page, setPage, pageCount, pageItems, total, pageSize, setPageSize } = usePagination(rows, 10)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<Record<string, string>>({})
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -191,7 +191,14 @@ export function ListManager<T extends { id: string }>({
             </tbody>
           </table>
         </div>
-        <Pagination page={page} pageCount={pageCount} onPageChange={setPage} total={total} pageSize={10} />
+        <Pagination
+          page={page}
+          pageCount={pageCount}
+          onPageChange={setPage}
+          total={total}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+        />
         </div>
       )}
 

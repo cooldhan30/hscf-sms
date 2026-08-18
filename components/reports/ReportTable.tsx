@@ -25,7 +25,10 @@ export function ReportTable<T>({
   footer?: React.ReactNode[]
   pageSize?: number
 }) {
-  const { page, setPage, pageCount, pageItems, total } = usePagination(rows, pageSize)
+  const { page, setPage, pageCount, pageItems, total, pageSize: currentPageSize, setPageSize } = usePagination(
+    rows,
+    pageSize
+  )
 
   if (rows.length === 0) {
     return <EmptyState title={emptyTitle} />
@@ -84,7 +87,14 @@ export function ReportTable<T>({
           )}
         </table>
       </div>
-      <Pagination page={page} pageCount={pageCount} onPageChange={setPage} total={total} pageSize={pageSize} />
+      <Pagination
+        page={page}
+        pageCount={pageCount}
+        onPageChange={setPage}
+        total={total}
+        pageSize={currentPageSize}
+        onPageSizeChange={setPageSize}
+      />
     </div>
   )
 }

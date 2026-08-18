@@ -7,8 +7,9 @@ import { useEffect, useMemo, useState } from 'react'
 // pagination here is a rendering slice, not a server round-trip -- keeps
 // every table/list component simple while still capping DOM size and
 // giving users a real page-by-page control instead of one long scroll.
-export function usePagination<T>(items: T[], pageSize = 10) {
+export function usePagination<T>(items: T[], initialPageSize = 10) {
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(initialPageSize)
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize))
 
   // Reset to page 1 whenever the underlying result set changes (new
@@ -21,10 +22,15 @@ export function usePagination<T>(items: T[], pageSize = 10) {
     if (page > pageCount) setPage(pageCount)
   }, [page, pageCount])
 
+  function changePageSize(next: number) {
+    setPageSize(next)
+    setPage(1)
+  }
+
   const pageItems = useMemo(() => {
     const start = (page - 1) * pageSize
     return items.slice(start, start + pageSize)
   }, [items, page, pageSize])
 
-  return { page, setPage, pageCount, pageItems, total: items.length, pageSize }
+  return { page, setPage, pageCount, pageItems, total: items.length, pageSize, setPageSize: changePageSize }
 }

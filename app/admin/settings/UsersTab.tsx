@@ -52,7 +52,7 @@ export function UsersTab() {
   const [role, setRole] = useState<SmsRole | 'all'>('all')
   const [users, setUsers] = useState<UserWithRoles[]>([])
   const [grantingId, setGrantingId] = useState<string | null>(null)
-  const { page, setPage, pageCount, pageItems, total } = usePagination(users, 10)
+  const { page, setPage, pageCount, pageItems, total, pageSize, setPageSize } = usePagination(users, 10)
   const [counts, setCounts] = useState({ admin: 0, teacher: 0, student: 0, parent: 0 })
   const [loading, setLoading] = useState(true)
   const [resetResult, setResetResult] = useState<{ email: string; tempPassword: string } | null>(null)
@@ -334,7 +334,14 @@ export function UsersTab() {
               </tbody>
             </table>
           </div>
-          <Pagination page={page} pageCount={pageCount} onPageChange={setPage} total={total} pageSize={10} />
+          <Pagination
+            page={page}
+            pageCount={pageCount}
+            onPageChange={setPage}
+            total={total}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+          />
           </div>
         )}
       </SettingsCard>
