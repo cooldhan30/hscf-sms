@@ -1,11 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { FiArrowLeft, FiCalendar } from 'react-icons/fi'
+import { FiArrowLeft, FiCalendar, FiExternalLink, FiCheckCircle } from 'react-icons/fi'
 import { createClient } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
 import { getSubmissionSignedUrl } from '@/lib/storage/submissionUrl'
 import { formatDateOnly } from '@/lib/dates'
 import { SubmissionForm } from './SubmissionForm'
+import { ReadingComplete } from './ReadingComplete'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +43,13 @@ export default async function StudentAssignmentDetailPage({ params }: { params: 
     .eq('student_id', student.id)
     .maybeSingle()
 
+  // A resource-linked assignment (see 044) has nothing to type/upload --
+  // the resource IS the assignment content, and "submitting" it just
+  // means marking it read (see ReadingComplete).
+  const { data: resource } = assignment.resource_id
+    ? await supabase.from('sms_resources').select('*').eq('id', assignment.resource_id).single()
+    : { data: null }
+
   let fileSignedUrl: string | null = null
   let audioSignedUrl: string | null = null
   if (submission?.file_url) {
@@ -72,6 +80,32 @@ export default async function StudentAssignmentDetailPage({ params }: { params: 
           // eslint-disable-next-line @next/next/no-img-element -- teacher-uploaded Storage URL
           <img src={assignment.image_url} alt="" className="max-w-full rounded-xl border border-stone-200 dark:border-stone-800 mt-3" />
         )}
+
+        {resource && (
+          <div className="mt-3 p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950/40">
+            {['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes((resource.file_type ?? '').toLowerCase()) && (
+              // eslint-disable-next-line @next/next/no-img-element -- resource preview, arbitrary Storage URL
+              <img
+                src={resource.file_url}
+                alt=""
+                className="max-w-full max-h-[32rem] rounded-lg border border-stone-200 dark:border-stone-800 mb-3"
+              />
+            )}
+            <p className="font-semibold text-stone-800 dark:text-stone-100">{resource.title}</p>
+            {resource.description && (
+              <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">{resource.description}</p>
+            )}
+            <a
+              href={resource.file_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 dark:text-primary-400 hover:underline mt-2"
+            >
+              <FiExternalLink className="w-3.5 h-3.5" /> Open {resource.file_type ? `.${resource.file_type}` : 'file'}
+            </a>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-stone-500 dark:text-stone-400">
           {assignment.due_date && (
             <span className="flex items-center gap-1.5">
@@ -91,23 +125,36 @@ export default async function StudentAssignmentDetailPage({ params }: { params: 
         </div>
       )}
 
-      <SubmissionForm
-        assignmentId={assignment.id}
-        maxScore={assignment.max_score}
-        deductionPerDay={assignment.points_deduction_per_day}
-        dueDate={assignment.due_date}
-        allowedTypes={assignment.allow_submission_types}
-        existingSubmission={
-          submission
-            ? {
-                content: submission.content,
-                fileSignedUrl,
-                audioSignedUrl,
-                submittedAt: submission.submitted_at,
-              }
-            : null
-        }
-      />
+      {resource ? (
+        submission ? (
+          <div className="p-5 rounded-2xl border border-primary-200 dark:border-primary-900 bg-primary-50 dark:bg-primary-950/40 flex items-center gap-2">
+            <FiCheckCircle className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+            <p className="font-semibold text-primary-800 dark:text-primary-300">
+              Marked complete {new Date(submission.submitted_at).toLocaleDateString()}
+            </p>
+          </div>
+        ) : (
+          <ReadingComplete assignmentId={assignment.id} />
+        )
+      ) : (
+        <SubmissionForm
+          assignmentId={assignment.id}
+          maxScore={assignment.max_score}
+          deductionPerDay={assignment.points_deduction_per_day}
+          dueDate={assignment.due_date}
+          allowedTypes={assignment.allow_submission_types}
+          existingSubmission={
+            submission
+              ? {
+                  content: submission.content,
+                  fileSignedUrl,
+                  audioSignedUrl,
+                  submittedAt: submission.submitted_at,
+                }
+              : null
+          }
+        />
+      )}
     </div>
   )
 }
