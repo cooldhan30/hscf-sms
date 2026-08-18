@@ -64,6 +64,11 @@ export async function POST(request: Request) {
         published,
         image_url: imageUrl,
         resource_id: resourceId,
+        // A reading exercise's "submission" is the student recording
+        // themselves reading it, not typed text or a separate file --
+        // SubmissionForm already renders exactly the right inputs based
+        // on this list, so audio-only here is the whole fix.
+        ...(resourceId ? { allow_submission_types: ['audio'] } : {}),
         created_by: profile.id,
       },
     ])

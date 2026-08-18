@@ -1,12 +1,11 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { FiArrowLeft, FiCalendar, FiExternalLink, FiCheckCircle } from 'react-icons/fi'
+import { FiArrowLeft, FiCalendar, FiExternalLink } from 'react-icons/fi'
 import { createClient } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
 import { getSubmissionSignedUrl } from '@/lib/storage/submissionUrl'
 import { formatDateOnly } from '@/lib/dates'
 import { SubmissionForm } from './SubmissionForm'
-import { ReadingComplete } from './ReadingComplete'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,9 +42,10 @@ export default async function StudentAssignmentDetailPage({ params }: { params: 
     .eq('student_id', student.id)
     .maybeSingle()
 
-  // A resource-linked assignment (see 044) has nothing to type/upload --
-  // the resource IS the assignment content, and "submitting" it just
-  // means marking it read (see ReadingComplete).
+  // A resource-linked assignment (see 044) is displayed above the normal
+  // SubmissionForm -- allow_submission_types is forced to ['audio'] for
+  // these at assign time, so the form itself just becomes "record
+  // yourself reading this" with no extra branching needed here.
   const { data: resource } = assignment.resource_id
     ? await supabase.from('sms_resources').select('*').eq('id', assignment.resource_id).single()
     : { data: null }
@@ -125,36 +125,23 @@ export default async function StudentAssignmentDetailPage({ params }: { params: 
         </div>
       )}
 
-      {resource ? (
-        submission ? (
-          <div className="p-5 rounded-2xl border border-primary-200 dark:border-primary-900 bg-primary-50 dark:bg-primary-950/40 flex items-center gap-2">
-            <FiCheckCircle className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-            <p className="font-semibold text-primary-800 dark:text-primary-300">
-              Marked complete {new Date(submission.submitted_at).toLocaleDateString()}
-            </p>
-          </div>
-        ) : (
-          <ReadingComplete assignmentId={assignment.id} />
-        )
-      ) : (
-        <SubmissionForm
-          assignmentId={assignment.id}
-          maxScore={assignment.max_score}
-          deductionPerDay={assignment.points_deduction_per_day}
-          dueDate={assignment.due_date}
-          allowedTypes={assignment.allow_submission_types}
-          existingSubmission={
-            submission
-              ? {
-                  content: submission.content,
-                  fileSignedUrl,
-                  audioSignedUrl,
-                  submittedAt: submission.submitted_at,
-                }
-              : null
-          }
-        />
-      )}
+      <SubmissionForm
+        assignmentId={assignment.id}
+        maxScore={assignment.max_score}
+        deductionPerDay={assignment.points_deduction_per_day}
+        dueDate={assignment.due_date}
+        allowedTypes={assignment.allow_submission_types}
+        existingSubmission={
+          submission
+            ? {
+                content: submission.content,
+                fileSignedUrl,
+                audioSignedUrl,
+                submittedAt: submission.submitted_at,
+              }
+            : null
+        }
+      />
     </div>
   )
 }

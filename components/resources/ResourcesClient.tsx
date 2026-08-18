@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   FiUpload,
   FiFile,
@@ -157,7 +158,6 @@ export function ResourcesClient({
   const [assignPenalty, setAssignPenalty] = useState('0')
   const [assigning, setAssigning] = useState(false)
   const [assignError, setAssignError] = useState<string | null>(null)
-  const [completingId, setCompletingId] = useState<string | null>(null)
 
   const availableTypes = useMemo(() => {
     const types = new Set<string>()
@@ -323,31 +323,6 @@ export function ResourcesClient({
     }
   }
 
-  // Marking a reading resource complete IS submitting the linked
-  // assignment -- reuses the same student-submissions endpoint every
-  // text/file/audio assignment already POSTs to, just with a fixed
-  // "Completed" content instead of a form's fields.
-  async function handleMarkComplete(resource: ResourceRow) {
-    const assignment = resourceAssignments[resource.id]
-    if (!assignment || assignment.completed) return
-
-    setCompletingId(resource.id)
-    const res = await fetch('/api/student/submissions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assignmentId: assignment.assignmentId, content: 'Completed' }),
-    })
-    const data = await res.json().catch(() => ({}))
-    setCompletingId(null)
-
-    if (res.ok) {
-      toast.success('Marked as complete')
-      router.refresh()
-    } else {
-      toast.error(data.error || 'Failed to mark as complete')
-    }
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
@@ -444,14 +419,13 @@ export function ResourcesClient({
                           <FiCheckCircle className="w-4 h-4" />
                         </span>
                       ) : (
-                        <button
-                          onClick={() => handleMarkComplete(r)}
-                          disabled={completingId === r.id}
-                          className="p-1.5 rounded-lg text-stone-400 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors disabled:opacity-60"
-                          aria-label="Mark as complete"
+                        <Link
+                          href={`/student/assignments/${resourceAssignments[r.id].assignmentId}`}
+                          className="p-1.5 rounded-lg text-stone-400 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors inline-flex"
+                          aria-label="Record and submit"
                         >
                           <FiCheckCircle className="w-4 h-4" />
-                        </button>
+                        </Link>
                       ))}
                   </div>
                   {r.created_by === currentProfileId && (

@@ -87,14 +87,7 @@ export default async function StudentAssignmentsPage() {
                       href={`/student/assignments/${a.id}`}
                       className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 dark:text-primary-400 mt-2 hover:underline"
                     >
-                      <FiUpload className="w-3.5 h-3.5" />{' '}
-                      {a.resource_id
-                        ? submission
-                          ? 'View reading'
-                          : 'Open reading'
-                        : submission
-                          ? 'View / resubmit'
-                          : 'Submit work'}
+                      <FiUpload className="w-3.5 h-3.5" /> {submission ? 'View / resubmit' : 'Submit work'}
                     </Link>
                   </div>
                   {isGraded ? (
