@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getBucketTotalSize } from '@/lib/storage/bucketSize'
 import { StorageReportClient, type ClassStorageRow, type TeacherStorageRow } from './StorageReportClient'
 import { OrphanedImagesClient } from './OrphanedImagesClient'
+import { RefreshButton } from './RefreshButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -104,11 +105,14 @@ export default async function StorageReportPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-primary-900 dark:text-white">Storage Usage Details</h1>
-        <p className="text-stone-500 dark:text-stone-400 mt-1">
-          Total storage used across resources, assignment images, and student submissions.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-primary-900 dark:text-white">Storage Usage Details</h1>
+          <p className="text-stone-500 dark:text-stone-400 mt-1">
+            Total storage used across resources, assignment images, and student submissions.
+          </p>
+        </div>
+        <RefreshButton />
       </div>
 
       <StorageReportClient
