@@ -1,4 +1,4 @@
-import { FiHome, FiUsers, FiUser, FiBookOpen, FiClipboard, FiCheckSquare, FiSpeaker, FiMessageCircle, FiTrendingUp, FiVideo, FiDollarSign, FiFolder, FiFileText } from 'react-icons/fi'
+import { FiHome, FiUsers, FiUser, FiBookOpen, FiClipboard, FiCheckSquare, FiSpeaker, FiMessageCircle, FiTrendingUp, FiVideo, FiDollarSign, FiFolder, FiFileText, FiBarChart2 } from 'react-icons/fi'
 import { RoleGuard, DashboardLayout, type SidebarItem } from '@/components/dashboard'
 
 const iconClass = 'w-4 h-4 flex-shrink-0'
@@ -14,6 +14,7 @@ const navItems: SidebarItem[] = [
   { label: 'Registrations', href: '/admin/registrations', icon: <FiClipboard className={iconClass} /> },
   { label: 'Payments', href: '/admin/payments', icon: <FiDollarSign className={iconClass} /> },
   { label: 'Resources', href: '/admin/resources', icon: <FiFolder className={iconClass} /> },
+  { label: 'Reports', href: '/admin/reports', icon: <FiBarChart2 className={iconClass} /> },
   { label: 'Announcements', href: '/admin/announcements', icon: <FiSpeaker className={iconClass} /> },
   { label: 'Meetings', href: '/admin/meetings', icon: <FiVideo className={iconClass} /> },
   { label: 'Chat', href: '/admin/chat', icon: <FiMessageCircle className={iconClass} /> },
