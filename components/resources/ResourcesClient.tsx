@@ -213,6 +213,32 @@ export function ResourcesClient({
     }
   }
 
+  // A plain <a download> only forces a save (vs. just opening the file)
+  // for same-origin URLs -- Storage links are on Supabase's own domain,
+  // so the browser ignores the hint and navigates to it instead. Fetching
+  // the bytes ourselves and downloading a blob: URL (same-origin by
+  // definition) makes the browser's real "Save As" behavior fire
+  // consistently, letting the user pick where it goes.
+  async function handleDownload(resource: ResourceRow) {
+    try {
+      const res = await fetch(resource.file_url)
+      if (!res.ok) throw new Error('Download failed')
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const filename = resource.file_type ? `${resource.title}.${resource.file_type}` : resource.title
+
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(blobUrl)
+    } catch {
+      toast.error('Failed to download file')
+    }
+  }
+
   async function handleDelete(resource: ResourceRow) {
     const confirmed = await confirm({
       title: `Delete "${resource.title}"?`,
@@ -307,14 +333,13 @@ export function ResourcesClient({
                     >
                       <FiEye className="w-4 h-4" />
                     </button>
-                    <a
-                      href={r.file_url}
-                      download
+                    <button
+                      onClick={() => handleDownload(r)}
                       className="p-1.5 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors inline-flex"
                       aria-label="Download"
                     >
                       <FiDownload className="w-4 h-4" />
-                    </a>
+                    </button>
                   </div>
                   {r.created_by === currentProfileId && (
                     <button
