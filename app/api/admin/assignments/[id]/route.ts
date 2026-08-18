@@ -42,10 +42,20 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
-  if (assignment.image_url) {
-    await deletePublicStorageObject('assignment-images', assignment.image_url)
+  // The row is gone at this point -- from here on, this is best-effort
+  // cleanup. Letting a Storage/B2 hiccup throw here would surface as a
+  // failed response even though the assignment was actually deleted,
+  // which left the client believing the delete never happened (never
+  // refreshing its list) while the row was already gone from the DB.
+  try {
+    if (assignment.image_url) {
+      await deletePublicStorageObject('assignment-images', assignment.image_url)
+    }
+    await Promise.all((submissions ?? []).map((s) => deleteSubmissionFiles(s)))
+  } catch {
+    // Row deletion already succeeded; a leftover file/audio object is a
+    // cosmetic storage-space issue, not a reason to report failure.
   }
-  await Promise.all((submissions ?? []).map((s) => deleteSubmissionFiles(s)))
 
   return NextResponse.json({ success: true })
 }

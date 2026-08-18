@@ -52,7 +52,11 @@ export function AdminAssignmentsClient({ initialAssignments }: { initialAssignme
 
     const res = await fetch(`/api/admin/assignments/${a.id}`, { method: 'DELETE' })
     const data = await res.json().catch(() => ({}))
-    if (res.ok) {
+    // A 404 here means it's already gone -- from the admin's point of
+    // view that's the same end state as a successful delete, not a
+    // failure, so the stale row gets cleared from the list either way
+    // instead of sitting there un-deletable.
+    if (res.ok || res.status === 404) {
       toast.success('Assignment deleted')
       router.refresh()
     } else {

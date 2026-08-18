@@ -50,7 +50,8 @@ export function AdminSubmissionsClient({
 
     const res = await fetch(`/api/admin/submissions/${s.id}`, { method: 'DELETE' })
     const data = await res.json().catch(() => ({}))
-    if (res.ok) {
+    // A 404 means it's already gone -- same end state as success.
+    if (res.ok || res.status === 404) {
       toast.success('Submission deleted')
       router.refresh()
     } else {
@@ -72,7 +73,8 @@ export function AdminSubmissionsClient({
     const data = await res.json().catch(() => ({}))
     setDeletingAssignment(false)
 
-    if (res.ok) {
+    // A 404 means it's already gone -- same end state as success.
+    if (res.ok || res.status === 404) {
       toast.success('Assignment deleted')
       router.push('/admin/assignments')
     } else {

@@ -32,7 +32,14 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
-  await deleteSubmissionFiles(submission)
+  // Row deletion already succeeded -- a Storage/B2 hiccup during
+  // best-effort file cleanup shouldn't make the client think the delete
+  // itself failed (see the same fix on the assignments route).
+  try {
+    await deleteSubmissionFiles(submission)
+  } catch {
+    // ignore
+  }
 
   return NextResponse.json({ success: true })
 }
