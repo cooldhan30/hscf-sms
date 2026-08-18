@@ -37,6 +37,7 @@ export async function POST(request: Request) {
   const imageUrl = optionalString(body.imageUrl)
   const imageSize = typeof body.imageSize === 'number' && body.imageSize > 0 ? body.imageSize : null
   const resourceId = optionalString(body.resourceId)
+  const assignmentType = body.assignmentType === 'exam' ? 'exam' : 'assignment'
 
   if (errors.length > 0) {
     return NextResponse.json({ error: errors.join('; ') }, { status: 400 })
@@ -87,6 +88,7 @@ export async function POST(request: Request) {
         image_url: imageUrl,
         image_size: imageSize,
         resource_id: resourceId,
+        assignment_type: assignmentType,
         // A reading exercise's submission is primarily the student
         // recording themselves reading it, but a text box is also useful
         // for written notes/answers about the resource -- SubmissionForm

@@ -26,6 +26,7 @@ interface FormState {
   published: boolean
   imageUrl: string
   imageSize: number
+  assignmentType: 'assignment' | 'exam'
 }
 
 function emptyForm(defaultClassId: string): FormState {
@@ -39,6 +40,7 @@ function emptyForm(defaultClassId: string): FormState {
     published: false,
     imageUrl: '',
     imageSize: 0,
+    assignmentType: 'assignment',
   }
 }
 
@@ -84,6 +86,7 @@ export function AssignmentsClient({
       published: a.published,
       imageUrl: a.image_url ?? '',
       imageSize: a.image_size ?? 0,
+      assignmentType: a.assignment_type ?? 'assignment',
     })
     setError(null)
     setModalOpen(true)
@@ -111,6 +114,7 @@ export function AssignmentsClient({
         published: form.published,
         imageUrl: form.imageUrl,
         imageSize: form.imageSize,
+        assignmentType: form.assignmentType,
       }),
     })
 
@@ -166,6 +170,20 @@ export function AssignmentsClient({
           <p className="font-semibold text-stone-800 dark:text-stone-100">{a.title}</p>
           <p className="text-xs text-stone-500 dark:text-stone-400">{a.class.name}</p>
         </div>
+      ),
+    },
+    {
+      header: 'Type',
+      accessor: (a) => (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+            a.assignment_type === 'exam'
+              ? 'bg-gold-100 text-gold-800 dark:bg-gold-950 dark:text-gold-300'
+              : 'bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300'
+          }`}
+        >
+          {a.assignment_type === 'exam' ? 'Exam' : 'Assignment'}
+        </span>
       ),
     },
     { header: 'Due', accessor: (a) => (a.due_date ? formatDateOnly(a.due_date) : '—') },
@@ -267,6 +285,18 @@ export function AssignmentsClient({
                   {c.name}
                 </option>
               ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Type</label>
+            <select
+              value={form.assignmentType}
+              onChange={(e) => setForm({ ...form, assignmentType: e.target.value as 'assignment' | 'exam' })}
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+            >
+              <option value="assignment">Assignment</option>
+              <option value="exam">Exam</option>
             </select>
           </div>
 

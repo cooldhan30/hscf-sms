@@ -25,6 +25,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if ('published' in body) updates.published = Boolean(body.published)
   if ('imageUrl' in body) updates.image_url = optionalString(body.imageUrl)
   if ('imageSize' in body) updates.image_size = typeof body.imageSize === 'number' && body.imageSize > 0 ? body.imageSize : null
+  if ('assignmentType' in body) updates.assignment_type = body.assignmentType === 'exam' ? 'exam' : 'assignment'
 
   // RLS ("assignments: teacher manage own class") enforces that this
   // update can only succeed for the teacher's own class's assignments.

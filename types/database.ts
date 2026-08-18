@@ -157,6 +157,7 @@ export interface SmsAssignment {
   published: boolean
   points_deduction_per_day: number
   allow_submission_types: string[]
+  assignment_type: 'assignment' | 'exam'
   image_url: string | null
   image_size: number | null
   resource_id: string | null

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FiUser, FiUsers, FiHardDrive, FiChevronRight } from 'react-icons/fi'
+import { FiUser, FiUsers, FiHardDrive, FiChevronRight, FiBarChart2 } from 'react-icons/fi'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +15,12 @@ const REPORTS = [
     title: 'Student Details',
     description: 'Name, Nilai, contact info, parent/guardian details, and payment status for every student.',
     icon: FiUsers,
+  },
+  {
+    href: '/admin/reports/scores',
+    title: 'Attendance & Score Reports',
+    description: 'Full-year attendance and assignment/exam scores for any class or student, with detail and export.',
+    icon: FiBarChart2,
   },
   {
     href: '/admin/reports/storage',
