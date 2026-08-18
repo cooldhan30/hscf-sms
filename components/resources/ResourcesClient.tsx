@@ -13,9 +13,6 @@ import {
   FiEye,
   FiDownload,
   FiX,
-  FiInfo,
-  FiChevronDown,
-  FiChevronUp,
 } from 'react-icons/fi'
 import { Modal } from '@/components/dashboard/Modal'
 import { Button } from '@/components/ui/Button'
@@ -68,12 +65,6 @@ function ThumbIcon({ fileType }: { fileType: string | null }) {
   if (kind === 'audio') return <FiMusic className={cls} />
   if (kind === 'pdf' || kind === 'office' || kind === 'text') return <FiFileText className={cls} />
   return <FiFile className={cls} />
-}
-
-function formatSize(bytes: number | null): string {
-  if (!bytes) return '—'
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 // .doc/.xls/.ppt (and their -x variants) have no native browser renderer
@@ -146,8 +137,6 @@ export function ResourcesClient({
   const [typeFilter, setTypeFilter] = useState('all')
   const [uploadOpen, setUploadOpen] = useState(false)
   const [preview, setPreview] = useState<ResourceRow | null>(null)
-  const [showMetadata, setShowMetadata] = useState(false)
-
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -182,11 +171,6 @@ export function ResourcesClient({
     setUploadClassId(teacherClassIds[0] ?? '')
     setError(null)
     setUploadOpen(true)
-  }
-
-  function openPreview(resource: ResourceRow) {
-    setShowMetadata(false)
-    setPreview(resource)
   }
 
   async function handleUpload(e: React.FormEvent) {
@@ -299,7 +283,7 @@ export function ResourcesClient({
             >
               <button
                 type="button"
-                onClick={() => openPreview(r)}
+                onClick={() => setPreview(r)}
                 className="aspect-square flex items-center justify-center bg-stone-50 dark:bg-stone-950/40 text-stone-400 dark:text-stone-600 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
               >
                 {kindOf(r.file_type) === 'image' ? (
@@ -317,7 +301,7 @@ export function ResourcesClient({
                 <div className="mt-auto flex items-center justify-between pt-2">
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => openPreview(r)}
+                      onClick={() => setPreview(r)}
                       className="p-1.5 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
                       aria-label="Preview"
                     >
@@ -444,45 +428,7 @@ export function ResourcesClient({
               <p className="text-sm text-stone-600 dark:text-stone-300">{preview.description}</p>
             )}
 
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowMetadata((v) => !v)}
-                className="flex items-center gap-1.5 text-sm font-semibold text-stone-500 dark:text-stone-400 hover:text-primary-700 dark:hover:text-primary-400 transition-colors"
-              >
-                <FiInfo className="w-3.5 h-3.5" />
-                Details
-                {showMetadata ? <FiChevronUp className="w-3.5 h-3.5" /> : <FiChevronDown className="w-3.5 h-3.5" />}
-              </button>
-
-              {showMetadata && (
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mt-3">
-                  <dt className="text-stone-400 dark:text-stone-500">File type</dt>
-                  <dd className="text-stone-700 dark:text-stone-200">.{preview.file_type ?? 'unknown'}</dd>
-                  <dt className="text-stone-400 dark:text-stone-500">File size</dt>
-                  <dd className="text-stone-700 dark:text-stone-200">{formatSize(preview.file_size)}</dd>
-                  <dt className="text-stone-400 dark:text-stone-500">Class</dt>
-                  <dd className="text-stone-700 dark:text-stone-200">{preview.class?.name ?? 'All Classes'}</dd>
-                  <dt className="text-stone-400 dark:text-stone-500">Uploaded by</dt>
-                  <dd className="text-stone-700 dark:text-stone-200">
-                    {preview.uploader ? `${preview.uploader.first_name} ${preview.uploader.last_name}` : 'Unknown'}
-                  </dd>
-                  <dt className="text-stone-400 dark:text-stone-500">Uploaded</dt>
-                  <dd className="text-stone-700 dark:text-stone-200">
-                    {new Date(preview.created_at).toLocaleDateString()}
-                  </dd>
-                </dl>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <a
-                href={preview.file_url}
-                download
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary-700 text-white text-sm font-semibold hover:bg-primary-800 transition-colors"
-              >
-                <FiDownload className="w-4 h-4" /> Download
-              </a>
+            <div className="flex items-center justify-end gap-2">
               {preview.created_by === currentProfileId && (
                 <button
                   onClick={() => handleDelete(preview)}
