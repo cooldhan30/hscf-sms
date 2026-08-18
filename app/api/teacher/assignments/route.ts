@@ -35,6 +35,7 @@ export async function POST(request: Request) {
   }
   const published = Boolean(body.published)
   const imageUrl = optionalString(body.imageUrl)
+  const imageSize = typeof body.imageSize === 'number' && body.imageSize > 0 ? body.imageSize : null
   const resourceId = optionalString(body.resourceId)
 
   if (errors.length > 0) {
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
         points_deduction_per_day: pointsDeductionPerDay,
         published,
         image_url: imageUrl,
+        image_size: imageSize,
         resource_id: resourceId,
         // A reading exercise's "submission" is the student recording
         // themselves reading it, not typed text or a separate file --

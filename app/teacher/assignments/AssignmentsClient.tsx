@@ -25,6 +25,7 @@ interface FormState {
   pointsDeductionPerDay: string
   published: boolean
   imageUrl: string
+  imageSize: number
 }
 
 function emptyForm(defaultClassId: string): FormState {
@@ -37,6 +38,7 @@ function emptyForm(defaultClassId: string): FormState {
     pointsDeductionPerDay: '0',
     published: false,
     imageUrl: '',
+    imageSize: 0,
   }
 }
 
@@ -81,6 +83,7 @@ export function AssignmentsClient({
       pointsDeductionPerDay: String(a.points_deduction_per_day ?? 0),
       published: a.published,
       imageUrl: a.image_url ?? '',
+      imageSize: a.image_size ?? 0,
     })
     setError(null)
     setModalOpen(true)
@@ -107,6 +110,7 @@ export function AssignmentsClient({
         pointsDeductionPerDay: form.pointsDeductionPerDay,
         published: form.published,
         imageUrl: form.imageUrl,
+        imageSize: form.imageSize,
       }),
     })
 
@@ -287,7 +291,10 @@ export function AssignmentsClient({
             />
           </div>
 
-          <AssignmentImageUpload currentUrl={form.imageUrl} onUploaded={(url) => setForm({ ...form, imageUrl: url })} />
+          <AssignmentImageUpload
+            currentUrl={form.imageUrl}
+            onUploaded={(url, size) => setForm({ ...form, imageUrl: url, imageSize: size })}
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <div>

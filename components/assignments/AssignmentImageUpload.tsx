@@ -20,7 +20,7 @@ export function AssignmentImageUpload({
   onUploaded,
 }: {
   currentUrl: string
-  onUploaded: (url: string) => void
+  onUploaded: (url: string, size: number) => void
 }) {
   const { userId } = useAuth()
   const supabase = useSupabaseBrowserClient()
@@ -46,7 +46,7 @@ export function AssignmentImageUpload({
     try {
       const { publicUrl } = await uploadFile({ supabase, bucket: 'assignment-images', file })
       setPreviewUrl(publicUrl ?? '')
-      onUploaded(publicUrl ?? '')
+      onUploaded(publicUrl ?? '', file.size)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to upload image')
     } finally {
@@ -56,7 +56,7 @@ export function AssignmentImageUpload({
 
   function remove() {
     setPreviewUrl('')
-    onUploaded('')
+    onUploaded('', 0)
   }
 
   return (
