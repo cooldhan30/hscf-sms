@@ -102,7 +102,7 @@ function TextFilePreview({ fileUrl }: { fileUrl: string }) {
   }, [fileUrl])
 
   if (failed) {
-    return <p className="p-4 text-sm text-stone-500 dark:text-stone-400">Couldn't load a preview for this file.</p>
+    return <p className="p-4 text-sm text-stone-500 dark:text-stone-400">Couldn&apos;t load a preview for this file.</p>
   }
   if (text === null) {
     return <p className="p-4 text-sm text-stone-500 dark:text-stone-400">Loading preview...</p>
