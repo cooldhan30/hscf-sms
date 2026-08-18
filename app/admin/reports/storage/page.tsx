@@ -77,6 +77,21 @@ export default async function StorageReportPage() {
     else classMap.set(key, { classId: key, className: name, resourceBytes: 0, assignmentBytes: bytes })
   }
 
+  // Pre-045 assignment images have no image_size on their row, so the
+  // per-class totals above can only ever include tracked bytes -- the
+  // gap between that and the real bucket listing (used for the top-level
+  // stat card) can't be attributed to a specific class. Surface it
+  // explicitly instead of silently under-counting "By Class" vs the total.
+  const untrackedImageBytes = Math.max(0, assignmentImageBytes - trackedImageBytes)
+  if (untrackedImageBytes > 0) {
+    classMap.set('untracked', {
+      classId: 'untracked',
+      className: 'Untracked (uploaded before size tracking)',
+      resourceBytes: 0,
+      assignmentBytes: untrackedImageBytes,
+    })
+  }
+
   const teacherMap = new Map<string, TeacherStorageRow>()
   for (const r of resourceList) {
     if (!r.created_by) continue
