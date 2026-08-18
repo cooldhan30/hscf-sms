@@ -16,6 +16,7 @@ import {
   FiX,
   FiSend,
   FiCheckCircle,
+  FiSearch,
 } from 'react-icons/fi'
 import { Modal } from '@/components/dashboard/Modal'
 import { Button } from '@/components/ui/Button'
@@ -24,6 +25,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { useSupabaseBrowserClient } from '@/lib/supabase/client'
 import { uploadFile } from '@/lib/storage/uploadFile'
 import { toast } from '@/lib/toast'
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 
 export interface ResourceRow {
   id: string
@@ -142,6 +144,8 @@ export function ResourcesClient({
 
   const [classFilter, setClassFilter] = useState(teacherClassIds.length > 0 ? 'mine' : 'all')
   const [typeFilter, setTypeFilter] = useState('all')
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search, 200)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [preview, setPreview] = useState<ResourceRow | null>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -175,9 +179,10 @@ export function ResourcesClient({
         if (r.class_id !== classFilter) return false
       }
       if (typeFilter !== 'all' && (r.file_type ?? '').toLowerCase() !== typeFilter) return false
+      if (debouncedSearch.trim() && !r.title.toLowerCase().includes(debouncedSearch.trim().toLowerCase())) return false
       return true
     })
-  }, [initialResources, classFilter, typeFilter, teacherClassIds])
+  }, [initialResources, classFilter, typeFilter, teacherClassIds, debouncedSearch])
 
   function openUpload() {
     setFile(null)
@@ -327,6 +332,16 @@ export function ResourcesClient({
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-3">
+          <div className="relative">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by file name..."
+              className="pl-9 pr-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-600 focus:border-transparent w-48 sm:w-56"
+            />
+          </div>
+
           <select
             value={classFilter}
             onChange={(e) => setClassFilter(e.target.value)}
@@ -363,7 +378,7 @@ export function ResourcesClient({
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState title="No resources found" description="Try a different filter, or upload the first one." />
+        <EmptyState title="No resources found" description="Try a different search or filter, or upload the first one." />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {filtered.map((r) => (
