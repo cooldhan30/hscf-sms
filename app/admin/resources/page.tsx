@@ -83,6 +83,7 @@ export default async function AdminResourcesPage() {
         canUpload
         canUploadAllClasses
         teacherClassIds={[]}
+        canDeleteAny
       />
     </div>
   )

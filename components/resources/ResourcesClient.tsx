@@ -128,6 +128,7 @@ export function ResourcesClient({
   teacherClassIds,
   canAssign = false,
   resourceAssignments = {},
+  canDeleteAny = false,
 }: {
   initialResources: ResourceRow[]
   classes: { id: string; name: string }[]
@@ -137,6 +138,7 @@ export function ResourcesClient({
   teacherClassIds: string[]
   canAssign?: boolean
   resourceAssignments?: Record<string, { assignmentId: string; completed: boolean }>
+  canDeleteAny?: boolean
 }) {
   const router = useRouter()
   const confirm = useConfirm()
@@ -443,7 +445,7 @@ export function ResourcesClient({
                         </Link>
                       ))}
                   </div>
-                  {r.created_by === currentProfileId && (
+                  {(canDeleteAny || r.created_by === currentProfileId) && (
                     <button
                       onClick={() => handleDelete(r)}
                       className="p-1.5 rounded-lg text-terracotta-600 hover:bg-terracotta-50 dark:hover:bg-terracotta-950/40 transition-colors"
@@ -556,7 +558,7 @@ export function ResourcesClient({
             )}
 
             <div className="flex items-center justify-end gap-2">
-              {preview.created_by === currentProfileId && (
+              {(canDeleteAny || preview.created_by === currentProfileId) && (
                 <button
                   onClick={() => handleDelete(preview)}
                   className="p-2 rounded-lg text-terracotta-600 hover:bg-terracotta-50 dark:hover:bg-terracotta-950/40 transition-colors"
