@@ -4,11 +4,14 @@ import { createClient } from '@/lib/supabase/server'
 import { optionalString } from '@/lib/validation'
 import { validateResourceTaxonomy } from '@/lib/validateResourceTaxonomy'
 
-// PATCH /api/resources/[id] -- edit a resource's title/description/class
-// and categorization. RLS ("resources: teacher manage own" / "resources:
-// admin all") scopes this the same way DELETE below is scoped -- a
-// teacher editing a resource they don't own affects 0 rows, surfaced as
-// a 404 rather than a silent no-op.
+// PATCH /api/resources/[id] -- edit a resource. Any teacher or admin can
+// edit categorization (category/subcategory/levels/skills/difficulty/
+// tags/description) on ANY resource, since most of the shared library
+// wasn't uploaded by whoever needs to tag it -- RLS ("resources: teacher
+// manage any") permits this broadly. title/class_id are more like
+// "editing someone else's upload", not tagging, so those stay
+// owner-or-admin only, enforced here at the app layer since RLS alone
+// can't distinguish which columns changed.
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const { userId } = await auth()
   if (!userId) {
@@ -17,9 +20,20 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   const supabase = createClient()
 
+  const { data: profile } = await supabase.from('sms_profiles').select('role').eq('id', userId).single()
+  const { data: existing } = await supabase.from('sms_resources').select('created_by').eq('id', params.id).single()
+  if (!existing) {
+    return NextResponse.json({ error: 'Resource not found' }, { status: 404 })
+  }
+  const isOwnerOrAdmin = profile?.role === 'admin' || existing.created_by === userId
+
   const body = await request.json().catch(() => null)
   if (!body) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  if (!isOwnerOrAdmin && ('title' in body || 'classId' in body)) {
+    return NextResponse.json({ error: 'Only the uploader or an admin can change the title or class' }, { status: 403 })
   }
 
   const errors: string[] = []
@@ -52,7 +66,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || 'Resource not found, or you can only edit resources you uploaded' }, { status: 404 })
+    return NextResponse.json({ error: error?.message || 'Resource not found' }, { status: 404 })
   }
 
   return NextResponse.json({ resource: data })

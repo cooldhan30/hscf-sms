@@ -142,6 +142,7 @@ export function ResourcesClient({
   canAssign = false,
   resourceAssignments = {},
   canDeleteAny = false,
+  canEditAny = false,
 }: {
   initialResources: ResourceRow[]
   classes: { id: string; name: string }[]
@@ -152,6 +153,10 @@ export function ResourcesClient({
   canAssign?: boolean
   resourceAssignments?: Record<string, { assignmentId: string; completed: boolean }>
   canDeleteAny?: boolean
+  // Any teacher/admin can edit a resource's categorization even if they
+  // didn't upload it -- distinct from canDeleteAny, which stays
+  // owner-or-admin only since deleting is destructive.
+  canEditAny?: boolean
 }) {
   const router = useRouter()
   const confirm = useConfirm()
@@ -308,11 +313,13 @@ export function ResourcesClient({
     setEditSaving(true)
     setEditError(null)
 
+    const isOwnerOrAdmin = canDeleteAny || editTarget.created_by === currentProfileId
+
     const res = await fetch(`/api/resources/${editTarget.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: editTitle,
+        ...(isOwnerOrAdmin ? { title: editTitle } : {}),
         description: editDescription || null,
         category: editTaxonomy.category || null,
         subcategory: editTaxonomy.subcategory || null,
@@ -574,7 +581,7 @@ export function ResourcesClient({
                       ))}
                   </div>
                   <div className="flex items-center gap-1">
-                    {(canDeleteAny || r.created_by === currentProfileId) && (
+                    {(canEditAny || canDeleteAny || r.created_by === currentProfileId) && (
                       <button
                         onClick={() => openEdit(r)}
                         className="p-1.5 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
@@ -680,8 +687,14 @@ export function ResourcesClient({
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               required
-              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+              disabled={!(canDeleteAny || editTarget?.created_by === currentProfileId)}
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent disabled:opacity-60"
             />
+            {!(canDeleteAny || editTarget?.created_by === currentProfileId) && (
+              <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+                Only the uploader or an admin can rename this resource.
+              </p>
+            )}
           </div>
 
           <div>
@@ -771,7 +784,7 @@ export function ResourcesClient({
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              {(canDeleteAny || preview.created_by === currentProfileId) && (
+              {(canEditAny || canDeleteAny || preview.created_by === currentProfileId) && (
                 <button
                   onClick={() => openEdit(preview)}
                   className="p-2 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
