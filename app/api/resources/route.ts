@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireString, optionalString } from '@/lib/validation'
+import { validateResourceTaxonomy } from '@/lib/validateResourceTaxonomy'
 
 // GET /api/resources -- list resources, every authenticated role can
 // read (RLS: "resources: authenticated read"). ?classId= filters to one
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
   const fileType = optionalString(body.fileType)
   const classId = optionalString(body.classId)
   const fileSize = typeof body.fileSize === 'number' ? body.fileSize : null
+  const taxonomy = validateResourceTaxonomy(body, errors)
 
   if (errors.length > 0) {
     return NextResponse.json({ error: errors.join('; ') }, { status: 400 })
@@ -79,6 +81,7 @@ export async function POST(request: Request) {
         file_type: fileType,
         file_size: fileSize,
         created_by: profile.id,
+        ...taxonomy,
       },
     ])
     .select('*, class:sms_classes(id, name), uploader:sms_profiles(first_name, last_name)')

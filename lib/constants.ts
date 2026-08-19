@@ -1,7 +1,11 @@
 // Matches the class-level vocabulary already established on the marketing
 // site (app/classes/page.tsx, app/registration/page.tsx) so grade_level
-// values stay consistent across both systems.
+// values stay consistent across both systems. Also reused as the "Level"
+// taxonomy for tagging Resources (lib/resourceTaxonomy.ts) -- one list,
+// not a second parallel one, so a level added here shows up everywhere
+// (classes, students, registrations, promotions, resources) at once.
 export const GRADE_LEVEL_OPTIONS = [
+  { value: 'mazhalai', label: 'Mazhalai' },
   { value: 'grade-1', label: 'Nilai 1' },
   { value: 'grade-2', label: 'Nilai 2' },
   { value: 'grade-3', label: 'Nilai 3' },

@@ -17,15 +17,21 @@ import {
   FiSend,
   FiCheckCircle,
   FiSearch,
+  FiEdit2,
 } from 'react-icons/fi'
 import { Modal } from '@/components/dashboard/Modal'
 import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { useSupabaseBrowserClient } from '@/lib/supabase/client'
 import { uploadFile } from '@/lib/storage/uploadFile'
 import { toast } from '@/lib/toast'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
+import { ResourceTaxonomyFields, EMPTY_TAXONOMY, type TaxonomyState } from '@/components/resources/ResourceTaxonomyFields'
+import { ResourceFilterPanel, EMPTY_FILTERS, type ResourceFilterState } from '@/components/resources/ResourceFilterPanel'
+import { categoryLabel, subcategoryLabel, RESOURCE_DIFFICULTIES, RESOURCE_FORMATS, RESOURCE_SKILLS } from '@/lib/resourceTaxonomy'
+import { GRADE_LEVEL_OPTIONS } from '@/lib/constants'
 
 export interface ResourceRow {
   id: string
@@ -35,6 +41,13 @@ export interface ResourceRow {
   file_url: string
   file_type: string | null
   file_size: number | null
+  category: string | null
+  subcategory: string | null
+  difficulty: 'easy' | 'medium' | 'hard' | null
+  format: string | null
+  levels: string[]
+  skills: string[]
+  tags: string[]
   created_by: string | null
   created_at: string
   class: { id: string; name: string } | null
@@ -148,14 +161,23 @@ export function ResourcesClient({
   const [typeFilter, setTypeFilter] = useState('all')
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 200)
+  const [filters, setFilters] = useState<ResourceFilterState>(EMPTY_FILTERS)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [preview, setPreview] = useState<ResourceRow | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [uploadClassId, setUploadClassId] = useState<string>(teacherClassIds[0] ?? classes[0]?.id ?? '')
+  const [uploadTaxonomy, setUploadTaxonomy] = useState<TaxonomyState>(EMPTY_TAXONOMY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [editTarget, setEditTarget] = useState<ResourceRow | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editTaxonomy, setEditTaxonomy] = useState<TaxonomyState>(EMPTY_TAXONOMY)
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
 
   const [assignTarget, setAssignTarget] = useState<ResourceRow | null>(null)
   const [assignClassId, setAssignClassId] = useState<string>(teacherClassIds[0] ?? '')
@@ -173,6 +195,12 @@ export function ResourcesClient({
     return Array.from(types).sort()
   }, [initialResources])
 
+  const availableTags = useMemo(() => {
+    const tags = new Set<string>()
+    initialResources.forEach((r) => r.tags.forEach((t) => tags.add(t)))
+    return Array.from(tags).sort()
+  }, [initialResources])
+
   const filtered = useMemo(() => {
     return initialResources.filter((r) => {
       if (classFilter === 'mine') {
@@ -181,15 +209,31 @@ export function ResourcesClient({
         if (r.class_id !== classFilter) return false
       }
       if (typeFilter !== 'all' && (r.file_type ?? '').toLowerCase() !== typeFilter) return false
-      if (debouncedSearch.trim() && !r.title.toLowerCase().includes(debouncedSearch.trim().toLowerCase())) return false
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.trim().toLowerCase()
+        const haystack = [r.title, r.description ?? '', categoryLabel(r.category), subcategoryLabel(r.category, r.subcategory) ?? '', ...r.tags]
+          .join(' ')
+          .toLowerCase()
+        if (!haystack.includes(q)) return false
+      }
+      // AND across filter groups; each group here is single-valued except
+      // tags, which is OR'd against the resource's own tag list.
+      if (filters.category && r.category !== filters.category) return false
+      if (filters.subcategory && r.subcategory !== filters.subcategory) return false
+      if (filters.level && !r.levels.includes(filters.level)) return false
+      if (filters.skill && !r.skills.includes(filters.skill)) return false
+      if (filters.difficulty && r.difficulty !== filters.difficulty) return false
+      if (filters.format && r.format !== filters.format) return false
+      if (filters.tags.length > 0 && !filters.tags.some((t) => r.tags.includes(t))) return false
       return true
     })
-  }, [initialResources, classFilter, typeFilter, teacherClassIds, debouncedSearch])
+  }, [initialResources, classFilter, typeFilter, teacherClassIds, debouncedSearch, filters])
 
   function openUpload() {
     setFile(null)
     setTitle('')
     setDescription('')
+    setUploadTaxonomy(EMPTY_TAXONOMY)
     setUploadClassId(teacherClassIds[0] ?? '')
     setError(null)
     setUploadOpen(true)
@@ -220,6 +264,13 @@ export function ResourcesClient({
           fileType: ext,
           fileSize: file.size,
           classId: uploadClassId || null,
+          category: uploadTaxonomy.category || null,
+          subcategory: uploadTaxonomy.subcategory || null,
+          difficulty: uploadTaxonomy.difficulty || null,
+          format: uploadTaxonomy.format || null,
+          levels: uploadTaxonomy.levels,
+          skills: uploadTaxonomy.skills,
+          tags: uploadTaxonomy.tags,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -232,6 +283,55 @@ export function ResourcesClient({
       setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
       setSaving(false)
+    }
+  }
+
+  function openEdit(resource: ResourceRow) {
+    setEditTarget(resource)
+    setEditTitle(resource.title)
+    setEditDescription(resource.description ?? '')
+    setEditTaxonomy({
+      category: resource.category ?? '',
+      subcategory: resource.subcategory ?? '',
+      difficulty: resource.difficulty ?? '',
+      format: resource.format ?? '',
+      levels: resource.levels,
+      skills: resource.skills,
+      tags: resource.tags,
+    })
+    setEditError(null)
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editTarget) return
+    setEditSaving(true)
+    setEditError(null)
+
+    const res = await fetch(`/api/resources/${editTarget.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: editTitle,
+        description: editDescription || null,
+        category: editTaxonomy.category || null,
+        subcategory: editTaxonomy.subcategory || null,
+        difficulty: editTaxonomy.difficulty || null,
+        format: editTaxonomy.format || null,
+        levels: editTaxonomy.levels,
+        skills: editTaxonomy.skills,
+        tags: editTaxonomy.tags,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setEditSaving(false)
+
+    if (res.ok) {
+      toast.success('Resource updated')
+      setEditTarget(null)
+      router.refresh()
+    } else {
+      setEditError(data.error || 'Failed to update resource')
     }
   }
 
@@ -379,8 +479,13 @@ export function ResourcesClient({
         )}
       </div>
 
+      <ResourceFilterPanel value={filters} onChange={setFilters} availableTags={availableTags} />
+
       {filtered.length === 0 ? (
-        <EmptyState title="No resources found" description="Try a different search or filter, or upload the first one." />
+        <EmptyState
+          title="No resources found matching your selected filters"
+          description="Try a different search or filter, or clear all filters."
+        />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {filtered.map((r) => (
@@ -405,6 +510,29 @@ export function ResourcesClient({
                 <p className="text-xs text-stone-400 dark:text-stone-500">
                   {r.class?.name ?? 'All Classes'}
                 </p>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {(r.category || r.subcategory) && (
+                    <Badge variant="neutral" size="sm">
+                      {subcategoryLabel(r.category, r.subcategory) ?? categoryLabel(r.category)}
+                    </Badge>
+                  )}
+                  {r.levels[0] && (
+                    <Badge variant="secondary" size="sm">
+                      {GRADE_LEVEL_OPTIONS.find((l) => l.value === r.levels[0])?.label ?? r.levels[0]}
+                      {r.levels.length > 1 ? ` +${r.levels.length - 1}` : ''}
+                    </Badge>
+                  )}
+                  {r.difficulty && (
+                    <Badge variant={r.difficulty === 'easy' ? 'success' : r.difficulty === 'hard' ? 'secondary' : 'gold'} size="sm">
+                      {RESOURCE_DIFFICULTIES.find((d) => d.value === r.difficulty)?.label ?? r.difficulty}
+                    </Badge>
+                  )}
+                  {r.format && (
+                    <Badge variant="primary" size="sm">
+                      {RESOURCE_FORMATS.find((f) => f.value === r.format)?.label ?? r.format}
+                    </Badge>
+                  )}
+                </div>
                 <div className="mt-auto flex items-center justify-between pt-2">
                   <div className="flex items-center gap-2">
                     <button
@@ -445,15 +573,26 @@ export function ResourcesClient({
                         </Link>
                       ))}
                   </div>
-                  {(canDeleteAny || r.created_by === currentProfileId) && (
-                    <button
-                      onClick={() => handleDelete(r)}
-                      className="p-1.5 rounded-lg text-terracotta-600 hover:bg-terracotta-50 dark:hover:bg-terracotta-950/40 transition-colors"
-                      aria-label="Delete"
-                    >
-                      <FiTrash2 className="w-4 h-4" />
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {(canDeleteAny || r.created_by === currentProfileId) && (
+                      <button
+                        onClick={() => openEdit(r)}
+                        className="p-1.5 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
+                        aria-label="Edit"
+                      >
+                        <FiEdit2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    {(canDeleteAny || r.created_by === currentProfileId) && (
+                      <button
+                        onClick={() => handleDelete(r)}
+                        className="p-1.5 rounded-lg text-terracotta-600 hover:bg-terracotta-50 dark:hover:bg-terracotta-950/40 transition-colors"
+                        aria-label="Delete"
+                      >
+                        <FiTrash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -518,8 +657,49 @@ export function ResourcesClient({
             </select>
           </div>
 
+          <ResourceTaxonomyFields value={uploadTaxonomy} onChange={setUploadTaxonomy} />
+
           <Button type="submit" variant="primary" fullWidth disabled={saving}>
             {saving ? 'Uploading...' : 'Upload'}
+          </Button>
+        </form>
+      </Modal>
+
+      <Modal open={editTarget !== null} title="Edit Resource" onClose={() => setEditTarget(null)} size="large">
+        <form onSubmit={handleEdit} className="space-y-4">
+          {editError && (
+            <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">
+              {editError}
+            </p>
+          )}
+
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Name</label>
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              required
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
+              Description (optional)
+            </label>
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+            />
+          </div>
+
+          <ResourceTaxonomyFields value={editTaxonomy} onChange={setEditTaxonomy} />
+
+          <Button type="submit" variant="primary" fullWidth disabled={editSaving}>
+            {editSaving ? 'Saving...' : 'Save Changes'}
           </Button>
         </form>
       </Modal>
@@ -557,7 +737,49 @@ export function ResourcesClient({
               <p className="text-sm text-stone-600 dark:text-stone-300">{preview.description}</p>
             )}
 
+            <div className="flex flex-wrap gap-1.5">
+              {(preview.category || preview.subcategory) && (
+                <Badge variant="neutral" size="sm">
+                  {subcategoryLabel(preview.category, preview.subcategory) ?? categoryLabel(preview.category)}
+                </Badge>
+              )}
+              {preview.difficulty && (
+                <Badge variant={preview.difficulty === 'easy' ? 'success' : preview.difficulty === 'hard' ? 'secondary' : 'gold'} size="sm">
+                  {RESOURCE_DIFFICULTIES.find((d) => d.value === preview.difficulty)?.label ?? preview.difficulty}
+                </Badge>
+              )}
+              {preview.format && (
+                <Badge variant="primary" size="sm">
+                  {RESOURCE_FORMATS.find((f) => f.value === preview.format)?.label ?? preview.format}
+                </Badge>
+              )}
+              {preview.levels.map((l) => (
+                <Badge key={l} variant="secondary" size="sm">
+                  {GRADE_LEVEL_OPTIONS.find((g) => g.value === l)?.label ?? l}
+                </Badge>
+              ))}
+              {preview.skills.map((s) => (
+                <Badge key={s} variant="gold" size="sm">
+                  {RESOURCE_SKILLS.find((sk) => sk.value === s)?.label ?? s}
+                </Badge>
+              ))}
+              {preview.tags.map((t) => (
+                <Badge key={t} variant="neutral" size="sm">
+                  {t}
+                </Badge>
+              ))}
+            </div>
+
             <div className="flex items-center justify-end gap-2">
+              {(canDeleteAny || preview.created_by === currentProfileId) && (
+                <button
+                  onClick={() => openEdit(preview)}
+                  className="p-2 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
+                  aria-label="Edit"
+                >
+                  <FiEdit2 className="w-4 h-4" />
+                </button>
+              )}
               {(canDeleteAny || preview.created_by === currentProfileId) && (
                 <button
                   onClick={() => handleDelete(preview)}

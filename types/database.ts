@@ -174,6 +174,13 @@ export interface SmsResource {
   file_url: string
   file_type: string | null
   file_size: number | null
+  category: string | null
+  subcategory: string | null
+  difficulty: 'easy' | 'medium' | 'hard' | null
+  format: string | null
+  levels: string[]
+  skills: string[]
+  tags: string[]
   created_by: string | null
   created_at: string
   updated_at: string
