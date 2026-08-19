@@ -313,13 +313,11 @@ export function ResourcesClient({
     setEditSaving(true)
     setEditError(null)
 
-    const isOwnerOrAdmin = canDeleteAny || editTarget.created_by === currentProfileId
-
     const res = await fetch(`/api/resources/${editTarget.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...(isOwnerOrAdmin ? { title: editTitle } : {}),
+        title: editTitle,
         description: editDescription || null,
         category: editTaxonomy.category || null,
         subcategory: editTaxonomy.subcategory || null,
@@ -687,14 +685,8 @@ export function ResourcesClient({
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               required
-              disabled={!(canDeleteAny || editTarget?.created_by === currentProfileId)}
-              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent disabled:opacity-60"
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
             />
-            {!(canDeleteAny || editTarget?.created_by === currentProfileId) && (
-              <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
-                Only the uploader or an admin can rename this resource.
-              </p>
-            )}
           </div>
 
           <div>

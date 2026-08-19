@@ -12,11 +12,12 @@
 --
 -- Widen UPDATE to any teacher, any resource -- the app layer
 -- (app/api/resources/[id]/route.ts) is responsible for only letting a
--- non-owner change the taxonomy/description fields, not title/class_id/
--- file_url, so this is deliberately broader at the RLS layer than what
--- the route actually exposes to a non-owner. DELETE ("resources:
--- teacher delete own") is untouched -- deleting is destructive and stays
--- owner-or-admin only.
+-- non-owner change taxonomy/description/title, not class_id/file_url
+-- (moving a resource to a different class stays owner-or-admin, a
+-- placement decision rather than tagging/renaming), so this is
+-- deliberately broader at the RLS layer than what the route actually
+-- exposes to a non-owner. DELETE ("resources: teacher delete own") is
+-- untouched -- deleting is destructive and stays owner-or-admin only.
 -- =====================================================
 
 DROP POLICY IF EXISTS "resources: teacher manage own" ON sms_resources;

@@ -6,12 +6,12 @@ import { validateResourceTaxonomy } from '@/lib/validateResourceTaxonomy'
 
 // PATCH /api/resources/[id] -- edit a resource. Any teacher or admin can
 // edit categorization (category/subcategory/levels/skills/difficulty/
-// tags/description) on ANY resource, since most of the shared library
-// wasn't uploaded by whoever needs to tag it -- RLS ("resources: teacher
-// manage any") permits this broadly. title/class_id are more like
-// "editing someone else's upload", not tagging, so those stay
-// owner-or-admin only, enforced here at the app layer since RLS alone
-// can't distinguish which columns changed.
+// tags/description) and the title on ANY resource, since most of the
+// shared library wasn't uploaded by whoever needs to maintain it -- RLS
+// ("resources: teacher manage any") permits this broadly. class_id is
+// more like "moving someone else's upload", a placement/ownership
+// decision, so that alone stays owner-or-admin only, enforced here at
+// the app layer since RLS can't distinguish which columns changed.
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const { userId } = await auth()
   if (!userId) {
@@ -32,8 +32,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  if (!isOwnerOrAdmin && ('title' in body || 'classId' in body)) {
-    return NextResponse.json({ error: 'Only the uploader or an admin can change the title or class' }, { status: 403 })
+  if (!isOwnerOrAdmin && 'classId' in body) {
+    return NextResponse.json({ error: 'Only the uploader or an admin can move this resource to a different class' }, { status: 403 })
   }
 
   const errors: string[] = []
