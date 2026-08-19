@@ -50,6 +50,17 @@ export async function groqChatCompletion(messages: GroqChatMessage[]): Promise<s
         model: GROQ_MODEL,
         messages,
         temperature: 0.8,
+        // qwen/qwen3.6-27b is a reasoning model -- by default it emits a
+        // <think>...</think> chain-of-thought block before the real
+        // answer, and that reasoning can be long enough to exhaust the
+        // response on its own (confirmed directly against the live API:
+        // a plain request hit finish_reason "length" with a 4000-token
+        // cap and never even reached the closing </think> tag). Groq
+        // exposes reasoning_effort: 'none' specifically to skip this for
+        // models like this one -- there is no partial/low setting, only
+        // 'none' or 'default'.
+        reasoning_effort: 'none',
+        max_tokens: 4000,
       }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
@@ -86,10 +97,14 @@ export async function groqChatCompletion(messages: GroqChatMessage[]): Promise<s
   }
 
   const data = await res.json()
-  const content = data?.choices?.[0]?.message?.content
-  if (typeof content !== 'string' || !content.trim()) {
+  const rawContent = data?.choices?.[0]?.message?.content
+  if (typeof rawContent !== 'string' || !rawContent.trim()) {
     throw new GroqRequestError('Groq returned an empty response')
   }
 
-  return content.trim()
+  // Defense-in-depth: reasoning_effort: 'none' above should mean there's
+  // never a <think> block in the response, but strip one if it somehow
+  // appears rather than showing raw chain-of-thought text to a teacher.
+  const withoutThinking = rawContent.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+  return withoutThinking || rawContent.trim()
 }
