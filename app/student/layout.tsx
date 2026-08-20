@@ -1,9 +1,11 @@
 import { FiHome, FiBookOpen, FiFileText, FiAward, FiCheckSquare, FiSpeaker, FiUserCheck, FiMessageCircle, FiVideo, FiFolder, FiBarChart2 } from 'react-icons/fi'
+import { auth } from '@clerk/nextjs/server'
 import { RoleGuard, DashboardLayout, type SidebarItem } from '@/components/dashboard'
+import { createClient } from '@/lib/supabase/server'
 
 const iconClass = 'w-4 h-4 flex-shrink-0'
 
-const navItems: SidebarItem[] = [
+const baseNavItems: SidebarItem[] = [
   { label: 'Dashboard', href: '/student', icon: <FiHome className={iconClass} /> },
   { label: 'Classes', href: '/student/classes', icon: <FiBookOpen className={iconClass} /> },
   { label: 'Assignments', href: '/student/assignments', icon: <FiFileText className={iconClass} /> },
@@ -17,7 +19,27 @@ const navItems: SidebarItem[] = [
   { label: 'Link Requests', href: '/student/link-requests', icon: <FiUserCheck className={iconClass} /> },
 ]
 
-export default function StudentLayout({ children }: { children: React.ReactNode }) {
+// Tamil Theni is the first nav item conditioned on something other than
+// role -- shown only once the student has actually joined a season
+// (join flow itself lives at /student/theni, reachable directly by URL
+// even before enrolling, so a student without the sidebar item yet can
+// still discover and use the join-code box there).
+export default async function StudentLayout({ children }: { children: React.ReactNode }) {
+  const { userId } = await auth()
+  const supabase = createClient()
+
+  const { data: student } = userId
+    ? await supabase.from('sms_students').select('id').eq('profile_id', userId).maybeSingle()
+    : { data: null }
+
+  const { data: theniEnrollment } = student
+    ? await supabase.from('sms_theni_enrollments').select('id').eq('student_id', student.id).limit(1).maybeSingle()
+    : { data: null }
+
+  const navItems: SidebarItem[] = theniEnrollment
+    ? [...baseNavItems, { label: 'Tamil Theni', href: '/student/theni', icon: <span className="text-sm">🐝</span> }]
+    : baseNavItems
+
   return (
     <RoleGuard allow="student">
       {(profile, availableRoles) => (

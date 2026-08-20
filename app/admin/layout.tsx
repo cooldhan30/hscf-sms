@@ -14,6 +14,7 @@ const navItems: SidebarItem[] = [
   { label: 'Registrations', href: '/admin/registrations', icon: <FiClipboard className={iconClass} /> },
   { label: 'Payments', href: '/admin/payments', icon: <FiDollarSign className={iconClass} /> },
   { label: 'Resources', href: '/admin/resources', icon: <FiFolder className={iconClass} /> },
+  { label: 'Tamil Theni', href: '/admin/theni', icon: <span className="text-sm">🐝</span> },
   { label: 'Reports', href: '/admin/reports', icon: <FiBarChart2 className={iconClass} /> },
   { label: 'Announcements', href: '/admin/announcements', icon: <FiSpeaker className={iconClass} /> },
   { label: 'Meetings', href: '/admin/meetings', icon: <FiVideo className={iconClass} /> },

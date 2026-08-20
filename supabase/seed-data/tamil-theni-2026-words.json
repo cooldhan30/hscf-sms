@@ -1,0 +1,307 @@
+{
+  "season": { "name": "Tamil Theni 2026", "year": 2026 },
+  "categories": [
+    { "categoryNumber": 1, "nameEnglish": "Body Parts", "nameTamil": "உடல் பகுதிகள்", "icon": "🧍" },
+    { "categoryNumber": 2, "nameEnglish": "Food & Groceries", "nameTamil": "உணவு & மளிகை", "icon": "🍚" },
+    { "categoryNumber": 3, "nameEnglish": "Household Items", "nameTamil": "வீட்டுப் பொருள்கள்", "icon": "🏠" },
+    { "categoryNumber": 4, "nameEnglish": "School Items", "nameTamil": "பள்ளிப் பொருள்கள்", "icon": "🎒" },
+    { "categoryNumber": 5, "nameEnglish": "Family", "nameTamil": "குடும்பம்", "icon": "👨‍👩‍👧" },
+    { "categoryNumber": 13, "nameEnglish": "Fruits", "nameTamil": "பழங்கள்", "icon": "🍎" },
+    { "categoryNumber": 17, "nameEnglish": "Numbers and Math", "nameTamil": "எண்கள், கணக்கு", "icon": "🔢" },
+    { "categoryNumber": 19, "nameEnglish": "Geography", "nameTamil": "புவியியல்", "icon": "🌍" },
+    { "categoryNumber": 20, "nameEnglish": "Love and Care", "nameTamil": "அன்பும் அரவணைப்பும்", "icon": "💞" },
+    { "categoryNumber": 22, "nameEnglish": "Climate Changes and Pollution", "nameTamil": "காலநிலை மாற்றம்", "icon": "🌱" },
+    { "categoryNumber": 23, "nameEnglish": "Astronomy", "nameTamil": "வானியல்", "icon": "🔭" },
+    { "categoryNumber": 25, "nameEnglish": "Birthday", "nameTamil": "பிறந்தநாள்", "icon": "🎂" },
+    { "categoryNumber": 29, "nameEnglish": "Grammar", "nameTamil": "இலக்கணம்", "icon": "📖" },
+    { "categoryNumber": 30, "nameEnglish": "Trees", "nameTamil": "மரங்கள்", "icon": "🌳" },
+    { "categoryNumber": 34, "nameEnglish": "Opposites", "nameTamil": "எதிர்ச்சொற்கள்", "icon": "⚖️" },
+    { "categoryNumber": 38, "nameEnglish": "Arts and Crafts", "nameTamil": "கலைகளும் கைவினைப்பொருள்களும்", "icon": "🎨" },
+    { "categoryNumber": 42, "nameEnglish": "Sea Creatures", "nameTamil": "நீர் வாழ் உயிரினங்கள்", "icon": "🌊" },
+    { "categoryNumber": 46, "nameEnglish": "Immigration", "nameTamil": "குடியேற்றம்", "icon": "🛂" },
+    { "categoryNumber": 47, "nameEnglish": "Grains", "nameTamil": "விதைமணிகள்", "icon": "🌾" },
+    { "categoryNumber": 62, "nameEnglish": "Roadways", "nameTamil": "சாலை வழி", "icon": "🚗" }
+  ],
+  "words": {
+    "1": {
+      "D1": [
+        ["ear", "காது"], ["nose", "மூக்கு"], ["head", "தலை"], ["eye", "கண்"], ["hand", "கை"],
+        ["leg", "கால்"], ["body", "உடம்பு (உடல்)"], ["teeth", "பல்"], ["finger", "விரல்"], ["neck", "கழுத்து"],
+        ["nail", "நகம்"], ["eyebrow", "புருவம்"], ["lip", "உதடு"], ["skin", "தோல்"], ["stomach", "வயிறு"],
+        ["hair", "முடி"], ["tongue", "நாக்கு"], ["back", "முதுகு"], ["thigh", "தொடை"], ["forehead", "நெற்றி"]
+      ],
+      "D2": [
+        ["lungs", "நுரையீரல்"], ["eyelid", "இமை"], ["heart", "இதயம்"], ["intestine", "குடல்"], ["shoulder", "தோள்"],
+        ["bronchialtube", "மூச்சுக் குழாய்"], ["foot", "பாதம்"], ["palm", "உள்ளங்கை"], ["fingerprint", "கை ரேகை"], ["cheek", "கன்னம்"],
+        ["elbow", "முழங்கை"], ["bone", "எலும்பு"], ["hip", "இடுப்பு"], ["spine", "முதுகெலும்பு"], ["toe", "கால்விரல்"],
+        ["bonejoint", "எலும்புமூட்டு"], ["throat", "தொண்டை"], ["brain", "மூளை"], ["blood", "குருதி"], ["knee", "முழங்கால்"]
+      ]
+    },
+    "2": {
+      "D1": [
+        ["rice", "அரிசி"], ["lentil", "பருப்பு"], ["milk", "பால்"], ["yogurt", "தயிர்"], ["sugar", "சர்க்கரை"],
+        ["salt", "உப்பு"], ["egg", "முட்டை"], ["honey", "தேன்"], ["meat", "மாமிசம்"], ["buttermilk", "மோர்"],
+        ["oil", "எண்ணெய்"], ["butter", "வெண்ணெய்"], ["flour", "மாவு"], ["mustard", "கடுகு"], ["tamarind", "புளி"],
+        ["pickle", "ஊறுகாய்"], ["snacks", "தின்பண்டங்கள்"], ["sweets", "இனிப்புகள்"], ["jaggery", "வெல்லம்"], ["candy", "மிட்டாய்"]
+      ],
+      "D2": [
+        ["cotton candy", "பஞ்சுமிட்டாய்"], ["porridge", "கஞ்சி"], ["soup", "வடிசாறு"], ["bread slice", "ரொட்டித்துண்டு"], ["jam", "பழக்கூட்டு"],
+        ["tea", "தேநீர்"], ["lemonade", "எலுமிச்சை பானம்"], ["hot water", "வெந்நீர்"], ["tender coconut water", "இளநீர்"], ["breakfast", "காலை உணவு"],
+        ["lunch", "மதிய உணவு"], ["dinner", "இரவு உணவு"], ["feast", "விருந்து"], ["Fruit Juice", "பழச்சாறு"], ["cumin", "சீரகம்"],
+        ["turmeric", "மஞ்சள்"], ["chili powder", "மிளகாய்த்தூள்"], ["ginger", "இஞ்சி"], ["almond", "வாதுமைப் பருப்பு"], ["peanut", "வேர்க்கடலை"]
+      ]
+    },
+    "3": {
+      "D1": [
+        ["home", "இல்லம்"], ["entrance", "வாசல்"], ["door", "கதவு"], ["window", "சன்னல்"], ["chair", "நாற்காலி"],
+        ["table", "மேசை"], ["bed", "கட்டில்"], ["upstairs", "மாடி"], ["plate", "தட்டு"], ["spoon", "கரண்டி"],
+        ["stove", "அடுப்பு"], ["clock", "கடிகாரம்"], ["pot", "பாத்திரம்"], ["bowl", "கிண்ணம்"], ["knife", "கத்தி"],
+        ["basket", "கூடை"], ["bag", "பை"], ["umbrella", "குடை"], ["fan", "விசிறி"], ["mat", "பாய்"]
+      ],
+      "D2": [
+        ["refrigerator", "குளிர்சாதனப் பெட்டி"], ["clay pot", "மண்சட்டி"], ["electric fan", "மின்விசிறி"], ["water pipe", "தண்ணீர்க்குழாய்"], ["computer", "கணினி"],
+        ["kitchen", "சமையலறை"], ["bathroom", "குளியலறை"], ["bedroom", "படுக்கையறை"], ["mirror", "நிலைக்கண்ணாடி"], ["telephone", "தொலைபேசி"],
+        ["television", "தொலைகாட்சிப்பெட்டி"], ["radio", "வானொலி"], ["mobile", "கைப்பேசி"], ["electric light", "மின்விளக்கு"], ["chandelier", "சரவிளக்கு"],
+        ["photograph", "புகைப்படம்"], ["scissors", "கத்தரிக்கோல்"], ["latch", "தாழ்ப்பாள்"], ["pillow", "தலையணை"], ["blanket", "போர்வை"]
+      ]
+    },
+    "4": {
+      "D1": [
+        ["school", "பள்ளி"], ["teacher", "ஆசிரியர்"], ["book", "புத்தகம்"], ["pen", "எழுதுகோல்"], ["book bag", "புத்தகப்பை"],
+        ["student", "மாணவன்"], ["classroom", "வகுப்பறை"], ["exam", "தேர்வு"], ["score", "மதிப்பெண்"], ["lesson", "பாடம்"],
+        ["award", "விருது"], ["answer", "விடை"], ["question", "வினா"], ["holiday", "விடுமுறை"], ["paper", "காகிதம்"],
+        ["school library", "பள்ளி நூலகம்"], ["competition", "போட்டி"], ["English", "ஆங்கிலம்"], ["knowledge", "அறிவு"], ["eraser", "அழிப்பான்"]
+      ],
+      "D2": [
+        ["paint brush", "வண்ணத் தூரிகை"], ["playground", "விளையாட்டுத் திடல்"], ["race", "பந்தயம்"], ["chalk", "சுண்ணஎழுதுகோல்"], ["trophy", "பரிசுக் கோப்பை"],
+        ["uniform", "சீருடை"], ["announcement", "அறிவிப்பு"], ["loud speaker", "ஒலிபெருக்கி"], ["interval", "இடைவேளை"], ["black board", "கரும்பலகை"],
+        ["memorize", "மனப்பாடம்"], ["read", "படி"], ["home work", "வீட்டுப்பாடம்"], ["certificate", "சான்றிதழ்"], ["research", "ஆராய்ச்சி"],
+        ["pass", "தேர்ச்சி"], ["social science", "சமூக அறிவியல்"], ["headmaster", "தலைமை ஆசிரியர்"], ["school bus", "பள்ளிப்பேருந்து"], ["poem", "கவிதை"]
+      ]
+    },
+    "5": {
+      "D1": [
+        ["mom", "அம்மா"], ["dad", "அப்பா"], ["older brother", "அண்ணன்"], ["older sister", "அக்கா"], ["younger brother", "தம்பி"],
+        ["younger sister", "தங்கை"], ["grandfather", "தாத்தா"], ["grandmother", "பாட்டி"], ["aunt", "அத்தை"], ["uncle", "மாமா"],
+        ["husband", "கணவன்"], ["wife", "மனைவி"], ["friend (boy)", "தோழன்"], ["friend (girl)", "தோழி"], ["friends", "நண்பர்கள்"],
+        ["baby", "குழந்தை"], ["grandson", "பேரன்"], ["granddaughter", "பேத்தி"], ["son", "மகன்"], ["daughter", "மகள்"]
+      ],
+      "D2": [
+        ["mom's older sister", "பெரியம்மா"], ["dad's older brother", "பெரியப்பா"], ["mom's younger sister", "சித்தி"], ["dad's younger brother", "சித்தப்பா"], ["mother-in-law", "மாமியார்"],
+        ["father-in-law", "மாமனார்"], ["son-in-law", "மருமகன்"], ["daughter-in-law", "மருமகள்"], ["older brother's wife", "அண்ணி"], ["relatives", "உறவினர்கள்"],
+        ["family", "குடும்பம்"], ["parents", "பெற்றோர்"], ["groom", "மணமகன்"], ["bride", "மணமகள்"], ["ancestors", "முன்னோர்"],
+        ["grandkids", "பேரக்குழந்தைகள்"], ["great grandfather", "கொள்ளுத்தாத்தா"], ["great grandmother", "கொள்ளுப்பாட்டி"], ["siblings", "உடன்பிறந்தவர்கள்"], ["niece", "உடன்பிறந்தோர் மகள்"]
+      ]
+    },
+    "13": {
+      "D1": [
+        ["banana", "வாழைப்பழம்"], ["jackfruit", "பலாப்பழம்"], ["mango", "மாம்பழம்"], ["guavas", "கொய்யாப்பழம்"], ["custard apple", "சீதாப்பழம்"],
+        ["jamun fruit", "நாவல் பழம்"], ["pomegranate", "மாதுளம்பழம்"], ["fig", "அத்திப்பழம்"], ["pineapple", "அன்னாசிப்பழம்"], ["papaya", "பப்பாளிப்பழம்"],
+        ["raisins", "உலர் திராட்சை"], ["lemon", "எலுமிச்சம்பழம்"], ["grapes", "திராட்சைப்பழம்"], ["pears", "பேரிக்காய்"], ["dates", "பேரீச்சம்பழம்"],
+        ["gooseberry", "நெல்லிக்காய்"], ["chiku fruit", "சீமையிலுப்பை"], ["citron", "நாரத்தைப் பழம்"], ["orange", "கிச்சிலிப்பழம்"], ["watermelon", "தர்ப்பூசணிப்பழம்"]
+      ],
+      "D2": [
+        ["blackberry", "கருநாவற்பழம்"], ["sweet lime", "சாத்துக்குடி"], ["sugar palm", "நுங்கு"], ["cashew fruit", "முந்திரிப்பழம்"], ["wood apple", "விளாம்பழம்"],
+        ["lychee", "விலச்சிப்பழம்"], ["apple", "குமளிப்பழம்"], ["apricot", "சருக்கரை பாதாமிப்பழம்"], ["honeydew melon", "தேனீமுலாம்பழம்"], ["muskmelon", "கீரணிப்பழம்"],
+        ["kiwi fruit", "பசலிப்பழம்"], ["avocado", "வெண்ணெய்ப்பழம்"], ["bell fruit", "பஞ்சலிப்பழம்"], ["strawberry", "செம்புற்றுப்பழம்"], ["tamarind fruit", "புளியம்பழம்"],
+        ["blueberry", "அவுரிநெல்லி"], ["cantaloupe", "மஞ்சள்முலாம்பழம்"], ["cranberry", "குருதி நெல்லி"], ["dragon fruit", "விருத்திரப்பழம்"], ["plantain fruit", "நேந்திரம்பழம்"]
+      ]
+    },
+    "17": {
+      "D1": [
+        ["angle", "கோணம்"], ["square", "சதுரம்"], ["number", "எண்"], ["seventy", "எழுபது"], ["center", "மையம்"],
+        ["interest", "வட்டி"], ["expense", "செலவு"], ["rectangle", "செவ்வகம்"], ["straight line", "நேர்க்கோடு"], ["zero", "சுழியம்"],
+        ["triangle", "முக்கோணம்"], ["eighty", "எண்பது"], ["circle", "வட்டம்"], ["addition", "கூட்டல்"], ["division", "வகுத்தல்"],
+        ["multiplication", "பெருக்கல்"], ["subtraction", "கழித்தல்"], ["lakh", "இலட்சம்"], ["crore", "கோடி"], ["point", "புள்ளி"]
+      ],
+      "D2": [
+        ["approximate", "ஏறத்தாழ"], ["quotient", "ஈவு"], ["quarter circle", "கால்வட்டம்"], ["half circle", "அரைவட்டம்"], ["difference", "வேறுபாடு"],
+        ["percentage", "விழுக்காடு"], ["remainder", "மீதி"], ["sum", "தொகை"], ["composite number", "கலவை எண்"], ["geometry", "வடிவியல்"],
+        ["octagon", "எண்கோணம்"], ["pentagon", "ஐங்கோணம்"], ["hexagon", "அறுகோணம்"], ["sphere", "கோளம்"], ["right angle", "செங்கோணம்"],
+        ["perpendicular", "செங்குத்துக்கோடு"], ["parallel", "இணைகோடு"], ["diameter", "விட்டம்"], ["trapezoid", "சரிவகம்"], ["intersection", "குறுக்குவெட்டு"]
+      ]
+    },
+    "19": {
+      "D1": [
+        ["earth", "புவி"], ["continent", "கண்டம்"], ["country", "நாடு"], ["town", "ஊர்"], ["city", "நகரம்"],
+        ["planets", "கோள்கள்"], ["sun", "ஞாயிறு"], ["moon", "திங்கள்"], ["peak", "சிகரம்"], ["pressure", "அழுத்தம்"],
+        ["ranges", "தொடர்கள்"], ["globe", "புவிக்கோளம்"], ["village", "கிராமம்"], ["universe", "அண்டம்"], ["geography", "புவியியல் (நிலவியல்)"],
+        ["sky", "வானம்"], ["water", "நீர்"], ["fire", "நெருப்பு"], ["state", "மாநிலம்"], ["capital", "தலைநகரம்"]
+      ],
+      "D2": [
+        ["eclipse", "கிரகணம்"], ["earthquake", "நிலநடுக்கம்"], ["typhoon", "சூறாவளி"], ["lava", "எரிமலைக்குழம்பு"], ["hemisphere", "அரைக்கோளம்"],
+        ["plateau", "பீடபூமி"], ["tropic of cancer", "கடகக்கோடு"], ["tropic of capricorn", "மகரக்கோடு"], ["drain", "வடிகால்"], ["distributaries", "கிளை நதிகள்"],
+        ["smog", "பனிப்புகை"], ["Geyser", "கொதிநீர்ஊற்று"], ["gulf", "வளைகுடா"], ["ore", "தாதுப்பொருள்"], ["primitive man", "தொல்மாந்தர்"],
+        ["crater", "எரிமலைவாய்"], ["blizzard", "பனிப்புயல்"], ["archipelago", "தீவுக்கூட்டம்"], ["border line, boundary", "எல்லைக்கோடு"], ["moat", "அகழி"]
+      ]
+    },
+    "20": {
+      "D1": [
+        ["motherly love", "தாய்ப்பாசம்"], ["caring", "அக்கறை"], ["help", "உதவி"], ["devotion", "பக்தி"], ["respect", "மரியாதை"],
+        ["friendship", "நட்பு"], ["friendliness", "தோழமை"], ["hug", "அணைப்பு"], ["desire", "ஆசை"], ["affection", "அன்புறவு"],
+        ["relationship", "உறவு"], ["taking care", "புரத்தல் (கவனிப்பு)"], ["tender", "மென்மை"], ["fondness", "நேசம்"], ["mercy", "இரக்கம்"],
+        ["understanding", "புரிதல்"], ["love", "காதல்"], ["companion", "துணை"], ["trust", "நம்பிக்கை"], ["kiss", "முத்தம்"]
+      ],
+      "D2": [
+        ["wedding", "திருமணம்"], ["responsible", "பொறுப்பு"], ["sympathy", "அனுதாபம்"], ["kindness", "கருணை"], ["considerate", "பரிவு"],
+        ["humanity", "மனிதநேயம்"], ["closeness", "நெருக்கம்"], ["supportive", "ஆதரவு"], ["honesty", "நேர்மை"], ["committed", "உறுதி"],
+        ["attachment", "இணைப்பு"], ["good natured", "அன்புள்ளம்"], ["loyalty", "நன்னம்பிக்கை"], ["greatness", "மேன்மை"], ["value", "மதிப்பு"],
+        ["consolation", "ஆறுதல்"], ["appreciation", "பாராட்டு"], ["forgiveness", "பொறுத்தருளல்"], ["patriotism", "நாட்டுப்பற்று"], ["forever", "என்றென்றும்"]
+      ]
+    },
+    "22": {
+      "D1": [
+        ["litter (trash)", "குப்பை"], ["waste", "கழிவு"], ["natural gas", "இயற்கை எரிவாயு"], ["plant a tree", "மரம் நடு"], ["climate", "பருவநிலை"],
+        ["global warming", "உலக வெப்பமயமாதல்"], ["ocean heat", "கடல் வெப்பம்"], ["wildfire", "காட்டுத்தீ"], ["deforestation", "காடழிப்பு"], ["solar panel", "சூரியத்தகடு"],
+        ["recycle", "மறுசுழற்சி"], ["reuse", "மறுபயன்பாடு"], ["habitat", "வாழ்விடம்"], ["carbon dioxide", "கரியமில வாயு"], ["pollution", "மாசுபாடு (தூய்மைக்கேடு)"],
+        ["air pollution", "காற்று மாசுபாடு"], ["water pollution", "நீர் மாசுபாடு"], ["light pollution", "ஒளி மாசுபடு"], ["noise pollution", "ஒலி மாசுபாடு"], ["land pollution", "நில மாசுபாடு"]
+      ],
+      "D2": [
+        ["ozone layer", "ஓசோன் படிவம்"], ["precipitation", "மழைப்பொழிவு"], ["acid rain", "அமிலமழை"], ["aerology", "வளிமண்டல இயல்"], ["wind turbine", "காற்று விசையாழி"],
+        ["emission", "உமிழ்வு"], ["pollutant", "மாசுபடுத்தி"], ["ocean acidity", "கடல் அமிலத்தன்மை"], ["adaptation", "பொருந்தும் தன்மை"], ["mitigate", "மட்டுப்படுத்து"],
+        ["biodegradable", "மக்கும்"], ["reduce pollution", "மாசுபாடு குறைத்தல்"], ["nature conservation", "இயற்கைப் பாதுகாப்பு"], ["natural resources maintenance", "இயற்கைவள பராமரிப்பு"], ["oil spill", "எண்ணைய்க் கசிவு"],
+        ["nuclear waste", "அணுக் கழிவு"], ["toxic waste", "நச்சுக்கழிவு"], ["plastic waste", "நெகிழிக் கழிவு"], ["industrial waste", "தொழிற்சாலைக் கழிவு"], ["solar radiation", "சூரியக் கதிர்வீச்சு"]
+      ]
+    },
+    "23": {
+      "D1": [
+        ["night", "இரவு"], ["day", "பகல்"], ["dawn", "விடியல்"], ["dusk", "அந்தி"], ["solar system", "சூரியக்குடும்பம்"],
+        ["mercury (planet)", "புதன் (கோள்)"], ["venus", "வெள்ளி (கோள்)"], ["earth", "பூமி"], ["mars", "செவ்வாய் (கோள்)"], ["jupiter", "வியாழன் (கோள்)"],
+        ["saturn", "சனி (கோள்)"], ["orbit", "சுற்றுப்பாதை"], ["telescope", "தொலைநோக்கி"], ["horizon", "அடிவானம்"], ["zenith", "உச்சிவானம்"],
+        ["space", "விண்வெளி"], ["blackhole", "கருங்குழி"], ["waxing", "வளர்பிறை"], ["waning", "தேய்பிறை"], ["vacuum", "வெற்றிடம்"]
+      ],
+      "D2": [
+        ["atmosphere", "வளி மண்டலம்"], ["pole star", "துருவ நட்சத்திரம்"], ["solar eclipse", "சூரிய கிரகணம்"], ["lunar eclipse", "சந்திர கிரகணம்"], ["astronomical clock", "வானியல் கடிகாரம்"],
+        ["astronomer", "வானியல் நிபுணர்"], ["milky way", "பால் வெளியண்டம்"], ["galaxy", "விண்மீன் மண்டலம்"], ["lens", "கண்ணாடி வில்லை"], ["asteroid", "குறுங்கோள்"],
+        ["planetoid", "வான்கோள்"], ["meteor shower", "எரிகல் பொழிவு"], ["equator", "பூமத்திய ரேகை"], ["light year", "ஒளியாண்டு"], ["ionosphere", "அயனி மண்டலம்"],
+        ["cosmology", "அண்டவியல்"], ["cosmic rays", "அண்டக்கதிர்கள்"], ["solar filter", "சூரிய வடிகட்டி"], ["inner planets", "உட் கோள்கள்"], ["exoplanets", "புறக்கோள்கள்"]
+      ]
+    },
+    "25": {
+      "D1": [
+        ["birthday party", "பிறந்தநாள் விழா"], ["birthday boy", "பிறந்தநாள் சிறுவன்"], ["birthday girl", "பிறந்தநாள் சிறுமி"], ["birthday hat", "பிறந்தநாள் தொப்பி"], ["age", "வயது"],
+        ["birth date", "பிறந்த தேதி"], ["bouquet", "பூங்கொத்து"], ["ribbons", "நாடாக்கள்"], ["clown", "கோமாளி"], ["candle", "மெழுகுவர்த்தி"],
+        ["wish", "வாழ்த்து"], ["doll", "பொம்மை"], ["new clothes", "புத்தாடை"], ["food", "உணவு"], ["gift", "பரிசு"],
+        ["gift box", "பரிசுப் பெட்டி"], ["toys", "விளையாட்டுப் பொருள்கள்"], ["stage", "மேடை"], ["guests", "விருந்தினர்கள்"], ["boys", "சிறுவர்கள்"]
+      ],
+      "D2": [
+        ["eatables", "தின்பண்டங்கள்"], ["festoon", "தோரணம்"], ["hall", "மண்டபம்"], ["balloon", "ஊதற்பை"], ["blow pipe", "ஊது குழாய்"],
+        ["paper plate", "காகிதத் தட்டு"], ["birthday song", "பிறந்தநாள் பாடல்"], ["nail polish", "நகப்பூச்சு"], ["greeting card", "வாழ்த்து அட்டை"], ["celebration", "கொண்டாட்டம்"],
+        ["tablecloth", "மேசை விரிப்பு"], ["table decoration", "மேசை அலங்காரம்"], ["face painting", "முக ஓவியம்"], ["confetti", "காகித்த் துண்டுகள்"], ["goodie bag", "அன்பளிப்புப் பை"],
+        ["water gun", "தண்ணீர்த் துப்பாக்கி"], ["serial light", "தொடர் விளக்கு"], ["magic show", "மாயவித்தை நிகழ்ச்சி"], ["thank you note", "நன்றிக் குறிப்பு"], ["hospitality", "உபசரிப்பு"]
+      ]
+    },
+    "29": {
+      "D1": [
+        ["noun", "பெயர்ச்சொல்"], ["grammar", "இலக்கணம்"], ["vowel", "உயிர் எழுத்து"], ["consonant", "மெய்யெழுத்து"], ["vowel consonant", "உயிர்மெய் எழுத்து"],
+        ["hard-sounding consonant", "வல்லினம்"], ["soft-sounding consonant", "மெல்லினம்"], ["middle-sounding consonant", "இடையினம்"], ["short vowel", "குறில்"], ["long vowel", "நெடில்"],
+        ["word", "சொல்"], ["sentence", "சொற்றொடர் வாக்கியம்"], ["singular", "ஒருமை"], ["plural", "பன்மை"], ["past tense", "கடந்தகாலம்"],
+        ["present tense", "நிகழ்காலம்"], ["future tense", "எதிர்காலம்"], ["masculine gender", "ஆண்பால்"], ["feminine gender", "பெண்பால்"], ["verb", "வினைச்சொல்"]
+      ],
+      "D2": [
+        ["antonym", "எதிர்ச்சொல்"], ["synonym", "இணைச்சொல்"], ["toponym", "இடப்பெயர்"], ["non cognitive", "அஃறிணை"], ["object", "செயப்படு பொருள்"],
+        ["adjective", "பெயரடை"], ["adverb", "வினையடை"], ["adjectival participle", "பெயரெச்சம்"], ["adverbial participle", "வினையெச்சம்"], ["preposition", "வேற்றுமை உருபு"],
+        ["active voice", "செய்வினை"], ["passive voice", "செயப்பாட்டு வினை"], ["first person", "தன்மை"], ["second person", "முன்னிலை"], ["third person", "படர்க்கை"],
+        ["conjunction", "இணைப்புச்சொல்"], ["ideophone", "இரட்டைக்கிளவி"], ["double word", "அடுக்குத் தொடர்"], ["noun denoting rational beings", "உயர்திணை"], ["rhyming compound word", "இணைமொழி"]
+      ]
+    },
+    "30": {
+      "D1": [
+        ["banyan tree", "ஆலமரம்"], ["coconut tree", "தென்னைமரம்"], ["mango tree", "மாமரம்"], ["plantain tree", "வாழைமரம்"], ["jackfruit tree", "பலாமரம்"],
+        ["papaya tree", "பப்பாளி மரம்"], ["apple tree", "குமளி மரம்"], ["orange tree", "கிச்சிலி மரம்"], ["pear tree", "பேரிக்காய் மரம்"], ["guava tree", "கொய்யா மரம்"],
+        ["fig tree", "அத்திமரம்"], ["neem tree", "வேப்பமரம்"], ["bamboo tree", "மூங்கில் மரம்"], ["drumstick tree", "முருங்கை மரம்"], ["lemon tree", "எலுமிச்சை மரம்"],
+        ["almond tree", "வாதுமை மரம்"], ["curryleaf tree", "கருவேப்பிலை மரம்"], ["cedar tree", "தேவதாரு மரம்"], ["oak tree", "கருவாலி மரம்"], ["palm tree", "பனை மரம்"]
+      ],
+      "D2": [
+        ["dates tree", "ஈச்சமரம்"], ["sandalwood tree", "சந்தனமரம்"], ["custard apple tree", "சீதாப்பழ மரம்"], ["mulberry tree", "முசுக்கட்டை மரம்"], ["nutmeg tree", "ஜாதி மரம்"],
+        ["tamarind tree", "புளியமரம்"], ["teakwood tree", "தேக்கு மரம்"], ["jamun tree", "நாவல் மரம்"], ["pipal tree", "அரசமரம்"], ["portia tree", "பூவரசமரம்"],
+        ["babool tree", "வேலமரம்"], ["eucalyptus tree", "தைலமரம்"], ["camphor tree", "கற்பூர மரம்"], ["rosewood tree", "ஈட்டி மரம்"], ["Casuarina tree", "சவுக்கு மரம்"],
+        ["arecanut tree", "பாக்கு மரம்"], ["gooseberry tree", "நெல்லி மரம்"], ["gulmohar tree", "இலந்தை மரம்"], ["golden shower tree", "கொன்றை மரம்"], ["spanish cherry tree", "மகிழமரம்"]
+      ]
+    },
+    "34": {
+      "D1": [
+        ["top", "மேல்"], ["bottom", "கீழ்"], ["friend", "நண்பன்"], ["enemy", "எதிரி"], ["front", "முன்னால்"],
+        ["back", "பின்னால்"], ["profit", "இலாபம்"], ["loss", "இழப்பு"], ["first", "முதல்"], ["last", "கடைசி"],
+        ["good", "நல்லது"], ["bad", "கெட்டது"], ["there", "அங்கே"], ["here", "இங்கே"], ["inside", "உள்ளே"],
+        ["outside", "வெளியே"], ["truth", "உண்மை"], ["lie", "பொய்"], ["open", "திற"], ["close", "மூடு"]
+      ],
+      "D2": [
+        ["unity", "ஒற்றுமை"], ["diversity", "வேற்றுமை"], ["near", "அருகில்"], ["far", "தொலைவில்"], ["fast", "விரைவாக"],
+        ["slow", "மெதுவாக"], ["thief", "திருடன்"], ["police", "காவலன்"], ["peace", "சமாதானம்"], ["fight", "சண்டை"],
+        ["strength", "பலம்"], ["weakness", "பலவீனம்"], ["silence", "நிசப்தம்"], ["noise", "சத்தம்"], ["young", "இளமை"],
+        ["elder", "முதுமை"], ["justice", "நீதி"], ["injustice", "அநீதி"], ["export", "ஏற்றுமதி"], ["import", "இறக்குமதி"]
+      ]
+    },
+    "38": {
+      "D1": [
+        ["music", "இசை"], ["actor", "நடிகர்"], ["singer", "பாடகர்"], ["beads", "மணிகள்"], ["rope", "கயிறு"],
+        ["cane", "தடி/பிரம்பு"], ["flute", "புல்லாங்குழல்"], ["drum", "மத்தளம்"], ["snake charmer's flute", "மகுடி"], ["percussion pot", "கடம்"],
+        ["art", "கலை"], ["tailoring", "தையல்"], ["paper fan", "காகித விசிறி"], ["dancer", "நடனக் கலைஞர்"], ["paper flowers", "காகிதப் பூக்கள்"],
+        ["drama", "நாடகம்"], ["drawing/painting", "ஓவியம்"], ["sculpture", "சிற்பம்"], ["statue", "சிலை"], ["cartoonist", "கேலிச்சித்திர ஓவியர்"]
+      ],
+      "D2": [
+        ["pottery", "மட்பாண்டத்தொழில்"], ["conch chain", "சங்கு மாலை"], ["craft", "கைவினை"], ["clay doll", "களிமண்பொம்மை"], ["musical instrument", "இசைக் கருவி"],
+        ["wax doll", "மெழுகு பொம்மை"], ["wooden doll", "மரப்பாச்சி பொம்மை"], ["paper mask", "காகிதமுகமூடி"], ["jewelry making", "நகைகள் செய்தல்"], ["bamboo basket", "மூங்கில் கூடை"],
+        ["bead chain", "மணி மாலை"], ["palm leaf hat", "பனை ஓலைத் தொப்பி"], ["jute work", "சணல் வேலை"], ["wood work", "மர வேலை"], ["architecture", "கட்டடக்கலை"],
+        ["wooden temple", "மரக் கோயில்"], ["stone temple", "கற்கோயில்"], ["brick building", "செங்கல் கட்டடம்"], ["puppet show", "பொம்மலாட்டம்"], ["folk dance", "கிராமிய நடனம்"]
+      ]
+    },
+    "42": {
+      "D1": [
+        ["baby shark", "பால் சுறா"], ["shark", "சுறா மீன்"], ["sealion", "கடல் சிங்கம்"], ["seahorse", "கடல் குதிரை"], ["walrus", "கடற்யானை"],
+        ["blue whale", "நீலத் திமிங்கிலம்"], ["octopus", "சிலந்தி மீன்"], ["prawn", "இறால்"], ["oyster", "சிப்பி"], ["shellfish", "கிளிஞ்சல் பூச்சி"],
+        ["conch", "சங்கு"], ["seal", "கடல் நீர் நாய்"], ["tunafish", "சூரை மீன்"], ["seaweed", "கடல் பாசி"], ["mantaray", "திருக்கை மீன்"],
+        ["clam", "மட்டி"], ["angler fish", "தூண்டில் மீன்"], ["penguin", "பனிப்பாடி"], ["mermaid", "கடல் கன்னி"], ["dolphin", "ஓங்கில்"]
+      ],
+      "D2": [
+        ["anchovies", "நெத்திலி மீன்"], ["sea urchin", "கடல்முள்ளெலி"], ["barracuda", "சீலா மீன்"], ["butter Fish", "விறால் மீன்"], ["catfish", "கெளுத்தி மீன்"],
+        ["eel", "விலாங்கு மீன்"], ["jellyfish", "இழுது மீன்"], ["kingfish", "வஞ்சர மீன்"], ["lobster", "சிங்கி இறால்"], ["mullet", "கெண்டை மீன்"],
+        ["parrotfish", "கிளிமூக்கு மீன்"], ["redsnapper", "சங்கரா மீன்"], ["ribbonfish", "வாலை மீன்"], ["sawfish", "கோலா மீன்"], ["seabass", "கொடுவா மீன்"],
+        ["cuttlefish", "கணவாய் மீன்"], ["swordfish", "வாள் மீன்"], ["tigerfish", "கீச்சான்"], ["yellow tuna", "கீரை மீன்"], ["seawasp", "கடல் குளவி"]
+      ]
+    },
+    "46": {
+      "D1": [
+        ["citizen", "குடிமகன் / குடிமகள்"], ["citizenship", "குடியுரிமை"], ["border", "எல்லை"], ["interview", "நேர்காணல்"], ["immigration", "குடியேற்றம்"],
+        ["application", "விண்ணப்பம்"], ["visa", "நுழைவுச் சான்று"], ["passport", "கடவுச் சீட்டு"], ["customs", "சுங்கம்"], ["deport", "நாடு கடத்து"],
+        ["migration", "இடம் பெயர்வு"], ["nationality", "நாட்டினம்"], ["port of departure", "குடியேறிடம்"], ["port of entry", "குடி நுழைவிடம்"], ["refugee", "அகதி"],
+        ["emigration", "குடியேறல்"], ["permission", "அனுமதி"], ["document", "ஆவணம்"], ["penalty", "தண்டனை"], ["rejection", "நிராகரிப்பு"]
+      ],
+      "D2": [
+        ["foreign policy", "வெளிநாட்டுக் கொள்கை"], ["individual liberty", "தனிமனித சுதந்திரம்"], ["asylum", "புகலிடம்"], ["customs declaration", "சுங்கச் சாற்றுரை"], ["customs duty", "சுங்கத் தீர்வை"],
+        ["declaration", "சாற்றுதல்"], ["origin", "தோற்றம்"], ["denial", "மறுப்பு"], ["amnesty", "பொது மன்னிப்பு"], ["work permit", "வேலை அனுமதி"],
+        ["resettlement", "மீள் குடியேற்றம்"], ["foreign currency", "வெளிநாட்டுப் பணம்"], ["embassy", "தூதரகம்"], ["work permit", "வேலை அனுமதி"], ["smuggle", "கடத்தல்"],
+        ["traffick", "ஆட்கடத்தல்"], ["alien", "அந்நியர்"], ["sponsor", "ஆதரிப்பவர்"], ["homeland", "தாய்நாடு"], ["refugee camp", "அகதிகள்முகாம்"]
+      ]
+    },
+    "47": {
+      "D1": [
+        ["grain", "தானியம்"], ["paddy", "நெல்"], ["wheat", "கோதுமை"], ["corn", "மக்காச் சோளம்"], ["wild rice", "காட்டு அரிசி"],
+        ["brown rice", "பழுப்பு அரிசி"], ["bamboo rice", "மூங்கில் அரிசி"], ["millet", "சிறு தானியம்"], ["lotus seed", "தாமரை விதை"], ["coriander seed", "கொத்தமல்லி விதை"],
+        ["sunflower seed", "சூரியகாந்தி விதை"], ["pumpkin seed", "பூசணி விதை"], ["split redgram", "துவரம் பருப்பு"], ["split chickpeas", "கடலைப் பருப்பு"], ["blackgram", "உளுந்து"],
+        ["chickpeas", "கொண்டக்கடலை"], ["green gram", "பாசிப் பருப்பு"], ["sesame seed", "எள்"], ["red rice", "சிவப்பு அரிசி"], ["black-eyed peas", "காராமணி"]
+      ],
+      "D2": [
+        ["pearl millet", "கம்பு"], ["moth bean", "நரிப் பயறு"], ["oats", "காடைக் கண்ணி"], ["horse gram", "கொள்ளு"], ["buckwheat", "மரக் கோதுமை"],
+        ["browntop millet", "குல சாமை"], ["foxtail millet", "தினை"], ["finger millet", "கேழ்வரகு"], ["kodo millet", "வரகு"], ["little millet", "சாமை"],
+        ["flax seed", "ஆளி விதை"], ["barnyard millet", "குதிரைவாலி"], ["barley", "வாற்கோதுமை"], ["quinoa", "சீமைத்தினை"], ["sorghum", "சோளம்"],
+        ["proso millet", "பனிவரகு"], ["chia seed", "சியா விதை"], ["hemp seed", "கணக்கு விதை"], ["poppy seed", "கசகசா"], ["basil seed", "திருநீற்றுப்பச்சை விதை"]
+      ]
+    },
+    "62": {
+      "D1": [
+        ["sidewalk", "நடைபாதை"], ["school zone", "பள்ளிப் பகுதி"], ["flyover", "மேம்பாலம்"], ["subway", "சுரங்கப் பாதை"], ["accident", "விபத்து"],
+        ["speed bump", "வேகத் தடை"], ["drop-off zone", "இறக்கி விடும் இடம்"], ["pothole", "குழி"], ["traffic", "போக்குவரத்து"], ["stop sign", "நில் பலகை"],
+        ["roundabout", "வட்டச் சாலை"], ["street", "தெரு"], ["intersection", "சாலை சந்திப்பு"], ["parking lot", "வாகன நிறுத்தம்"], ["highway", "நெடுஞ்சாலை"],
+        ["toll", "சுங்கம்"], ["overtake/pass", "முந்திச் செல்லுதல்"], ["speed limit", "வேக வரம்பு"], ["bridge", "பாலம்"], ["pedestrian crossing", "நடப்போர் கடப்பிடம்"]
+      ],
+      "D2": [
+        ["lane merge", "பாதை இணைப்பு"], ["detour (diversion)", "மாற்றுப்பாதை"], ["yield", "இசைந்து கொடு"], ["pedestrian", "பாதசாரி"], ["construction", "கட்டுமானம்"],
+        ["entry ramp", "நுழைவு சரிவுப் பாதை"], ["exit ramp", "வெளியேறும் சரிவுப் பாதை"], ["pedestrian cross", "பாதசாரிகள் கடக்கும் வழி"], ["lane change", "பாதை மாற்றம்"], ["median", "சாலை இடைநிலை"],
+        ["curbside", "சாலை ஓரம்"], ["cul-de-sac", "முட்டுச் சந்து"], ["pull-over", "சாலை ஓர நிறுத்தம்"], ["road shoulder", "சாலை ஓரப் பகுதி"], ["reserved parking", "முன்பதிவு செய்யப்பட்ட நிறுத்துமிடம்"],
+        ["traffic jam", "போக்குவரத்து நெரிசல்"], ["driveway", "ஓட்டுப் பாதை"], ["distracted driving", "கவனச்சிதறலுடன் வாகனம் ஓட்டுதல்"], ["parking garage", "வாகன நிறுத்துமிடம்"], ["road signs", "சாலை குறியீடுகள்"]
+      ]
+    }
+  }
+}
