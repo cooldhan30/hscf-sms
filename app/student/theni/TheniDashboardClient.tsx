@@ -1,6 +1,58 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import { FiExternalLink, FiInfo } from 'react-icons/fi'
+import { Modal } from '@/components/dashboard/Modal'
+
+// Pulled from https://tamiltheni.org/competition/ -- kept here as data
+// (not fetched at runtime) so the rules card never depends on that site
+// being up. Full detail (eligibility, technical requirements, conduct
+// rules) stays on the source page, linked at the bottom of each modal.
+const THENI_RULES_URL = 'https://tamiltheni.org/competition/'
+
+const LEVEL_RULES: Record<number, { ageLimit: string; format: string; time: string; rounds: string; scoring: string; tiebreaker: string }> = {
+  1: {
+    ageLimit: 'Ages up to 8',
+    format: 'Name Tamil words based on pictures shown.',
+    time: '8 seconds per question',
+    rounds: 'Two rounds, five questions each',
+    scoring: 'One point per correct answer',
+    tiebreaker: 'One additional question for tied teams',
+  },
+  2: {
+    ageLimit: 'Ages up to 10',
+    format: 'Form a sentence using the pictures provided.',
+    time: '20 seconds per question',
+    rounds: 'Two rounds, five questions each',
+    scoring: 'One point per correct answer',
+    tiebreaker: 'Additional questions until one team scores higher',
+  },
+  3: {
+    ageLimit: 'Ages up to 12',
+    format: 'Translate English sentences to Tamil, spoken aloud.',
+    time: '15 seconds per question',
+    rounds: 'Two rounds, five questions each',
+    scoring: 'One point per correct answer; judges determine translation accuracy',
+    tiebreaker: 'One additional question for tied teams',
+  },
+  4: {
+    ageLimit: 'Ages up to 16',
+    format: 'Translate English sentences to Tamil and write them without errors.',
+    time: '40 seconds per question',
+    rounds: 'Two rounds, five questions each',
+    scoring: 'One point per correct answer; judges assess accuracy',
+    tiebreaker: 'One additional question for teams with identical high scores',
+  },
+  5: {
+    ageLimit: 'Ages up to 16',
+    format: 'Find the Tamil word using clue words, in a letter-pattern format.',
+    time: '60 seconds to find five words per turn',
+    rounds: 'Typically five rounds',
+    scoring: 'One point per correct word; judges evaluate proper clue usage',
+    tiebreaker: 'Additional rounds, or a bonus sentence-formation task',
+  },
+}
 
 interface Level {
   id: string
@@ -49,6 +101,8 @@ export function TheniDashboardClient({
 }) {
   const rank = rankForXp(enrollment.xp)
   const progressPct = totalWords > 0 ? Math.round((wordsMastered / totalWords) * 100) : 0
+  const [rulesLevel, setRulesLevel] = useState<Level | null>(null)
+  const openRules = LEVEL_RULES[rulesLevel?.level_number ?? -1]
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -120,6 +174,15 @@ export function TheniDashboardClient({
                   )}
                 </div>
 
+                {LEVEL_RULES[level.level_number] && (
+                  <button
+                    onClick={() => setRulesLevel(level)}
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-stone-500 dark:text-stone-400 hover:text-primary-700 dark:hover:text-primary-400"
+                  >
+                    <FiInfo className="w-3.5 h-3.5" /> Competition Rules
+                  </button>
+                )}
+
                 {isTheni1 ? (
                   <Link
                     href="/student/theni/learn"
@@ -135,6 +198,48 @@ export function TheniDashboardClient({
           })}
         </div>
       </div>
+
+      <Modal
+        open={rulesLevel !== null}
+        title={rulesLevel ? `Theni ${rulesLevel.level_number} — ${rulesLevel.name_tamil} Rules` : ''}
+        onClose={() => setRulesLevel(null)}
+      >
+        {openRules && (
+          <div className="space-y-4">
+            <p className="text-sm font-semibold text-stone-500 dark:text-stone-400">{openRules.ageLimit}</p>
+            <dl className="space-y-3 text-sm">
+              <div>
+                <dt className="font-semibold text-stone-700 dark:text-stone-300">Format</dt>
+                <dd className="text-stone-600 dark:text-stone-300 mt-0.5">{openRules.format}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-stone-700 dark:text-stone-300">Time</dt>
+                <dd className="text-stone-600 dark:text-stone-300 mt-0.5">{openRules.time}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-stone-700 dark:text-stone-300">Rounds</dt>
+                <dd className="text-stone-600 dark:text-stone-300 mt-0.5">{openRules.rounds}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-stone-700 dark:text-stone-300">Scoring</dt>
+                <dd className="text-stone-600 dark:text-stone-300 mt-0.5">{openRules.scoring}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-stone-700 dark:text-stone-300">Tie-breaker</dt>
+                <dd className="text-stone-600 dark:text-stone-300 mt-0.5">{openRules.tiebreaker}</dd>
+              </div>
+            </dl>
+            <a
+              href={THENI_RULES_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 dark:text-primary-400 hover:underline"
+            >
+              Full competition rules <FiExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
