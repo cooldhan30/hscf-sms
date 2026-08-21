@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { FiFeather, FiImage, FiRefreshCw } from 'react-icons/fi'
+import Link from 'next/link'
+import { FiFeather, FiImage, FiRefreshCw, FiSave, FiBookOpen, FiCheckCircle } from 'react-icons/fi'
 import { Button } from '@/components/ui/Button'
 
 const POLL_INTERVAL_MS = 3000
@@ -28,9 +29,18 @@ export function StoryGeneratorClient() {
   // poll loop, since the effect below re-arms off this same value.
   const [imageStatus, setImageStatus] = useState<ImageStatus>('idle')
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [imageKey, setImageKey] = useState<string | null>(null)
   const [imageError, setImageError] = useState<string | null>(null)
   const [promptId, setPromptId] = useState<string | null>(null)
   const pollCountRef = useRef(0)
+
+  // Set once a save succeeds; the saved row's id is what a later
+  // illustration PATCHes onto (see handleGenerateImage) so generating an
+  // image after saving updates the same row instead of needing a second
+  // save action.
+  const [savedStoryId, setSavedStoryId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault()
@@ -42,8 +52,11 @@ export function StoryGeneratorClient() {
     // previous one -- reset the image lifecycle along with it.
     setImageStatus('idle')
     setImageUrl(null)
+    setImageKey(null)
     setImageError(null)
     setPromptId(null)
+    setSavedStoryId(null)
+    setSaveError(null)
 
     try {
       const res = await fetch('/api/generate-story', {
@@ -75,6 +88,7 @@ export function StoryGeneratorClient() {
     setImageStatus('generating')
     setImageError(null)
     setImageUrl(null)
+    setImageKey(null)
     pollCountRef.current = 0
 
     // Reusing the teacher's own theme as the image prompt -- it's
@@ -106,6 +120,32 @@ export function StoryGeneratorClient() {
     }
   }
 
+  async function handleSaveStory() {
+    if (!story || saving) return
+    setSaving(true)
+    setSaveError(null)
+
+    try {
+      const res = await fetch('/api/teacher/stories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme, story, imageKey }),
+      })
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        setSaveError(data.error || 'Failed to save story')
+        return
+      }
+
+      setSavedStoryId(data.story.id)
+    } catch {
+      setSaveError('Failed to save story -- check your connection and try again')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Polls /api/story-image/status while a job is in flight. Re-arms
   // whenever promptId changes and tears itself down on completion/error/
   // unmount, so navigating away mid-poll just stops polling rather than
@@ -132,6 +172,22 @@ export function StoryGeneratorClient() {
           clearInterval(interval)
           setImageStatus('done')
           setImageUrl(data.url)
+          setImageKey(data.key)
+          // Story already saved (teacher clicked Save before generating
+          // the illustration, or is regenerating one after an earlier
+          // save) -- attach the new image to that same row rather than
+          // requiring a second explicit save just for the picture.
+          if (savedStoryId) {
+            fetch(`/api/teacher/stories/${savedStoryId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ imageKey: data.key }),
+            }).catch(() => {
+              // Best-effort -- the image still displays in this session
+              // either way; a failed background attach just means it
+              // won't show up yet in the saved library until retried.
+            })
+          }
           return
         }
 
@@ -153,7 +209,7 @@ export function StoryGeneratorClient() {
     }, POLL_INTERVAL_MS)
 
     return () => clearInterval(interval)
-  }, [promptId, imageStatus])
+  }, [promptId, imageStatus, savedStoryId])
 
   return (
     <div className="space-y-6">
@@ -215,10 +271,36 @@ export function StoryGeneratorClient() {
         </Button>
       </form>
 
+      <div className="flex justify-end">
+        <Link
+          href="/teacher/story-generator/stories"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 dark:text-primary-400 hover:underline"
+        >
+          <FiBookOpen className="w-4 h-4" /> My Stories
+        </Link>
+      </div>
+
       {story && (
         <div className="p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-4">
           <h2 className="font-bold text-stone-800 dark:text-stone-100">Generated Story</h2>
           <p className="text-stone-700 dark:text-stone-200 whitespace-pre-wrap leading-relaxed">{story}</p>
+
+          <div>
+            {saveError && (
+              <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2 mb-2">
+                {saveError}
+              </p>
+            )}
+            {savedStoryId ? (
+              <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 dark:text-primary-400">
+                <FiCheckCircle className="w-4 h-4" /> Saved to My Stories
+              </p>
+            ) : (
+              <Button variant="outline" icon={<FiSave />} onClick={handleSaveStory} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Story'}
+              </Button>
+            )}
+          </div>
 
           <div className="pt-2 border-t border-stone-100 dark:border-stone-800 space-y-3">
             {imageStatus === 'idle' && (

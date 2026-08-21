@@ -325,6 +325,16 @@ export interface SmsBackupSettings {
   updated_at: string
 }
 
+export interface SmsTeacherStory {
+  id: string
+  created_by: string
+  theme: string
+  story: string
+  image_key: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface WebsiteRegistration {
   id: string
   student_first_name: string
