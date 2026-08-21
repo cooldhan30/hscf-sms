@@ -1,8 +1,17 @@
 'use client'
 
-import { useState } from 'react'
-import { FiFeather } from 'react-icons/fi'
+import { useEffect, useRef, useState } from 'react'
+import { FiFeather, FiImage, FiRefreshCw } from 'react-icons/fi'
 import { Button } from '@/components/ui/Button'
+
+const POLL_INTERVAL_MS = 3000
+// ComfyUI generation runs 30-50s on the home GPU -- 40 polls at 3s each
+// gives a 2-minute ceiling before giving up, comfortably past the
+// observed worst case without leaving a teacher waiting indefinitely on
+// a job that's genuinely stuck.
+const MAX_POLLS = 40
+
+type ImageStatus = 'idle' | 'generating' | 'done' | 'error'
 
 export function StoryGeneratorClient() {
   const [theme, setTheme] = useState('')
@@ -12,12 +21,29 @@ export function StoryGeneratorClient() {
   const [error, setError] = useState<string | null>(null)
   const [story, setStory] = useState<string | null>(null)
 
+  // Kept in component state (not persisted) -- the story itself isn't
+  // saved anywhere yet either, so the image follows the same lifetime:
+  // both are gone on refresh. promptId living in state (not a ref) means
+  // a re-render from elsewhere on the page won't drop an in-progress
+  // poll loop, since the effect below re-arms off this same value.
+  const [imageStatus, setImageStatus] = useState<ImageStatus>('idle')
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [imageError, setImageError] = useState<string | null>(null)
+  const [promptId, setPromptId] = useState<string | null>(null)
+  const pollCountRef = useRef(0)
+
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault()
     if (generating) return
 
     setGenerating(true)
     setError(null)
+    // A new story invalidates whatever illustration belonged to the
+    // previous one -- reset the image lifecycle along with it.
+    setImageStatus('idle')
+    setImageUrl(null)
+    setImageError(null)
+    setPromptId(null)
 
     try {
       const res = await fetch('/api/generate-story', {
@@ -43,6 +69,91 @@ export function StoryGeneratorClient() {
       setGenerating(false)
     }
   }
+
+  async function handleGenerateImage() {
+    if (imageStatus === 'generating') return
+    setImageStatus('generating')
+    setImageError(null)
+    setImageUrl(null)
+    pollCountRef.current = 0
+
+    // Reusing the teacher's own theme as the image prompt -- it's
+    // already a short scene description ("a story about a helpful
+    // elephant"), unlike the generated story itself, which is long-form
+    // Tamil prose that Stable Diffusion checkpoints handle poorly.
+    // Wrapped with a fixed style prefix so every illustration reads as
+    // the same "children's book" look regardless of theme.
+    const prompt = `children's book illustration, storybook art style, colorful, ${theme}`
+
+    try {
+      const res = await fetch('/api/story-image/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      })
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        setImageStatus('error')
+        setImageError(data.error || 'Failed to start image generation')
+        return
+      }
+
+      setPromptId(data.promptId)
+    } catch {
+      setImageStatus('error')
+      setImageError('Failed to start image generation -- check your connection and try again')
+    }
+  }
+
+  // Polls /api/story-image/status while a job is in flight. Re-arms
+  // whenever promptId changes and tears itself down on completion/error/
+  // unmount, so navigating away mid-poll just stops polling rather than
+  // leaking an interval -- there's nowhere else for an in-progress
+  // promptId to live once this component is gone, matching the
+  // client-state-only scope of the story text it belongs to.
+  useEffect(() => {
+    if (!promptId || imageStatus !== 'generating') return
+
+    const interval = setInterval(async () => {
+      pollCountRef.current += 1
+      try {
+        const res = await fetch(`/api/story-image/status?promptId=${encodeURIComponent(promptId)}`)
+        const data = await res.json().catch(() => ({}))
+
+        if (!res.ok || data.status === 'error') {
+          clearInterval(interval)
+          setImageStatus('error')
+          setImageError(data.error || 'Image generation failed')
+          return
+        }
+
+        if (data.status === 'done') {
+          clearInterval(interval)
+          setImageStatus('done')
+          setImageUrl(data.url)
+          return
+        }
+
+        if (pollCountRef.current >= MAX_POLLS) {
+          clearInterval(interval)
+          setImageStatus('error')
+          setImageError('Image generation is taking longer than expected -- please try again.')
+        }
+      } catch {
+        // A single dropped poll isn't fatal -- keep trying until
+        // MAX_POLLS, since a transient network hiccup shouldn't abandon
+        // a job that's still genuinely running on the server.
+        if (pollCountRef.current >= MAX_POLLS) {
+          clearInterval(interval)
+          setImageStatus('error')
+          setImageError('Lost connection while checking image generation status.')
+        }
+      }
+    }, POLL_INTERVAL_MS)
+
+    return () => clearInterval(interval)
+  }, [promptId, imageStatus])
 
   return (
     <div className="space-y-6">
@@ -105,9 +216,45 @@ export function StoryGeneratorClient() {
       </form>
 
       {story && (
-        <div className="p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
-          <h2 className="font-bold text-stone-800 dark:text-stone-100 mb-3">Generated Story</h2>
+        <div className="p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-4">
+          <h2 className="font-bold text-stone-800 dark:text-stone-100">Generated Story</h2>
           <p className="text-stone-700 dark:text-stone-200 whitespace-pre-wrap leading-relaxed">{story}</p>
+
+          <div className="pt-2 border-t border-stone-100 dark:border-stone-800 space-y-3">
+            {imageStatus === 'idle' && (
+              <Button variant="outline" icon={<FiImage />} onClick={handleGenerateImage}>
+                Generate Illustration
+              </Button>
+            )}
+
+            {imageStatus === 'generating' && (
+              <div className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400">
+                <FiRefreshCw className="w-4 h-4 animate-spin" />
+                Generating illustration... this can take 30-50 seconds.
+              </div>
+            )}
+
+            {imageStatus === 'error' && (
+              <div className="space-y-2">
+                <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">
+                  {imageError}
+                </p>
+                <Button variant="outline" icon={<FiRefreshCw />} onClick={handleGenerateImage}>
+                  Try Again
+                </Button>
+              </div>
+            )}
+
+            {imageStatus === 'done' && imageUrl && (
+              <div className="space-y-3">
+                {/* eslint-disable-next-line @next/next/no-img-element -- generated illustration, arbitrary B2 signed URL */}
+                <img src={imageUrl} alt="Story illustration" className="w-full max-w-xs mx-auto rounded-xl border border-stone-200 dark:border-stone-800" />
+                <Button variant="outline" icon={<FiRefreshCw />} onClick={handleGenerateImage}>
+                  Regenerate Illustration
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
