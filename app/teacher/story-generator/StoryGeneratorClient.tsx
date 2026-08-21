@@ -32,6 +32,9 @@ export function StoryGeneratorClient() {
   const [imageKey, setImageKey] = useState<string | null>(null)
   const [imageError, setImageError] = useState<string | null>(null)
   const [promptId, setPromptId] = useState<string | null>(null)
+  // 1-based position in ComfyUI's combined running+pending queue (1 =
+  // currently executing); null until the first poll reports one.
+  const [queuePosition, setQueuePosition] = useState<number | null>(null)
   const pollCountRef = useRef(0)
 
   // Set once a save succeeds; the saved row's id is what a later
@@ -55,6 +58,7 @@ export function StoryGeneratorClient() {
     setImageKey(null)
     setImageError(null)
     setPromptId(null)
+    setQueuePosition(null)
     setSavedStoryId(null)
     setSaveError(null)
 
@@ -89,6 +93,7 @@ export function StoryGeneratorClient() {
     setImageError(null)
     setImageUrl(null)
     setImageKey(null)
+    setQueuePosition(null)
     pollCountRef.current = 0
 
     // Reusing the teacher's own theme as the image prompt -- it's
@@ -190,6 +195,12 @@ export function StoryGeneratorClient() {
           }
           return
         }
+
+        // data.status === 'pending' -- still queued/running. Position is
+        // best-effort (the status route falls back to null if the queue
+        // check itself fails), so this just quietly has no number to
+        // show rather than treating a missing position as an error.
+        setQueuePosition(typeof data.position === 'number' ? data.position : null)
 
         if (pollCountRef.current >= MAX_POLLS) {
           clearInterval(interval)
@@ -312,7 +323,13 @@ export function StoryGeneratorClient() {
             {imageStatus === 'generating' && (
               <div className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400">
                 <FiRefreshCw className="w-4 h-4 animate-spin" />
-                Generating illustration... this can take 30-50 seconds.
+                {queuePosition === null ? (
+                  'Starting illustration generation...'
+                ) : queuePosition === 1 ? (
+                  'Generating your illustration now... this can take 30-50 seconds.'
+                ) : (
+                  `${queuePosition}${queuePosition === 2 ? 'nd' : queuePosition === 3 ? 'rd' : 'th'} in queue -- other teachers are generating illustrations too. This may take a few minutes.`
+                )}
               </div>
             )}
 

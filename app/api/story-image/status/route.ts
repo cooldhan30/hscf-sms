@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/require-teacher'
-import { checkComfyUIHistory, fetchComfyUIImage, ComfyUIError } from '@/lib/comfyui'
+import { checkComfyUIHistory, fetchComfyUIImage, getComfyUIQueueInfo, ComfyUIError } from '@/lib/comfyui'
 import { uploadB2Object, getB2ReadUrl } from '@/lib/storage/b2'
 
 const READ_URL_TTL_SECONDS = 60 * 60
@@ -31,7 +31,14 @@ export async function GET(request: Request) {
   try {
     const imageRef = await checkComfyUIHistory(promptId)
     if (!imageRef) {
-      return NextResponse.json({ status: 'pending' })
+      // Still queued or running -- surface where in line this job is so
+      // the frontend can show "3rd in queue" instead of a flat time
+      // estimate regardless of how busy the single GPU actually is.
+      // Best-effort: a queue-check failure shouldn't turn a still-pending
+      // job into a reported error, so this falls back to "pending" with
+      // no position rather than failing the whole poll.
+      const queueInfo = await getComfyUIQueueInfo(promptId).catch(() => ({ position: null, totalDepth: 0 }))
+      return NextResponse.json({ status: 'pending', position: queueInfo.position })
     }
 
     const bytes = await fetchComfyUIImage(imageRef)

@@ -81,6 +81,55 @@ export interface ComfyUIImageRef {
   type: string
 }
 
+export interface ComfyUIQueueInfo {
+  // Total jobs ComfyUI is currently running + waiting on, across every
+  // caller -- this GPU has no concept of "our app's jobs" vs anyone
+  // else's, so this is a global depth, not scoped to this app.
+  totalDepth: number
+  // 1-based position of a specific prompt_id within that combined
+  // running+pending order (1 = currently executing), or null if the job
+  // isn't in the queue at all (already finished, since /queue only lists
+  // running+pending, or promptId simply doesn't exist).
+  position: number | null
+}
+
+// GET /queue -- ComfyUI returns { queue_running: [...], queue_pending: [...] },
+// each entry shaped [number, prompt_id, workflow, extra, outputs]. Position
+// is computed by index in running-then-pending order, since that's the
+// actual execution order this single-GPU instance processes jobs in.
+export async function getComfyUIQueueInfo(promptId?: string): Promise<ComfyUIQueueInfo> {
+  let res: Response
+  try {
+    res = await fetch(`${comfyBaseUrl()}/queue`, {
+      headers: comfyHeaders(),
+      signal: AbortSignal.timeout(10_000),
+    })
+  } catch (err) {
+    if (err instanceof Error && err.name === 'TimeoutError') {
+      throw new ComfyUIError('ComfyUI did not respond to the queue check in time')
+    }
+    throw new ComfyUIError(`Could not reach ComfyUI: ${err instanceof Error ? err.message : String(err)}`)
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new ComfyUIError(`ComfyUI queue check failed (${res.status}): ${body || res.statusText}`, res.status)
+  }
+
+  const data = await res.json()
+  const running: unknown[] = Array.isArray(data?.queue_running) ? data.queue_running : []
+  const pending: unknown[] = Array.isArray(data?.queue_pending) ? data.queue_pending : []
+  const combined = [...running, ...pending]
+
+  let position: number | null = null
+  if (promptId) {
+    const index = combined.findIndex((entry) => Array.isArray(entry) && entry[1] === promptId)
+    position = index === -1 ? null : index + 1
+  }
+
+  return { totalDepth: combined.length, position }
+}
+
 // Step 1 of the queue -> poll -> fetch flow: submit the workflow, get back
 // a prompt_id to poll for later. Fast call, safe to await directly in a
 // route handler (well under any serverless timeout).
