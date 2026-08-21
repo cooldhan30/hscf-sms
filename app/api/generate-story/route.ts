@@ -69,6 +69,14 @@ export async function POST(request: Request) {
       { role: 'user', content: theme },
     ])
 
+    // To pair an illustration with this story once the client has the
+    // text, POST /api/story-image/generate with a prompt derived from
+    // the story (e.g. its opening scene or a one-line summary), then
+    // poll GET /api/story-image/status?promptId=... every few seconds
+    // until { status: 'done', url } comes back -- see lib/comfyui.ts.
+    // Not wired in here: image generation takes 30-50s on the home-server
+    // GPU, so it belongs in its own client-driven poll loop rather than
+    // blocking this (already rate-limited) text response.
     return NextResponse.json({ story })
   } catch (err) {
     if (err instanceof GroqRateLimitError) {
