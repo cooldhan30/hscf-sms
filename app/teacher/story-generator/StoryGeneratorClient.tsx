@@ -52,6 +52,7 @@ export function StoryGeneratorClient() {
 
     setGenerating(true)
     setError(null)
+    setStory(null)
     // A new story invalidates whatever illustration belonged to the
     // previous one -- reset the image lifecycle along with it.
     setImageStatus('idle')
@@ -62,6 +63,16 @@ export function StoryGeneratorClient() {
     setQueuePosition(null)
     setSavedStoryId(null)
     setSaveError(null)
+
+    // Story text (Groq, fast) and the illustration (ComfyUI, ~8-10s) are
+    // both derived from the theme, not from each other -- the image
+    // prompt reuses the teacher's raw theme text, never the generated
+    // story -- so there's no real dependency forcing them to run one
+    // after another. Fired together rather than awaited in sequence;
+    // handleGenerateImage manages its own status/error state
+    // independently, so a slow or failed illustration never blocks the
+    // story text from appearing or being saved.
+    handleGenerateImage()
 
     try {
       const res = await fetch('/api/generate-story', {
@@ -100,7 +111,10 @@ export function StoryGeneratorClient() {
     // Reusing the teacher's own theme as the image prompt -- it's
     // already a short scene description ("a story about a helpful
     // elephant"), unlike the generated story itself, which is long-form
-    // Tamil prose that Stable Diffusion checkpoints handle poorly.
+    // Tamil prose that Stable Diffusion checkpoints handle poorly. This
+    // also means the illustration prompt is available immediately, even
+    // before the story text comes back, which is what makes running the
+    // two in parallel possible at all.
     // Wrapped with a fixed style prefix so every illustration reads as
     // the same "children's book" look regardless of theme.
     const prompt = `children's book illustration, storybook art style, colorful, ${theme}`
@@ -316,6 +330,11 @@ export function StoryGeneratorClient() {
 
           <div className="pt-2 border-t border-stone-100 dark:border-stone-800 space-y-3">
             {imageStatus === 'idle' && (
+              // Fallback only -- handleGenerate already kicks off the
+              // illustration automatically alongside the story text, so
+              // this shouldn't normally be reachable while a story is
+              // showing. Kept in case a future save-a-draft/text-only
+              // path skips the auto-trigger.
               <Button variant="outline" icon={<FiImage />} onClick={handleGenerateImage}>
                 Generate Illustration
               </Button>
@@ -325,9 +344,9 @@ export function StoryGeneratorClient() {
               <div className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400">
                 <FiRefreshCw className="w-4 h-4 animate-spin" />
                 {queuePosition === null ? (
-                  'Starting illustration generation...'
+                  'Starting illustration...'
                 ) : queuePosition === 1 ? (
-                  'Generating your illustration now... this usually takes about 10 seconds.'
+                  'Illustrating your story... this usually takes about 10 seconds.'
                 ) : (
                   `${queuePosition}${queuePosition === 2 ? 'nd' : queuePosition === 3 ? 'rd' : 'th'} in queue -- other teachers are generating illustrations too. This may take a few minutes.`
                 )}
@@ -337,7 +356,7 @@ export function StoryGeneratorClient() {
             {imageStatus === 'error' && (
               <div className="space-y-2">
                 <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">
-                  {imageError}
+                  Illustration: {imageError} You can still save your story without it.
                 </p>
                 <Button variant="outline" icon={<FiRefreshCw />} onClick={handleGenerateImage}>
                   Try Again
