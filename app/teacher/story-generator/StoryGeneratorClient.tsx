@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { FiFeather, FiImage, FiRefreshCw, FiSave, FiBookOpen, FiCheckCircle } from 'react-icons/fi'
 import { Button } from '@/components/ui/Button'
+import { STORY_LEVEL_OPTIONS } from '@/lib/storyLevels'
 
 const POLL_INTERVAL_MS = 2000
 // LCM-LoRA generation runs ~7-8s once the model is warm in VRAM (down
@@ -14,19 +15,16 @@ const POLL_INTERVAL_MS = 2000
 const MAX_POLLS = 15
 
 type ImageStatus = 'idle' | 'generating' | 'done' | 'error'
-type StoryLength = 'short' | 'medium' | 'long'
-
-const LENGTH_OPTIONS: { value: StoryLength; label: string; hint: string }[] = [
-  { value: 'short', label: 'Short', hint: '~20-40 words' },
-  { value: 'medium', label: 'Medium', hint: '~200-300 words' },
-  { value: 'long', label: 'Long', hint: '~400-500 words' },
-]
 
 export function StoryGeneratorClient() {
   const [theme, setTheme] = useState('')
   const [language, setLanguage] = useState<'ta' | 'en'>('ta')
-  const [targetAge, setTargetAge] = useState('')
-  const [length, setLength] = useState<StoryLength>('medium')
+  // Ties word count, vocabulary, and sentence complexity together per
+  // Nilai level (see lib/storyLevels.ts) -- reuses the same grade/level
+  // scale as the rest of the app instead of a standalone length control,
+  // since a story that's the right length but the wrong vocabulary for
+  // that level defeats the point.
+  const [level, setLevel] = useState<string>(STORY_LEVEL_OPTIONS[1]?.value ?? STORY_LEVEL_OPTIONS[0].value)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [story, setStory] = useState<string | null>(null)
@@ -94,12 +92,7 @@ export function StoryGeneratorClient() {
       const res = await fetch('/api/generate-story', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          theme,
-          language,
-          length,
-          targetAge: targetAge ? Number(targetAge) : undefined,
-        }),
+        body: JSON.stringify({ theme, language, level }),
       })
       const data = await res.json().catch(() => ({}))
 
@@ -288,40 +281,25 @@ export function StoryGeneratorClient() {
           </p>
         </div>
 
-        <div>
-          <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Story Length</label>
-          <div className="grid grid-cols-3 gap-2">
-            {LENGTH_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setLength(opt.value)}
-                className={`px-3 py-2 rounded-lg border text-sm font-semibold transition-colors ${
-                  length === opt.value
-                    ? 'border-primary-600 bg-primary-50 dark:bg-primary-950/40 text-primary-800 dark:text-primary-300'
-                    : 'border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800'
-                }`}
-              >
-                {opt.label}
-                <span className="block text-xs font-normal opacity-75">{opt.hint}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
-              Target Age (optional)
+              Student Level
             </label>
-            <input
-              type="number"
-              min="1"
-              value={targetAge}
-              onChange={(e) => setTargetAge(e.target.value)}
-              placeholder="e.g. 7"
+            <select
+              value={level}
+              onChange={(e) => setLevel(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
-            />
+            >
+              {STORY_LEVEL_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+              Sets the story&apos;s length, vocabulary, and sentence complexity together.
+            </p>
           </div>
           <div>
             <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
