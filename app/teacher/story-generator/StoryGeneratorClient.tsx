@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { FiFeather, FiImage, FiRefreshCw, FiSave, FiBookOpen, FiCheckCircle } from 'react-icons/fi'
 import { Button } from '@/components/ui/Button'
 
-const POLL_INTERVAL_MS = 3000
-// ComfyUI generation runs 30-50s on the home GPU -- 40 polls at 3s each
-// gives a 2-minute ceiling before giving up, comfortably past the
-// observed worst case without leaving a teacher waiting indefinitely on
-// a job that's genuinely stuck.
-const MAX_POLLS = 40
+const POLL_INTERVAL_MS = 2000
+// LCM-LoRA generation runs ~7-8s once the model is warm in VRAM (down
+// from ~30-50s on the previous 30-step config) -- 15 polls at 2s each
+// gives a 30s ceiling, comfortably covering a cold-start model load or
+// a queue of a few jobs ahead of this one without leaving a teacher
+// waiting a full 2 minutes on a job that's genuinely stuck.
+const MAX_POLLS = 15
 
 type ImageStatus = 'idle' | 'generating' | 'done' | 'error'
 
@@ -326,7 +327,7 @@ export function StoryGeneratorClient() {
                 {queuePosition === null ? (
                   'Starting illustration generation...'
                 ) : queuePosition === 1 ? (
-                  'Generating your illustration now... this can take 30-50 seconds.'
+                  'Generating your illustration now... this usually takes about 10 seconds.'
                 ) : (
                   `${queuePosition}${queuePosition === 2 ? 'nd' : queuePosition === 3 ? 'rd' : 'th'} in queue -- other teachers are generating illustrations too. This may take a few minutes.`
                 )}
