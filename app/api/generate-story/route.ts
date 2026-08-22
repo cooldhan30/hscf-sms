@@ -11,7 +11,7 @@ type StoryLength = (typeof STORY_LENGTHS)[number]
 // instruction concrete rather than something like "a few paragraphs"
 // that a model can interpret very differently across runs.
 const LENGTH_GUIDANCE: Record<StoryLength, string> = {
-  short: 'Keep the story short -- about 80-120 words.',
+  short: 'Keep the story very short -- about 20-40 words.',
   medium: 'Write a medium-length story -- about 200-300 words.',
   long: 'Write a longer, more detailed story -- about 400-500 words.',
 }

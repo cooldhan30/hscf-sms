@@ -17,7 +17,7 @@ type ImageStatus = 'idle' | 'generating' | 'done' | 'error'
 type StoryLength = 'short' | 'medium' | 'long'
 
 const LENGTH_OPTIONS: { value: StoryLength; label: string; hint: string }[] = [
-  { value: 'short', label: 'Short', hint: '~80-120 words' },
+  { value: 'short', label: 'Short', hint: '~20-40 words' },
   { value: 'medium', label: 'Medium', hint: '~200-300 words' },
   { value: 'long', label: 'Long', hint: '~400-500 words' },
 ]
