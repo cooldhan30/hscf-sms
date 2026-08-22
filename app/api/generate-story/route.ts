@@ -3,7 +3,20 @@ import { requireTeacher } from '@/lib/require-teacher'
 import { requireString, requireEnum } from '@/lib/validation'
 import { groqChatCompletion, GroqRateLimitError, GroqRequestError } from '@/lib/groq'
 
-function buildSystemPrompt(targetAge: number | null, language: 'ta' | 'en'): string {
+const STORY_LENGTHS = ['short', 'medium', 'long'] as const
+type StoryLength = (typeof STORY_LENGTHS)[number]
+
+// Word counts, not paragraph/page counts -- Tamil word boundaries are
+// clear enough for a model to target directly, and this keeps the
+// instruction concrete rather than something like "a few paragraphs"
+// that a model can interpret very differently across runs.
+const LENGTH_GUIDANCE: Record<StoryLength, string> = {
+  short: 'Keep the story short -- about 80-120 words.',
+  medium: 'Write a medium-length story -- about 200-300 words.',
+  long: 'Write a longer, more detailed story -- about 400-500 words.',
+}
+
+function buildSystemPrompt(targetAge: number | null, language: 'ta' | 'en', length: StoryLength): string {
   const ageGuidance =
     targetAge && targetAge <= 6
       ? 'The reader is a very young child (around 4-6 years old). Use very simple, common Tamil words, short sentences, and a straightforward storyline.'
@@ -23,6 +36,7 @@ function buildSystemPrompt(targetAge: number | null, language: 'ta' | 'en'): str
     'Write the ENTIRE story in Tamil script only -- no English words or transliteration.',
     'The story must have a clear beginning, middle, and end.',
     ageGuidance,
+    LENGTH_GUIDANCE[length],
     'Avoid unnecessarily complex or archaic vocabulary.',
     themeNote,
     'Return only the story text -- no title, no preamble, no notes about the story.',
@@ -46,6 +60,7 @@ export async function POST(request: Request) {
   const errors: string[] = []
   const theme = requireString(body.theme, 'Theme', errors)
   const language = body.language === undefined ? 'ta' : requireEnum(body.language, ['ta', 'en'] as const, 'Language', errors)
+  const length = body.length === undefined ? 'medium' : requireEnum(body.length, STORY_LENGTHS, 'Length', errors)
 
   let targetAge: number | null = null
   if (body.targetAge !== undefined && body.targetAge !== null && body.targetAge !== '') {
@@ -61,7 +76,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: errors.join('; ') }, { status: 400 })
   }
 
-  const systemPrompt = buildSystemPrompt(targetAge, language ?? 'ta')
+  const systemPrompt = buildSystemPrompt(targetAge, language ?? 'ta', length ?? 'medium')
 
   try {
     const story = await groqChatCompletion([

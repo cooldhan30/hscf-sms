@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/require-teacher'
-import { optionalString } from '@/lib/validation'
+import { requireString, optionalString } from '@/lib/validation'
 
-// PATCH /api/teacher/stories/[id] -- attach/replace the illustration on
-// an already-saved story (generating or regenerating an image happens
-// after the initial save, as its own step). RLS ("teacher_stories:
+// PATCH /api/teacher/stories/[id] -- update an already-saved story.
+// Covers two distinct callers: re-saving the same theme's story after
+// the teacher regenerated its illustration (theme/story/imageKey
+// together, representing a new combination as of this save), and the
+// narrower "just attach this image" case. RLS ("teacher_stories:
 // teacher manage own") scopes this to the caller's own rows -- updating
 // someone else's story affects 0 rows, surfaced as 404 below.
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
@@ -17,8 +19,14 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
+  const errors: string[] = []
   const updates: Record<string, unknown> = {}
+  if ('theme' in body) updates.theme = requireString(body.theme, 'Theme', errors)
+  if ('story' in body) updates.story = requireString(body.story, 'Story', errors)
   if ('imageKey' in body) updates.image_key = optionalString(body.imageKey)
+  if (errors.length > 0) {
+    return NextResponse.json({ error: errors.join('; ') }, { status: 400 })
+  }
 
   const { data, error } = await supabase
     .from('sms_teacher_stories')

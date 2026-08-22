@@ -14,11 +14,19 @@ const POLL_INTERVAL_MS = 2000
 const MAX_POLLS = 15
 
 type ImageStatus = 'idle' | 'generating' | 'done' | 'error'
+type StoryLength = 'short' | 'medium' | 'long'
+
+const LENGTH_OPTIONS: { value: StoryLength; label: string; hint: string }[] = [
+  { value: 'short', label: 'Short', hint: '~80-120 words' },
+  { value: 'medium', label: 'Medium', hint: '~200-300 words' },
+  { value: 'long', label: 'Long', hint: '~400-500 words' },
+]
 
 export function StoryGeneratorClient() {
   const [theme, setTheme] = useState('')
   const [language, setLanguage] = useState<'ta' | 'en'>('ta')
   const [targetAge, setTargetAge] = useState('')
+  const [length, setLength] = useState<StoryLength>('medium')
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [story, setStory] = useState<string | null>(null)
@@ -38,11 +46,15 @@ export function StoryGeneratorClient() {
   const [queuePosition, setQueuePosition] = useState<number | null>(null)
   const pollCountRef = useRef(0)
 
-  // Set once a save succeeds; the saved row's id is what a later
-  // illustration PATCHes onto (see handleGenerateImage) so generating an
-  // image after saving updates the same row instead of needing a second
-  // save action.
+  // savedStoryId reflects whether THIS EXACT text+image combination is
+  // currently saved -- it's cleared (see handleGenerateImage) the moment
+  // the illustration is regenerated, so "Saved to My Stories" never
+  // lies about which image actually got persisted. rowIdRef survives
+  // that reset: it's the row a fresh Save should update rather than
+  // duplicate, since a regenerate-then-save is still "the same story
+  // session", just a newer pairing of the same theme's text and image.
   const [savedStoryId, setSavedStoryId] = useState<string | null>(null)
+  const rowIdRef = useRef<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -63,6 +75,10 @@ export function StoryGeneratorClient() {
     setQueuePosition(null)
     setSavedStoryId(null)
     setSaveError(null)
+    // A brand-new generation is a new story session -- a fresh Save
+    // should create a new row, not update whatever the previous theme's
+    // story was saved as.
+    rowIdRef.current = null
 
     // Story text (Groq, fast) and the illustration (ComfyUI, ~8-10s) are
     // both derived from the theme, not from each other -- the image
@@ -81,6 +97,7 @@ export function StoryGeneratorClient() {
         body: JSON.stringify({
           theme,
           language,
+          length,
           targetAge: targetAge ? Number(targetAge) : undefined,
         }),
       })
@@ -107,6 +124,15 @@ export function StoryGeneratorClient() {
     setImageKey(null)
     setQueuePosition(null)
     pollCountRef.current = 0
+    // A save represents "this exact text+image combination" as of the
+    // moment the teacher clicked Save -- regenerating the illustration
+    // afterward produces a different combination, so it un-saves rather
+    // than silently patching the image onto the row that's already
+    // persisted. The teacher explicitly saves again to persist the new
+    // pairing (same saved row gets updated, not a second one created --
+    // see handleSaveStory).
+    setSavedStoryId(null)
+    setSaveError(null)
 
     // Reusing the teacher's own theme as the image prompt -- it's
     // already a short scene description ("a story about a helpful
@@ -145,9 +171,17 @@ export function StoryGeneratorClient() {
     setSaving(true)
     setSaveError(null)
 
+    // Save always captures the current text+image together as one unit.
+    // If this theme's story was already saved once (rowIdRef survives an
+    // illustration regenerate, unlike savedStoryId), a fresh save updates
+    // that same row with the new pairing rather than creating a
+    // duplicate entry per regenerate.
+    const isUpdate = Boolean(rowIdRef.current)
+    const url = isUpdate ? `/api/teacher/stories/${rowIdRef.current}` : '/api/teacher/stories'
+
     try {
-      const res = await fetch('/api/teacher/stories', {
-        method: 'POST',
+      const res = await fetch(url, {
+        method: isUpdate ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ theme, story, imageKey }),
       })
@@ -158,6 +192,7 @@ export function StoryGeneratorClient() {
         return
       }
 
+      rowIdRef.current = data.story.id
       setSavedStoryId(data.story.id)
     } catch {
       setSaveError('Failed to save story -- check your connection and try again')
@@ -193,21 +228,11 @@ export function StoryGeneratorClient() {
           setImageStatus('done')
           setImageUrl(data.url)
           setImageKey(data.key)
-          // Story already saved (teacher clicked Save before generating
-          // the illustration, or is regenerating one after an earlier
-          // save) -- attach the new image to that same row rather than
-          // requiring a second explicit save just for the picture.
-          if (savedStoryId) {
-            fetch(`/api/teacher/stories/${savedStoryId}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ imageKey: data.key }),
-            }).catch(() => {
-              // Best-effort -- the image still displays in this session
-              // either way; a failed background attach just means it
-              // won't show up yet in the saved library until retried.
-            })
-          }
+          // No auto-attach here -- save represents "this exact
+          // combination as of right now", so a freshly (re)generated
+          // image only gets persisted when the teacher explicitly clicks
+          // Save Story again (handleGenerateImage already cleared
+          // savedStoryId when this run started).
           return
         }
 
@@ -235,7 +260,7 @@ export function StoryGeneratorClient() {
     }, POLL_INTERVAL_MS)
 
     return () => clearInterval(interval)
-  }, [promptId, imageStatus, savedStoryId])
+  }, [promptId, imageStatus])
 
   return (
     <div className="space-y-6">
@@ -261,6 +286,27 @@ export function StoryGeneratorClient() {
           <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
             Tamil or English -- the story itself is always written in Tamil.
           </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Story Length</label>
+          <div className="grid grid-cols-3 gap-2">
+            {LENGTH_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setLength(opt.value)}
+                className={`px-3 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                  length === opt.value
+                    ? 'border-primary-600 bg-primary-50 dark:bg-primary-950/40 text-primary-800 dark:text-primary-300'
+                    : 'border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800'
+                }`}
+              >
+                {opt.label}
+                <span className="block text-xs font-normal opacity-75">{opt.hint}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -309,26 +355,8 @@ export function StoryGeneratorClient() {
       {story && (
         <div className="p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-4">
           <h2 className="font-bold text-stone-800 dark:text-stone-100">Generated Story</h2>
-          <p className="text-stone-700 dark:text-stone-200 whitespace-pre-wrap leading-relaxed">{story}</p>
 
           <div>
-            {saveError && (
-              <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2 mb-2">
-                {saveError}
-              </p>
-            )}
-            {savedStoryId ? (
-              <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 dark:text-primary-400">
-                <FiCheckCircle className="w-4 h-4" /> Saved to My Stories
-              </p>
-            ) : (
-              <Button variant="outline" icon={<FiSave />} onClick={handleSaveStory} disabled={saving}>
-                {saving ? 'Saving...' : 'Save Story'}
-              </Button>
-            )}
-          </div>
-
-          <div className="pt-2 border-t border-stone-100 dark:border-stone-800 space-y-3">
             {imageStatus === 'idle' && (
               // Fallback only -- handleGenerate already kicks off the
               // illustration automatically alongside the story text, so
@@ -341,7 +369,7 @@ export function StoryGeneratorClient() {
             )}
 
             {imageStatus === 'generating' && (
-              <div className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400">
+              <div className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400 py-6 justify-center bg-stone-50 dark:bg-stone-950/40 rounded-xl">
                 <FiRefreshCw className="w-4 h-4 animate-spin" />
                 {queuePosition === null ? (
                   'Starting illustration...'
@@ -368,10 +396,31 @@ export function StoryGeneratorClient() {
               <div className="space-y-3">
                 {/* eslint-disable-next-line @next/next/no-img-element -- generated illustration, arbitrary B2 signed URL */}
                 <img src={imageUrl} alt="Story illustration" className="w-full max-w-xs mx-auto rounded-xl border border-stone-200 dark:border-stone-800" />
-                <Button variant="outline" icon={<FiRefreshCw />} onClick={handleGenerateImage}>
-                  Regenerate Illustration
-                </Button>
+                <div className="flex justify-center">
+                  <Button variant="outline" icon={<FiRefreshCw />} onClick={handleGenerateImage}>
+                    Regenerate Illustration
+                  </Button>
+                </div>
               </div>
+            )}
+          </div>
+
+          <p className="text-stone-700 dark:text-stone-200 whitespace-pre-wrap leading-relaxed">{story}</p>
+
+          <div className="pt-2 border-t border-stone-100 dark:border-stone-800">
+            {saveError && (
+              <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2 mb-2">
+                {saveError}
+              </p>
+            )}
+            {savedStoryId ? (
+              <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 dark:text-primary-400">
+                <FiCheckCircle className="w-4 h-4" /> Saved to My Stories
+              </p>
+            ) : (
+              <Button variant="outline" icon={<FiSave />} onClick={handleSaveStory} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Story'}
+              </Button>
             )}
           </div>
         </div>
