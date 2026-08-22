@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/require-teacher'
 import { requireString, requireEnum } from '@/lib/validation'
-import { groqChatCompletion, GroqRateLimitError, GroqRequestError } from '@/lib/groq'
+import { groqChatCompletion, verifyStoryMatchesTheme, GroqRateLimitError, GroqRequestError } from '@/lib/groq'
 import { STORY_LEVEL_GUIDANCE, STORY_LEVEL_VALUES, type StoryLevel } from '@/lib/storyLevels'
 
 function buildSystemPrompt(language: 'ta' | 'en', level: StoryLevel): string {
@@ -14,8 +14,9 @@ function buildSystemPrompt(language: 'ta' | 'en', level: StoryLevel): string {
 
   return [
     'You are a children\'s story writer for a Tamil language school.',
+    'The user message is the REQUIRED theme/topic/subject for the story -- the story\'s characters, setting, and events must be clearly and directly about that theme. Do not write a generic or unrelated story.',
     'Write the ENTIRE story in Tamil script only -- no English words or transliteration.',
-    'The story must have a clear beginning, middle, and end.',
+    'The story must have a clear beginning, middle, and end, and must stay on the given theme throughout.',
     `Target length: ${guidance.wordCount}.`,
     `Vocabulary: ${guidance.vocabulary}`,
     `Sentence structure: ${guidance.sentenceStructure}`,
@@ -50,10 +51,28 @@ export async function POST(request: Request) {
   const systemPrompt = buildSystemPrompt(language ?? 'ta', level!)
 
   try {
-    const story = await groqChatCompletion([
+    let story = await groqChatCompletion([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: theme },
     ])
+
+    // Confirmed as a real, reproducible issue (see lib/groq.ts): short/
+    // simple stories sometimes substitute a different animal/character
+    // than the requested theme. One cheap verification call + one retry
+    // catches most of these instead of silently shipping an off-topic
+    // story -- if the retry ALSO fails the check, it's still returned
+    // rather than erroring out entirely, since a plausible-but-imperfect
+    // story beats no story.
+    const matchesTheme = await verifyStoryMatchesTheme(story, theme)
+    if (!matchesTheme) {
+      story = await groqChatCompletion([
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: `${theme}\n\n(Your previous attempt did not clearly match this theme -- make sure the story is directly and obviously about "${theme}".)`,
+        },
+      ])
+    }
 
     // To pair an illustration with this story once the client has the
     // text, POST /api/story-image/generate with a prompt derived from

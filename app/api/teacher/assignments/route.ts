@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/require-teacher'
 import { requireString, optionalString } from '@/lib/validation'
+import { getB2ReadUrl } from '@/lib/storage/b2'
 
 // POST /api/teacher/assignments -- create an assignment for one of the
 // teacher's own classes. RLS ("assignments: teacher manage own class")
@@ -34,13 +35,44 @@ export async function POST(request: Request) {
     errors.push('Late penalty must be zero or a positive number')
   }
   const published = Boolean(body.published)
-  const imageUrl = optionalString(body.imageUrl)
+  let imageUrl = optionalString(body.imageUrl)
   const imageSize = typeof body.imageSize === 'number' && body.imageSize > 0 ? body.imageSize : null
   const resourceId = optionalString(body.resourceId)
+  const storyImageKey = optionalString(body.storyImageKey)
   const assignmentType = body.assignmentType === 'exam' ? 'exam' : 'assignment'
 
   if (errors.length > 0) {
     return NextResponse.json({ error: errors.join('; ') }, { status: 400 })
+  }
+
+  // A Story Generator illustration lives in B2 behind a signed URL that
+  // expires in an hour (see app/api/story-image/status/route.ts) -- an
+  // assignment's image_url is rendered as a plain, unrefreshed <img src>
+  // to every enrolled student indefinitely, so the expiring URL can't be
+  // stored directly. Re-fetch the bytes and re-upload into the public
+  // assignment-images bucket (same bucket/path convention as any other
+  // teacher-attached assignment image) to get a durable URL instead.
+  if (storyImageKey) {
+    try {
+      const b2Url = await getB2ReadUrl(storyImageKey, 60)
+      const imageRes = await fetch(b2Url)
+      if (!imageRes.ok) throw new Error('Could not fetch the story illustration')
+      const bytes = await imageRes.arrayBuffer()
+
+      const path = `${profile.id}/${Date.now()}-story.png`
+      const { error: uploadError } = await supabase.storage
+        .from('assignment-images')
+        .upload(path, bytes, { contentType: 'image/png' })
+      if (uploadError) throw uploadError
+
+      const { data: publicUrlData } = supabase.storage.from('assignment-images').getPublicUrl(path)
+      imageUrl = publicUrlData.publicUrl
+    } catch {
+      // Best-effort -- assigning the story's text is more important than
+      // its illustration; a failed image copy shouldn't block the whole
+      // assignment from being created.
+      imageUrl = null
+    }
   }
 
   // A class can be co-taught (migration 036) -- teacher_id on sms_classes

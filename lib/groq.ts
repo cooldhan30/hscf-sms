@@ -108,3 +108,27 @@ export async function groqChatCompletion(messages: GroqChatMessage[]): Promise<s
   const withoutThinking = rawContent.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
   return withoutThinking || rawContent.trim()
 }
+
+// Confirmed as a real, reproducible issue by direct testing: short/
+// simple stories (Nilai 1-2 level constraints) substitute a different
+// animal/character than the requested theme in roughly half of runs --
+// not fixable through prompt wording alone. This does one cheap extra
+// Groq call asking a yes/no relevance question, so the caller can retry
+// generation once instead of silently shipping an off-topic story.
+// Fails open (treats a check failure as "matches") since a broken
+// verification call should never block story generation entirely.
+export async function verifyStoryMatchesTheme(story: string, theme: string): Promise<boolean> {
+  try {
+    const answer = await groqChatCompletion([
+      {
+        role: 'system',
+        content:
+          'You check whether a short Tamil story matches a given theme. Answer with exactly one word: YES or NO. Answer NO if the story is about a clearly different subject/character than the theme (e.g. theme is "monkey" but the story is about a deer or bear).',
+      },
+      { role: 'user', content: `Theme: ${theme}\n\nStory: ${story}\n\nDoes this story match the theme?` },
+    ])
+    return answer.toUpperCase().includes('YES')
+  } catch {
+    return true
+  }
+}

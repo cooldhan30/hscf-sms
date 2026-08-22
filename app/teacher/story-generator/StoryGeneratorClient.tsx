@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { FiFeather, FiImage, FiRefreshCw, FiSave, FiBookOpen, FiCheckCircle } from 'react-icons/fi'
+import { FiFeather, FiImage, FiRefreshCw, FiSave, FiBookOpen, FiCheckCircle, FiSend } from 'react-icons/fi'
 import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/dashboard/Modal'
+import { toast } from '@/lib/toast'
 import { STORY_LEVEL_OPTIONS } from '@/lib/storyLevels'
 
 const POLL_INTERVAL_MS = 2000
@@ -16,7 +18,7 @@ const MAX_POLLS = 15
 
 type ImageStatus = 'idle' | 'generating' | 'done' | 'error'
 
-export function StoryGeneratorClient() {
+export function StoryGeneratorClient({ classes }: { classes: { id: string; name: string }[] }) {
   const [theme, setTheme] = useState('')
   const [language, setLanguage] = useState<'ta' | 'en'>('ta')
   // Ties word count, vocabulary, and sentence complexity together per
@@ -55,6 +57,21 @@ export function StoryGeneratorClient() {
   const rowIdRef = useRef<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Assigning a generated story reuses the exact same sms_assignments
+  // machinery as every other assignment (due date, scoring, late
+  // penalty) -- the story's theme becomes the title, the story text
+  // becomes the description (students already see assignment
+  // descriptions rendered as plain text), and the illustration (if any)
+  // becomes the assignment image. No resourceId, since a generated
+  // story isn't a Resources-library row.
+  const [assignOpen, setAssignOpen] = useState(false)
+  const [assignClassId, setAssignClassId] = useState(classes[0]?.id ?? '')
+  const [assignDueDate, setAssignDueDate] = useState('')
+  const [assignMaxScore, setAssignMaxScore] = useState('100')
+  const [assignPenalty, setAssignPenalty] = useState('0')
+  const [assigning, setAssigning] = useState(false)
+  const [assignError, setAssignError] = useState<string | null>(null)
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault()
@@ -191,6 +208,50 @@ export function StoryGeneratorClient() {
       setSaveError('Failed to save story -- check your connection and try again')
     } finally {
       setSaving(false)
+    }
+  }
+
+  function openAssign() {
+    setAssignClassId(classes[0]?.id ?? '')
+    setAssignDueDate('')
+    setAssignMaxScore('100')
+    setAssignPenalty('0')
+    setAssignError(null)
+    setAssignOpen(true)
+  }
+
+  async function handleAssign(e: React.FormEvent) {
+    e.preventDefault()
+    if (!story) return
+    if (!assignClassId) {
+      setAssignError('Choose a class')
+      return
+    }
+    setAssigning(true)
+    setAssignError(null)
+
+    const res = await fetch('/api/teacher/assignments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        classId: assignClassId,
+        title: theme,
+        description: story,
+        dueDate: assignDueDate || null,
+        maxScore: assignMaxScore,
+        pointsDeductionPerDay: assignPenalty,
+        published: true,
+        storyImageKey: imageKey || null,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setAssigning(false)
+
+    if (res.ok) {
+      toast.success('Story assigned to your class')
+      setAssignOpen(false)
+    } else {
+      setAssignError(data.error || 'Failed to assign story')
     }
   }
 
@@ -385,9 +446,9 @@ export function StoryGeneratorClient() {
 
           <p className="text-stone-700 dark:text-stone-200 whitespace-pre-wrap leading-relaxed">{story}</p>
 
-          <div className="pt-2 border-t border-stone-100 dark:border-stone-800">
+          <div className="pt-2 border-t border-stone-100 dark:border-stone-800 flex flex-wrap items-center gap-2">
             {saveError && (
-              <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2 mb-2">
+              <p className="w-full text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2 mb-2">
                 {saveError}
               </p>
             )}
@@ -400,9 +461,79 @@ export function StoryGeneratorClient() {
                 {saving ? 'Saving...' : 'Save Story'}
               </Button>
             )}
+            {classes.length > 0 && (
+              <Button variant="outline" icon={<FiSend />} onClick={openAssign}>
+                Assign to Class
+              </Button>
+            )}
           </div>
         </div>
       )}
+
+      <Modal open={assignOpen} title={`Assign "${theme}"`} onClose={() => setAssignOpen(false)}>
+        <form onSubmit={handleAssign} className="space-y-4">
+          {assignError && (
+            <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">
+              {assignError}
+            </p>
+          )}
+
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Class</label>
+            <select
+              value={assignClassId}
+              onChange={(e) => setAssignClassId(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+            >
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Due Date</label>
+              <input
+                type="date"
+                value={assignDueDate}
+                onChange={(e) => setAssignDueDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Max Score</label>
+              <input
+                type="number"
+                min="1"
+                value={assignMaxScore}
+                onChange={(e) => setAssignMaxScore(e.target.value)}
+                required
+                className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
+              Late Penalty (points/day)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={assignPenalty}
+              onChange={(e) => setAssignPenalty(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+            />
+          </div>
+
+          <Button type="submit" variant="primary" fullWidth disabled={assigning}>
+            {assigning ? 'Assigning...' : 'Assign'}
+          </Button>
+        </form>
+      </Modal>
     </div>
   )
 }
