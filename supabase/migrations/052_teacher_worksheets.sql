@@ -1,27 +1,23 @@
 -- =====================================================
 -- 052: TEACHER WORKSHEETS (Worksheet Generator persistence)
 --
--- Mirrors 051_teacher_stories.sql exactly: a generated worksheet is a
--- teacher's own personal draft/tool output (comprehension passage +
--- questions + vocabulary + word puzzle, generated together from a theme
--- and Nilai level), not a shared class library resource -- scoped
--- strictly to owner + admin, same as sms_teacher_stories.
+-- A generated worksheet is a teacher's own personal draft/tool output,
+-- not a shared class library resource -- scoped strictly to owner +
+-- admin, same as sms_teacher_stories (051_teacher_stories.sql).
+--
+-- content is a discriminated union of two worksheet types
+-- (picture_fillblank / reading_comprehension) -- see
+-- lib/worksheetTypes.ts. No image_key column: picture_fillblank uses a
+-- curated Tamil word-to-emoji dictionary (lib/tamilVocabEmoji.ts)
+-- instead of a generated illustration, and reading_comprehension never
+-- needed one.
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS sms_teacher_worksheets (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   created_by TEXT NOT NULL REFERENCES sms_profiles(id),
   theme TEXT NOT NULL,
-  -- Structured worksheet content: { passage, comprehensionQuestions,
-  -- vocabulary, wordPuzzle } -- see lib/worksheetTypes.ts. One JSONB
-  -- document per worksheet, same "one generation = one artifact" shape
-  -- as sms_teacher_stories' single `story` column.
   content JSONB NOT NULL,
-  -- Durable B2 object key (e.g. "story-images/{profileId}/{promptId}.png"),
-  -- NOT a signed URL -- same convention as sms_teacher_stories.image_key.
-  -- A fresh signed URL is minted from this key on every read (see
-  -- app/api/teacher/worksheets/route.ts).
-  image_key TEXT,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
