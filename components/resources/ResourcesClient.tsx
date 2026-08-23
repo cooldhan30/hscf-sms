@@ -486,12 +486,12 @@ export function ResourcesClient({
 
         <div className="flex gap-2">
           {canGenerateWorksheet && (
-            <Button variant="outline" icon={<FiFeather />} onClick={() => setWorksheetGeneratorOpen(true)}>
+            <Button variant="outline" size="sm" icon={<FiFeather />} onClick={() => setWorksheetGeneratorOpen(true)}>
               Generate Worksheet
             </Button>
           )}
           {canUpload && (
-            <Button variant="primary" icon={<FiUpload />} onClick={openUpload}>
+            <Button variant="primary" size="sm" icon={<FiUpload />} onClick={openUpload}>
               Upload Resource
             </Button>
           )}
