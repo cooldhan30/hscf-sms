@@ -1,17 +1,19 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { FiArrowLeft, FiTrash2, FiImage } from 'react-icons/fi'
+import { FiArrowLeft, FiTrash2, FiGrid, FiBookOpen } from 'react-icons/fi'
 import { EmptyState } from '@/components/dashboard/EmptyState'
+import { Badge } from '@/components/ui/Badge'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { toast } from '@/lib/toast'
+import { PictureFillBlankWorksheet } from '@/components/resources/PictureFillBlankWorksheet'
+import { ReadingComprehensionWorksheet } from '@/components/resources/ReadingComprehensionWorksheet'
 import type { WorksheetContent } from '@/lib/worksheetTypes'
 
 interface SavedWorksheet {
   id: string
   theme: string
   content: WorksheetContent
-  imageUrl: string | null
   created_at: string
 }
 
@@ -30,7 +32,7 @@ export function MyWorksheetsClient() {
   async function handleDelete(worksheet: SavedWorksheet) {
     const confirmed = await confirm({
       title: `Delete this worksheet?`,
-      description: `"${worksheet.theme}" and its illustration (if any) will be removed. This cannot be undone.`,
+      description: `"${worksheet.theme}" will be removed. This cannot be undone.`,
       confirmLabel: 'Delete',
       tone: 'danger',
     })
@@ -59,56 +61,11 @@ export function MyWorksheetsClient() {
         >
           <FiArrowLeft className="w-4 h-4" /> Back to My Worksheets
         </button>
-        <div className="p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-4">
-          <p className="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase">{selected.theme}</p>
-          {selected.imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element -- generated illustration, arbitrary B2 signed URL
-            <img src={selected.imageUrl} alt="Worksheet illustration" className="w-full max-w-xs mx-auto rounded-xl border border-stone-200 dark:border-stone-800" />
-          )}
-
-          <div>
-            <h3 className="text-sm font-bold text-stone-700 dark:text-stone-300 mb-1">Passage</h3>
-            <p className="text-stone-700 dark:text-stone-200 whitespace-pre-wrap leading-relaxed">{selected.content.passage}</p>
-          </div>
-
-          {selected.content.comprehensionQuestions.length > 0 && (
-            <div>
-              <h3 className="text-sm font-bold text-stone-700 dark:text-stone-300 mb-1">Questions</h3>
-              <ol className="list-decimal list-inside space-y-1 text-stone-700 dark:text-stone-200">
-                {selected.content.comprehensionQuestions.map((q, i) => (
-                  <li key={i}>{q}</li>
-                ))}
-              </ol>
-            </div>
-          )}
-
-          {selected.content.vocabulary.length > 0 && (
-            <div>
-              <h3 className="text-sm font-bold text-stone-700 dark:text-stone-300 mb-1">Vocabulary</h3>
-              <ul className="space-y-1 text-stone-700 dark:text-stone-200">
-                {selected.content.vocabulary.map(({ word, meaning }, i) => (
-                  <li key={i}>
-                    <span className="font-semibold">{word}</span> -- {meaning}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {selected.content.wordPuzzle.length > 0 && (
-            <div>
-              <h3 className="text-sm font-bold text-stone-700 dark:text-stone-300 mb-1">Word Puzzle</h3>
-              <ul className="flex flex-wrap gap-2">
-                {selected.content.wordPuzzle.map(({ scrambled }, i) => (
-                  <li
-                    key={i}
-                    className="px-2 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 text-sm tracking-widest"
-                  >
-                    {scrambled}
-                  </li>
-                ))}
-              </ul>
-            </div>
+        <div className="p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
+          {selected.content.worksheetType === 'picture_fillblank' ? (
+            <PictureFillBlankWorksheet content={selected.content} />
+          ) : (
+            <ReadingComprehensionWorksheet content={selected.content} />
           )}
         </div>
       </div>
@@ -136,17 +93,23 @@ export function MyWorksheetsClient() {
             onClick={() => setSelected(worksheet)}
             className="aspect-video flex items-center justify-center bg-stone-50 dark:bg-stone-950/40 text-stone-300 dark:text-stone-700"
           >
-            {worksheet.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- thumbnail, arbitrary B2 signed URL
-              <img src={worksheet.imageUrl} alt="" className="w-full h-full object-cover" />
+            {worksheet.content.worksheetType === 'picture_fillblank' ? (
+              <FiGrid className="w-8 h-8" />
             ) : (
-              <FiImage className="w-8 h-8" />
+              <FiBookOpen className="w-8 h-8" />
             )}
           </button>
           <div className="p-3 flex-1 flex flex-col gap-1">
             <button type="button" onClick={() => setSelected(worksheet)} className="text-left">
-              <p className="text-sm font-semibold text-stone-800 dark:text-stone-100 line-clamp-2">{worksheet.theme}</p>
+              <p className="text-sm font-semibold text-stone-800 dark:text-stone-100 line-clamp-2">
+                {worksheet.content.title || worksheet.theme}
+              </p>
             </button>
+            <div>
+              <Badge variant="secondary" size="sm">
+                {worksheet.content.worksheetType === 'picture_fillblank' ? 'Picture Fill-in-Blank' : 'Reading Comprehension'}
+              </Badge>
+            </div>
             <p className="text-xs text-stone-400 dark:text-stone-500">{new Date(worksheet.created_at).toLocaleDateString()}</p>
             <div className="mt-auto flex justify-end pt-2">
               <button

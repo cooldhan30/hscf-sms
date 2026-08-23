@@ -92,3 +92,16 @@ export type StoryLevel = (typeof STORY_LEVEL_VALUES)[number]
 // Frontend-facing options -- same labels as GRADE_LEVEL_OPTIONS, so the
 // dropdown reads identically to every other Nilai picker in the app.
 export const STORY_LEVEL_OPTIONS = GRADE_LEVEL_OPTIONS
+
+// A beginning reader (mazhalai/grade-1/grade-2) is still learning letter
+// shapes and basic vocabulary, so a picture fill-in-the-blank exercise
+// (see components/resources/PictureFillBlankWorksheet.tsx) fits better
+// than a reading passage with comprehension questions -- that only
+// becomes appropriate once a student can read multi-sentence text
+// independently. This is just the UI's default; the teacher can always
+// override it (see components/resources/WorksheetGeneratorPanel.tsx).
+const PICTURE_FILLBLANK_LEVELS = new Set(['mazhalai', 'grade-1', 'grade-2'])
+
+export function defaultWorksheetTypeForLevel(level: string): 'picture_fillblank' | 'reading_comprehension' {
+  return PICTURE_FILLBLANK_LEVELS.has(level) ? 'picture_fillblank' : 'reading_comprehension'
+}

@@ -4,6 +4,7 @@ import { requireString, requireEnum } from '@/lib/validation'
 import { groqChatCompletion, verifyStoryMatchesTheme, GroqRateLimitError, GroqRequestError } from '@/lib/groq'
 import { sarvamChatCompletion } from '@/lib/sarvam'
 import { STORY_LEVEL_GUIDANCE, STORY_LEVEL_VALUES, type StoryLevel } from '@/lib/storyLevels'
+import { looksProperlySpaced } from '@/lib/storyValidation'
 
 function buildSystemPrompt(language: 'ta' | 'en', level: StoryLevel): string {
   const guidance = STORY_LEVEL_GUIDANCE[level]
@@ -20,6 +21,8 @@ function buildSystemPrompt(language: 'ta' | 'en', level: StoryLevel): string {
     'The story must have a clear beginning, middle, and end, and must stay on the given theme throughout.',
     'Vary character names, settings, and the story\'s problem/resolution across different generations -- avoid defaulting to the most obvious or stock scenario for the theme.',
     'Write with natural spoken-Tamil rhythm appropriate for a children\'s book being read aloud, not stiff textbook phrasing.',
+    'Ensure correct word spacing in all Tamil output -- never merge two words together into one. Proofread your own output for spacing and grammar errors before finalizing.',
+    'Stay strictly on the requested topic/character -- do not introduce unrelated animals or characters not implied by the theme.',
     'Before returning your answer, re-check every sentence for correct Tamil grammar, case markers, and verb agreement.',
     `Target length: ${guidance.wordCount}.`,
     `Vocabulary: ${guidance.vocabulary}`,
@@ -98,6 +101,24 @@ export async function POST(request: Request) {
         {
           role: 'user',
           content: `${theme}\n\n(Your previous attempt did not clearly match this theme -- make sure the story is directly and obviously about "${theme}".)`,
+        },
+      ])
+    }
+
+    // Independent of the theme-relevance check above: a deterministic,
+    // non-LLM regex check (see lib/storyValidation.ts) that catches
+    // word-merging bugs (e.g. "சிறிய" + "யானை" glued into "சிறியயானை")
+    // the model still occasionally produces despite the explicit spacing
+    // instruction. Same "one retry, ship anyway if it still fails"
+    // philosophy as the theme check -- kept as a separate gate rather
+    // than combined, so each failure mode's corrective message stays
+    // targeted to what actually went wrong.
+    if (!looksProperlySpaced(story)) {
+      story = await generateText([
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: `${theme}\n\n(Your previous attempt had a spacing/word-merging error -- make sure every word is correctly separated by spaces.)`,
         },
       ])
     }

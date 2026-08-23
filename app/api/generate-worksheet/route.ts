@@ -3,8 +3,10 @@ import { requireTeacher } from '@/lib/require-teacher'
 import { requireString, requireEnum } from '@/lib/validation'
 import { groqChatCompletion, GroqRateLimitError, GroqRequestError } from '@/lib/groq'
 import { sarvamChatCompletion } from '@/lib/sarvam'
-import { STORY_LEVEL_GUIDANCE, STORY_LEVEL_VALUES, type StoryLevel } from '@/lib/storyLevels'
-import { isWorksheetContent, type WorksheetContent } from '@/lib/worksheetTypes'
+import { STORY_LEVEL_GUIDANCE, STORY_LEVEL_VALUES, defaultWorksheetTypeForLevel, type StoryLevel } from '@/lib/storyLevels'
+import { looksProperlySpaced } from '@/lib/storyValidation'
+import { isWorksheetContent, type WorksheetContent, type WorksheetType } from '@/lib/worksheetTypes'
+import { emojiForWord, availableVocabWords } from '@/lib/tamilVocabEmoji'
 
 class WorksheetParseError extends Error {
   constructor() {
@@ -13,7 +15,9 @@ class WorksheetParseError extends Error {
   }
 }
 
-function buildSystemPrompt(language: 'ta' | 'en', level: StoryLevel): string {
+const WORKSHEET_TYPE_VALUES = ['picture_fillblank', 'reading_comprehension'] as const
+
+function buildSystemPrompt(language: 'ta' | 'en', level: StoryLevel, worksheetType: WorksheetType): string {
   const guidance = STORY_LEVEL_GUIDANCE[level]
 
   const themeNote =
@@ -21,20 +25,36 @@ function buildSystemPrompt(language: 'ta' | 'en', level: StoryLevel): string {
       ? 'The theme below may be written in English -- understand it, but all Tamil content you generate must still be written entirely in Tamil.'
       : 'The theme below is written in Tamil.'
 
-  return [
-    'You are a worksheet writer for a Tamil language school, producing a reading passage plus exercises for a student at a specific level.',
-    'The user message is the REQUIRED theme/topic for the passage -- it must be clearly and directly about that theme, not generic or unrelated.',
+  const shared = [
+    'You are a worksheet writer for a Tamil language school.',
+    'The user message is the REQUIRED theme/topic -- everything you generate must be clearly and directly related to it, not generic or unrelated.',
     'Write all Tamil text in Tamil script only -- no English words or transliteration.',
+    'Ensure correct word spacing in all Tamil output -- never merge two words together into one. Proofread your own output for spacing and grammar errors before finalizing.',
+    themeNote,
+  ]
+
+  if (worksheetType === 'picture_fillblank') {
+    return [
+      ...shared,
+      `Pick 5 to 8 words related to the theme, ONLY from this exact list of allowed Tamil words (do not invent or use any word outside this list): ${availableVocabWords().join(', ')}.`,
+      'For each chosen word, blank out exactly one consonant letter (a மெய் எழுத்து) from the middle or end of the word, replacing it with "___" in a new "blankedWord" field, and put the removed letter by itself in "missingLetter".',
+      'Double-check that blankedWord, when the missingLetter is put back in its place, exactly reconstructs the original word -- verify this yourself before finalizing.',
+      'Return ONLY a single JSON object (no markdown fences, no commentary before or after) with exactly this shape:',
+      '{"worksheetType": "picture_fillblank", "title": string (a short Tamil title for this worksheet), "passage": "", "items": [{"word": string, "blankedWord": string, "missingLetter": string}], "questions": [], "vocabulary": []}',
+    ].join(' ')
+  }
+
+  return [
+    ...shared,
     `Passage target length: ${guidance.wordCount}.`,
     `Passage vocabulary: ${guidance.vocabulary}`,
     `Passage sentence structure: ${guidance.sentenceStructure}`,
     'Vary character names, settings, and the passage\'s problem/resolution across different generations -- avoid the most obvious or stock scenario for the theme.',
     'Write with natural spoken-Tamil rhythm appropriate for a children\'s book being read aloud, not stiff textbook phrasing.',
-    'For the vocabulary and word puzzle sections: only use real, dictionary-valid Tamil words that a native speaker would recognize. Do not invent words or append incorrect suffixes/letters. Double-check each word\'s spelling and grammatical validity before including it.',
+    'Only use real, dictionary-valid Tamil words that a native speaker would recognize in the vocabulary section. Do not invent words or append incorrect suffixes/letters. Double-check each word\'s spelling and grammatical validity before including it.',
     'Before returning your answer, re-check every sentence and every word for correct Tamil grammar, spelling, and case markers.',
-    themeNote,
     'Return ONLY a single JSON object (no markdown fences, no commentary before or after) with exactly this shape:',
-    '{"passage": string, "comprehensionQuestions": string[] (3-5 questions in Tamil about the passage), "vocabulary": [{"word": string, "meaning": string}] (5-8 words from the passage with simple Tamil meanings), "wordPuzzle": [{"word": string, "scrambled": string}] (4-6 real Tamil words from the passage with their letters shuffled into "scrambled")}',
+    '{"worksheetType": "reading_comprehension", "title": string (a short Tamil title for this worksheet), "passage": string, "items": [], "questions": string[] (3-5 questions in Tamil about the passage), "vocabulary": [{"term": string, "definition": string}] (5-8 words from the passage with simple Tamil meanings)}',
   ].join(' ')
 }
 
@@ -73,9 +93,22 @@ function parseWorksheet(raw: string): WorksheetContent {
   return parsed
 }
 
-// POST /api/generate-worksheet -- teacher-only. Generates a Tamil reading
-// passage plus comprehension questions, vocabulary, and a word puzzle
-// from a theme via Sarvam, falling back to Groq (see generateText above).
+// A generated worksheet is only as spacing-correct/on-topic as the raw
+// text the model produced -- for picture_fillblank that's each item's
+// word/blankedWord, for reading_comprehension that's the passage. Joining
+// the relevant strings gives looksProperlySpaced (lib/storyValidation.ts)
+// one combined check without needing a type-specific implementation.
+function textToValidate(content: WorksheetContent): string {
+  if (content.worksheetType === 'picture_fillblank') {
+    return content.items.map((i) => i.word).join(' ')
+  }
+  return content.passage
+}
+
+// POST /api/generate-worksheet -- teacher-only. Generates either a
+// picture fill-in-the-blank exercise or a reading-comprehension passage
+// (see lib/worksheetTypes.ts) from a theme via Sarvam, falling back to
+// Groq (see generateText above).
 export async function POST(request: Request) {
   const guard = await requireTeacher()
   if (!guard.ok) {
@@ -91,20 +124,42 @@ export async function POST(request: Request) {
   const theme = requireString(body.theme, 'Theme', errors)
   const language = body.language === undefined ? 'ta' : requireEnum(body.language, ['ta', 'en'] as const, 'Language', errors)
   const level = requireEnum(body.level, STORY_LEVEL_VALUES, 'Level', errors)
+  const worksheetType =
+    body.worksheetType === undefined
+      ? defaultWorksheetTypeForLevel(typeof body.level === 'string' ? body.level : '')
+      : requireEnum(body.worksheetType, WORKSHEET_TYPE_VALUES, 'Worksheet type', errors)
 
   if (errors.length > 0) {
     return NextResponse.json({ error: errors.join('; ') }, { status: 400 })
   }
 
-  const systemPrompt = buildSystemPrompt(language ?? 'ta', level!)
+  const systemPrompt = buildSystemPrompt(language ?? 'ta', level!, worksheetType!)
 
   try {
-    const raw = await generateText([
+    let raw = await generateText([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: theme },
     ])
+    let worksheet = parseWorksheet(raw)
 
-    const worksheet = parseWorksheet(raw)
+    if (!looksProperlySpaced(textToValidate(worksheet))) {
+      raw = await generateText([
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: `${theme}\n\n(Your previous attempt had a spacing/word-merging error -- make sure every word is correctly separated by spaces.)`,
+        },
+      ])
+      worksheet = parseWorksheet(raw)
+    }
+
+    if (worksheet.worksheetType === 'picture_fillblank') {
+      worksheet = {
+        ...worksheet,
+        items: worksheet.items.map((item) => ({ ...item, emoji: emojiForWord(item.word) })),
+      }
+    }
+
     return NextResponse.json({ worksheet })
   } catch (err) {
     if (err instanceof WorksheetParseError) {

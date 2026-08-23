@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/require-teacher'
-import { requireString, optionalString } from '@/lib/validation'
+import { requireString } from '@/lib/validation'
 import { isWorksheetContent } from '@/lib/worksheetTypes'
 
 // PATCH /api/teacher/worksheets/[id] -- update an already-saved worksheet.
@@ -27,7 +27,6 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       updates.content = body.content
     }
   }
-  if ('imageKey' in body) updates.image_key = optionalString(body.imageKey)
   if (errors.length > 0) {
     return NextResponse.json({ error: errors.join('; ') }, { status: 400 })
   }

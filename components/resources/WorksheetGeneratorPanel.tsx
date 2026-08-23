@@ -1,23 +1,23 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { FiFeather, FiImage, FiRefreshCw, FiSave, FiBookOpen, FiCheckCircle, FiSend } from 'react-icons/fi'
+import { FiFeather, FiSave, FiBookOpen, FiCheckCircle, FiSend } from 'react-icons/fi'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/dashboard/Modal'
 import { toast } from '@/lib/toast'
-import { STORY_LEVEL_OPTIONS } from '@/lib/storyLevels'
-import type { WorksheetContent } from '@/lib/worksheetTypes'
+import { STORY_LEVEL_OPTIONS, defaultWorksheetTypeForLevel } from '@/lib/storyLevels'
+import type { WorksheetContent, WorksheetType } from '@/lib/worksheetTypes'
+import { PictureFillBlankWorksheet } from '@/components/resources/PictureFillBlankWorksheet'
+import { ReadingComprehensionWorksheet } from '@/components/resources/ReadingComprehensionWorksheet'
 
-const POLL_INTERVAL_MS = 2000
-const MAX_POLLS = 15
-
-type ImageStatus = 'idle' | 'generating' | 'done' | 'error'
-
-// Adapts StoryGeneratorClient's generate/poll-image/save/assign lifecycle
-// for structured worksheet content instead of a single prose string --
-// see app/teacher/story-generator/StoryGeneratorClient.tsx for the
-// original this mirrors.
+// Adapts StoryGeneratorClient's generate/save/assign lifecycle for
+// structured worksheet content -- see app/teacher/story-generator/
+// StoryGeneratorClient.tsx for the original this mirrors. Unlike stories,
+// worksheets carry no illustration: picture_fillblank uses a curated
+// emoji dictionary (lib/tamilVocabEmoji.ts) instead of ComfyUI, and
+// reading_comprehension never needed an image at all -- so there's no
+// image-generation/poll step here.
 export function WorksheetGeneratorPanel({
   open,
   onClose,
@@ -30,20 +30,13 @@ export function WorksheetGeneratorPanel({
   const [theme, setTheme] = useState('')
   const [language, setLanguage] = useState<'ta' | 'en'>('ta')
   const [level, setLevel] = useState<string>(STORY_LEVEL_OPTIONS[1]?.value ?? STORY_LEVEL_OPTIONS[0].value)
+  const [worksheetType, setWorksheetType] = useState<WorksheetType>(defaultWorksheetTypeForLevel(level))
+  const [typeTouched, setTypeTouched] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [worksheet, setWorksheet] = useState<WorksheetContent | null>(null)
 
-  const [imageStatus, setImageStatus] = useState<ImageStatus>('idle')
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [imageKey, setImageKey] = useState<string | null>(null)
-  const [imageError, setImageError] = useState<string | null>(null)
-  const [promptId, setPromptId] = useState<string | null>(null)
-  const [queuePosition, setQueuePosition] = useState<number | null>(null)
-  const pollCountRef = useRef(0)
-
   const [savedWorksheetId, setSavedWorksheetId] = useState<string | null>(null)
-  const rowIdRef = useRef<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -55,6 +48,13 @@ export function WorksheetGeneratorPanel({
   const [assigning, setAssigning] = useState(false)
   const [assignError, setAssignError] = useState<string | null>(null)
 
+  function handleLevelChange(newLevel: string) {
+    setLevel(newLevel)
+    // Once the teacher has manually picked a type, stop overriding it on
+    // every level change -- the default is only a starting suggestion.
+    if (!typeTouched) setWorksheetType(defaultWorksheetTypeForLevel(newLevel))
+  }
+
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault()
     if (generating) return
@@ -62,23 +62,14 @@ export function WorksheetGeneratorPanel({
     setGenerating(true)
     setError(null)
     setWorksheet(null)
-    setImageStatus('idle')
-    setImageUrl(null)
-    setImageKey(null)
-    setImageError(null)
-    setPromptId(null)
-    setQueuePosition(null)
     setSavedWorksheetId(null)
     setSaveError(null)
-    rowIdRef.current = null
-
-    handleGenerateImage()
 
     try {
       const res = await fetch('/api/generate-worksheet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme, language, level }),
+        body: JSON.stringify({ theme, language, level, worksheetType }),
       })
       const data = await res.json().catch(() => ({}))
 
@@ -95,53 +86,16 @@ export function WorksheetGeneratorPanel({
     }
   }
 
-  async function handleGenerateImage() {
-    if (imageStatus === 'generating') return
-    setImageStatus('generating')
-    setImageError(null)
-    setImageUrl(null)
-    setImageKey(null)
-    setQueuePosition(null)
-    pollCountRef.current = 0
-    setSavedWorksheetId(null)
-    setSaveError(null)
-
-    const prompt = `children's book illustration, storybook art style, colorful, ${theme}`
-
-    try {
-      const res = await fetch('/api/story-image/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
-      })
-      const data = await res.json().catch(() => ({}))
-
-      if (!res.ok) {
-        setImageStatus('error')
-        setImageError(data.error || 'Failed to start image generation')
-        return
-      }
-
-      setPromptId(data.promptId)
-    } catch {
-      setImageStatus('error')
-      setImageError('Failed to start image generation -- check your connection and try again')
-    }
-  }
-
   async function handleSaveWorksheet() {
     if (!worksheet || saving) return
     setSaving(true)
     setSaveError(null)
 
-    const isUpdate = Boolean(rowIdRef.current)
-    const url = isUpdate ? `/api/teacher/worksheets/${rowIdRef.current}` : '/api/teacher/worksheets'
-
     try {
-      const res = await fetch(url, {
-        method: isUpdate ? 'PATCH' : 'POST',
+      const res = await fetch('/api/teacher/worksheets', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme, content: worksheet, imageKey }),
+        body: JSON.stringify({ theme, content: worksheet }),
       })
       const data = await res.json().catch(() => ({}))
 
@@ -150,7 +104,6 @@ export function WorksheetGeneratorPanel({
         return
       }
 
-      rowIdRef.current = data.worksheet.id
       setSavedWorksheetId(data.worksheet.id)
     } catch {
       setSaveError('Failed to save worksheet -- check your connection and try again')
@@ -183,13 +136,12 @@ export function WorksheetGeneratorPanel({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         classId: assignClassId,
-        title: theme,
+        title: worksheet.title || theme,
         worksheetContent: worksheet,
         dueDate: assignDueDate || null,
         maxScore: assignMaxScore,
         pointsDeductionPerDay: assignPenalty,
         published: true,
-        storyImageKey: imageKey || null,
       }),
     })
     const data = await res.json().catch(() => ({}))
@@ -202,49 +154,6 @@ export function WorksheetGeneratorPanel({
       setAssignError(data.error || 'Failed to assign worksheet')
     }
   }
-
-  useEffect(() => {
-    if (!promptId || imageStatus !== 'generating') return
-
-    const interval = setInterval(async () => {
-      pollCountRef.current += 1
-      try {
-        const res = await fetch(`/api/story-image/status?promptId=${encodeURIComponent(promptId)}`)
-        const data = await res.json().catch(() => ({}))
-
-        if (!res.ok || data.status === 'error') {
-          clearInterval(interval)
-          setImageStatus('error')
-          setImageError(data.error || 'Image generation failed')
-          return
-        }
-
-        if (data.status === 'done') {
-          clearInterval(interval)
-          setImageStatus('done')
-          setImageUrl(data.url)
-          setImageKey(data.key)
-          return
-        }
-
-        setQueuePosition(typeof data.position === 'number' ? data.position : null)
-
-        if (pollCountRef.current >= MAX_POLLS) {
-          clearInterval(interval)
-          setImageStatus('error')
-          setImageError('Image generation is taking longer than expected -- please try again.')
-        }
-      } catch {
-        if (pollCountRef.current >= MAX_POLLS) {
-          clearInterval(interval)
-          setImageStatus('error')
-          setImageError('Lost connection while checking image generation status.')
-        }
-      }
-    }, POLL_INTERVAL_MS)
-
-    return () => clearInterval(interval)
-  }, [promptId, imageStatus])
 
   return (
     <Modal open={open} title="Worksheet Generator" onClose={onClose} size="large">
@@ -280,7 +189,7 @@ export function WorksheetGeneratorPanel({
               </label>
               <select
                 value={level}
-                onChange={(e) => setLevel(e.target.value)}
+                onChange={(e) => handleLevelChange(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
               >
                 {STORY_LEVEL_OPTIONS.map((opt) => (
@@ -305,6 +214,45 @@ export function WorksheetGeneratorPanel({
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
+              Worksheet Type
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setWorksheetType('picture_fillblank')
+                  setTypeTouched(true)
+                }}
+                className={`px-3 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                  worksheetType === 'picture_fillblank'
+                    ? 'border-primary-700 bg-primary-50 text-primary-800 dark:border-primary-400 dark:bg-primary-950 dark:text-primary-300'
+                    : 'border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300'
+                }`}
+              >
+                Picture Fill-in-the-Blank
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setWorksheetType('reading_comprehension')
+                  setTypeTouched(true)
+                }}
+                className={`px-3 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                  worksheetType === 'reading_comprehension'
+                    ? 'border-primary-700 bg-primary-50 text-primary-800 dark:border-primary-400 dark:bg-primary-950 dark:text-primary-300'
+                    : 'border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300'
+                }`}
+              >
+                Reading Comprehension
+              </button>
+            </div>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+              Suggested automatically based on the student level -- change it anytime.
+            </p>
+          </div>
+
           <Button type="submit" variant="primary" fullWidth icon={<FiFeather />} disabled={generating}>
             {generating ? 'Generating worksheet...' : 'Generate Worksheet'}
           </Button>
@@ -321,95 +269,10 @@ export function WorksheetGeneratorPanel({
 
         {worksheet && (
           <div className="p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-4">
-            <h2 className="font-bold text-stone-800 dark:text-stone-100">Generated Worksheet</h2>
-
-            <div>
-              {imageStatus === 'idle' && (
-                <Button variant="outline" icon={<FiImage />} onClick={handleGenerateImage}>
-                  Generate Illustration
-                </Button>
-              )}
-
-              {imageStatus === 'generating' && (
-                <div className="flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400 py-6 justify-center bg-stone-50 dark:bg-stone-950/40 rounded-xl">
-                  <FiRefreshCw className="w-4 h-4 animate-spin" />
-                  {queuePosition === null ? (
-                    'Starting illustration...'
-                  ) : queuePosition === 1 ? (
-                    'Illustrating your worksheet... this usually takes about 10 seconds.'
-                  ) : (
-                    `${queuePosition}${queuePosition === 2 ? 'nd' : queuePosition === 3 ? 'rd' : 'th'} in queue -- other teachers are generating illustrations too. This may take a few minutes.`
-                  )}
-                </div>
-              )}
-
-              {imageStatus === 'error' && (
-                <div className="space-y-2">
-                  <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">
-                    Illustration: {imageError} You can still save your worksheet without it.
-                  </p>
-                  <Button variant="outline" icon={<FiRefreshCw />} onClick={handleGenerateImage}>
-                    Try Again
-                  </Button>
-                </div>
-              )}
-
-              {imageStatus === 'done' && imageUrl && (
-                <div className="space-y-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- generated illustration, arbitrary B2 signed URL */}
-                  <img src={imageUrl} alt="Worksheet illustration" className="w-full max-w-xs mx-auto rounded-xl border border-stone-200 dark:border-stone-800" />
-                  <div className="flex justify-center">
-                    <Button variant="outline" icon={<FiRefreshCw />} onClick={handleGenerateImage}>
-                      Regenerate Illustration
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <h3 className="text-sm font-bold text-stone-700 dark:text-stone-300 mb-1">Passage</h3>
-              <p className="text-stone-700 dark:text-stone-200 whitespace-pre-wrap leading-relaxed">{worksheet.passage}</p>
-            </div>
-
-            {worksheet.comprehensionQuestions.length > 0 && (
-              <div>
-                <h3 className="text-sm font-bold text-stone-700 dark:text-stone-300 mb-1">Questions</h3>
-                <ol className="list-decimal list-inside space-y-1 text-stone-700 dark:text-stone-200">
-                  {worksheet.comprehensionQuestions.map((q, i) => (
-                    <li key={i}>{q}</li>
-                  ))}
-                </ol>
-              </div>
-            )}
-
-            {worksheet.vocabulary.length > 0 && (
-              <div>
-                <h3 className="text-sm font-bold text-stone-700 dark:text-stone-300 mb-1">Vocabulary</h3>
-                <ul className="space-y-1 text-stone-700 dark:text-stone-200">
-                  {worksheet.vocabulary.map(({ word, meaning }, i) => (
-                    <li key={i}>
-                      <span className="font-semibold">{word}</span> -- {meaning}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {worksheet.wordPuzzle.length > 0 && (
-              <div>
-                <h3 className="text-sm font-bold text-stone-700 dark:text-stone-300 mb-1">Word Puzzle</h3>
-                <ul className="flex flex-wrap gap-2">
-                  {worksheet.wordPuzzle.map(({ scrambled }, i) => (
-                    <li
-                      key={i}
-                      className="px-2 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 text-sm tracking-widest"
-                    >
-                      {scrambled}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {worksheet.worksheetType === 'picture_fillblank' ? (
+              <PictureFillBlankWorksheet content={worksheet} />
+            ) : (
+              <ReadingComprehensionWorksheet content={worksheet} />
             )}
 
             <div className="pt-2 border-t border-stone-100 dark:border-stone-800 flex flex-wrap items-center gap-2">
@@ -437,7 +300,7 @@ export function WorksheetGeneratorPanel({
         )}
       </div>
 
-      <Modal open={assignOpen} title={`Assign "${theme}"`} onClose={() => setAssignOpen(false)}>
+      <Modal open={assignOpen} title={`Assign "${worksheet?.title ?? theme}"`} onClose={() => setAssignOpen(false)}>
         <form onSubmit={handleAssign} className="space-y-4">
           {assignError && (
             <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">

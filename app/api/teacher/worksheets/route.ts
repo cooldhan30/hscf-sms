@@ -1,16 +1,11 @@
 import { NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/require-teacher'
-import { requireString, optionalString } from '@/lib/validation'
-import { getB2ReadUrl } from '@/lib/storage/b2'
+import { requireString } from '@/lib/validation'
 import { isWorksheetContent } from '@/lib/worksheetTypes'
-
-const READ_URL_TTL_SECONDS = 60 * 60
 
 // GET /api/teacher/worksheets -- the caller's own saved worksheets (RLS
 // "teacher_worksheets: teacher manage own" is the real enforcement),
-// newest first, for the "My Worksheets" library. image_key (durable) is
-// turned into a fresh signed imageUrl on every read, since a stored
-// signed URL would go stale within the hour.
+// newest first, for the "My Worksheets" library.
 export async function GET() {
   const guard = await requireTeacher()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
@@ -23,14 +18,7 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-  const worksheets = await Promise.all(
-    (rows ?? []).map(async (row) => ({
-      ...row,
-      imageUrl: row.image_key ? await getB2ReadUrl(row.image_key, READ_URL_TTL_SECONDS) : null,
-    }))
-  )
-
-  return NextResponse.json({ worksheets })
+  return NextResponse.json({ worksheets: rows ?? [] })
 }
 
 // POST /api/teacher/worksheets -- explicit save, triggered by the teacher
@@ -48,7 +36,6 @@ export async function POST(request: Request) {
 
   const errors: string[] = []
   const theme = requireString(body.theme, 'Theme', errors)
-  const imageKey = optionalString(body.imageKey)
   if (!isWorksheetContent(body.content)) {
     errors.push('Content must be a valid worksheet object')
   }
@@ -58,7 +45,7 @@ export async function POST(request: Request) {
 
   const { data: savedWorksheet, error } = await supabase
     .from('sms_teacher_worksheets')
-    .insert([{ theme, content: body.content, image_key: imageKey, created_by: profile.id }])
+    .insert([{ theme, content: body.content, created_by: profile.id }])
     .select()
     .single()
 
