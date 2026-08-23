@@ -29,6 +29,12 @@ export interface WorksheetContent {
   vocabulary: { term: string; definition: string }[]
 }
 
+function isVocabEntry(value: unknown): value is { term: string; definition: string } {
+  if (!value || typeof value !== 'object') return false
+  const v = value as Record<string, unknown>
+  return typeof v.term === 'string' && typeof v.definition === 'string'
+}
+
 function isPictureFillBlankItem(value: unknown): value is PictureFillBlankItem {
   if (!value || typeof value !== 'object') return false
   const v = value as Record<string, unknown>
@@ -40,25 +46,22 @@ function isPictureFillBlankItem(value: unknown): value is PictureFillBlankItem {
   )
 }
 
-function isVocabEntry(value: unknown): value is { term: string; definition: string } {
-  if (!value || typeof value !== 'object') return false
-  const v = value as Record<string, unknown>
-  return typeof v.term === 'string' && typeof v.definition === 'string'
-}
-
-// Narrow, defensive shape-check on parsed JSON from the LLM -- a
-// reasoning-model provider (Sarvam/Groq) can still wrap its answer in
-// prose or omit a field despite explicit instructions not to, so this is
-// checked before the content is ever persisted or shown to a teacher.
-// Validates the discriminated union: each type requires its own fields
-// to be meaningfully populated, not just present as empty arrays.
-export function isWorksheetContent(value: unknown): value is WorksheetContent {
+// Shared shape/discriminated-union checks common to both the raw LLM
+// response and the final persisted WorksheetContent -- everything except
+// each picture_fillblank item's `emoji`, which only exists after the
+// generation route resolves it server-side (see emojiForWord in
+// lib/tamilVocabEmoji.ts). Parameterized on the item validator so the two
+// exported checks below can differ only in that one field.
+function isWorksheetShape(
+  value: unknown,
+  isItem: (item: unknown) => boolean
+): value is { worksheetType: WorksheetType; title: string; passage: string; items: unknown[]; questions: string[]; vocabulary: { term: string; definition: string }[] } {
   if (!value || typeof value !== 'object') return false
   const v = value as Record<string, unknown>
 
   if (typeof v.title !== 'string') return false
   if (typeof v.passage !== 'string') return false
-  if (!Array.isArray(v.items) || !v.items.every(isPictureFillBlankItem)) return false
+  if (!Array.isArray(v.items) || !v.items.every(isItem)) return false
   if (!Array.isArray(v.questions) || !v.questions.every((q) => typeof q === 'string')) return false
   if (!Array.isArray(v.vocabulary) || !v.vocabulary.every(isVocabEntry)) return false
 
@@ -69,6 +72,29 @@ export function isWorksheetContent(value: unknown): value is WorksheetContent {
     return v.passage.trim().length > 0 && v.questions.length > 0
   }
   return false
+}
+
+// Validates the raw shape returned by the LLM, BEFORE each
+// picture_fillblank item's `emoji` has been resolved -- the generation
+// prompt tells the model to omit that field entirely (see
+// buildSystemPrompt in app/api/generate-worksheet/route.ts). Use this in
+// the generation route only; use isWorksheetContent everywhere else
+// (save/assign), once emoji has been added.
+export function isRawWorksheetContent(value: unknown): value is Omit<WorksheetContent, 'items'> & {
+  items: Omit<PictureFillBlankItem, 'emoji'>[]
+} {
+  return isWorksheetShape(value, (item) => {
+    if (!item || typeof item !== 'object') return false
+    const v = item as Record<string, unknown>
+    return typeof v.word === 'string' && typeof v.blankedWord === 'string' && typeof v.missingLetter === 'string'
+  })
+}
+
+// Narrow, defensive shape-check on a FINAL, fully-formed worksheet (i.e.
+// after emoji resolution) -- used by the save/assign routes, which
+// receive their payload from the client after generation completed.
+export function isWorksheetContent(value: unknown): value is WorksheetContent {
+  return isWorksheetShape(value, isPictureFillBlankItem)
 }
 
 // Renders structured worksheet content into plain text for an assignment

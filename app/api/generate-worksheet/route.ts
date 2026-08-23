@@ -5,7 +5,7 @@ import { groqChatCompletion, GroqRateLimitError, GroqRequestError } from '@/lib/
 import { sarvamChatCompletion } from '@/lib/sarvam'
 import { STORY_LEVEL_GUIDANCE, STORY_LEVEL_VALUES, defaultWorksheetTypeForLevel, type StoryLevel } from '@/lib/storyLevels'
 import { looksProperlySpaced } from '@/lib/storyValidation'
-import { isWorksheetContent, type WorksheetContent, type WorksheetType } from '@/lib/worksheetTypes'
+import { isRawWorksheetContent, type WorksheetContent, type WorksheetType } from '@/lib/worksheetTypes'
 import { emojiForWord, availableVocabWords } from '@/lib/tamilVocabEmoji'
 
 class WorksheetParseError extends Error {
@@ -74,7 +74,11 @@ async function generateText(messages: { role: 'system' | 'user'; content: string
   }
 }
 
-function parseWorksheet(raw: string): WorksheetContent {
+// Returns the raw LLM shape -- picture_fillblank items have no `emoji`
+// yet at this point (see isRawWorksheetContent in lib/worksheetTypes.ts
+// for why). The caller resolves emoji and builds the final
+// WorksheetContent afterward.
+function parseWorksheet(raw: string): ReturnType<typeof requireRawWorksheetContent> {
   // The model may still wrap its answer in a markdown code fence despite
   // being told not to -- strip one if present before parsing.
   const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
@@ -86,10 +90,13 @@ function parseWorksheet(raw: string): WorksheetContent {
     throw new WorksheetParseError()
   }
 
-  if (!isWorksheetContent(parsed)) {
+  return requireRawWorksheetContent(parsed)
+}
+
+function requireRawWorksheetContent(parsed: unknown) {
+  if (!isRawWorksheetContent(parsed)) {
     throw new WorksheetParseError()
   }
-
   return parsed
 }
 
@@ -98,7 +105,7 @@ function parseWorksheet(raw: string): WorksheetContent {
 // word/blankedWord, for reading_comprehension that's the passage. Joining
 // the relevant strings gives looksProperlySpaced (lib/storyValidation.ts)
 // one combined check without needing a type-specific implementation.
-function textToValidate(content: WorksheetContent): string {
+function textToValidate(content: { worksheetType: WorksheetType; passage: string; items: { word: string }[] }): string {
   if (content.worksheetType === 'picture_fillblank') {
     return content.items.map((i) => i.word).join(' ')
   }
@@ -153,14 +160,12 @@ export async function POST(request: Request) {
       worksheet = parseWorksheet(raw)
     }
 
-    if (worksheet.worksheetType === 'picture_fillblank') {
-      worksheet = {
-        ...worksheet,
-        items: worksheet.items.map((item) => ({ ...item, emoji: emojiForWord(item.word) })),
-      }
+    const finalWorksheet: WorksheetContent = {
+      ...worksheet,
+      items: worksheet.items.map((item) => ({ ...item, emoji: emojiForWord(item.word) })),
     }
 
-    return NextResponse.json({ worksheet })
+    return NextResponse.json({ worksheet: finalWorksheet })
   } catch (err) {
     if (err instanceof WorksheetParseError) {
       return NextResponse.json({ error: err.message }, { status: 502 })
@@ -174,6 +179,7 @@ export async function POST(request: Request) {
     if (err instanceof GroqRequestError) {
       return NextResponse.json({ error: err.message }, { status: 502 })
     }
+    console.error('[generate-worksheet] unexpected error:', err)
     return NextResponse.json({ error: 'Failed to generate worksheet' }, { status: 500 })
   }
 }
