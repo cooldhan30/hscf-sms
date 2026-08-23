@@ -46,6 +46,7 @@ export default async function TeacherResourcesPage() {
         teacherClassIds={teacherClassIds}
         canAssign
         canEditAny
+        canGenerateWorksheet
       />
     </div>
   )

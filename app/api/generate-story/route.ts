@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/require-teacher'
 import { requireString, requireEnum } from '@/lib/validation'
 import { groqChatCompletion, verifyStoryMatchesTheme, GroqRateLimitError, GroqRequestError } from '@/lib/groq'
+import { sarvamChatCompletion } from '@/lib/sarvam'
 import { STORY_LEVEL_GUIDANCE, STORY_LEVEL_VALUES, type StoryLevel } from '@/lib/storyLevels'
 
 function buildSystemPrompt(language: 'ta' | 'en', level: StoryLevel): string {
@@ -17,6 +18,9 @@ function buildSystemPrompt(language: 'ta' | 'en', level: StoryLevel): string {
     'The user message is the REQUIRED theme/topic/subject for the story -- the story\'s characters, setting, and events must be clearly and directly about that theme. Do not write a generic or unrelated story.',
     'Write the ENTIRE story in Tamil script only -- no English words or transliteration.',
     'The story must have a clear beginning, middle, and end, and must stay on the given theme throughout.',
+    'Vary character names, settings, and the story\'s problem/resolution across different generations -- avoid defaulting to the most obvious or stock scenario for the theme.',
+    'Write with natural spoken-Tamil rhythm appropriate for a children\'s book being read aloud, not stiff textbook phrasing.',
+    'Before returning your answer, re-check every sentence for correct Tamil grammar, case markers, and verb agreement.',
     `Target length: ${guidance.wordCount}.`,
     `Vocabulary: ${guidance.vocabulary}`,
     `Sentence structure: ${guidance.sentenceStructure}`,
@@ -25,9 +29,30 @@ function buildSystemPrompt(language: 'ta' | 'en', level: StoryLevel): string {
   ].join(' ')
 }
 
+// Sarvam (sarvam-105b) is the primary provider -- better Tamil grammar and
+// creative variety than Groq's qwen model. Groq is kept as an automatic
+// fallback so a Sarvam outage/rate-limit doesn't take down story
+// generation entirely; any Sarvam failure (its own error classes, a
+// network error, a malformed response) falls through to Groq silently
+// from the caller's perspective. Logged so provider mix/usage can be
+// monitored (see the [sarvam]/[groq] token logs in their respective libs).
+async function generateText(messages: { role: 'system' | 'user'; content: string }[]): Promise<string> {
+  try {
+    const story = await sarvamChatCompletion(messages)
+    console.log('[generate-story] provider=sarvam')
+    return story
+  } catch (err) {
+    console.error('Sarvam generation failed, falling back to Groq:', err)
+    const story = await groqChatCompletion(messages)
+    console.log('[generate-story] provider=groq-fallback')
+    return story
+  }
+}
+
 // POST /api/generate-story -- teacher-only. Generates a children's Tamil
-// story from a theme via Groq (see lib/groq.ts for the model/timeout/
-// rate-limit handling this route relies on).
+// story from a theme via Sarvam, falling back to Groq (see generateText
+// above, and lib/sarvam.ts / lib/groq.ts for the model/timeout/rate-limit
+// handling this route relies on).
 export async function POST(request: Request) {
   const guard = await requireTeacher()
   if (!guard.ok) {
@@ -51,7 +76,7 @@ export async function POST(request: Request) {
   const systemPrompt = buildSystemPrompt(language ?? 'ta', level!)
 
   try {
-    let story = await groqChatCompletion([
+    let story = await generateText([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: theme },
     ])
@@ -62,10 +87,13 @@ export async function POST(request: Request) {
     // catches most of these instead of silently shipping an off-topic
     // story -- if the retry ALSO fails the check, it's still returned
     // rather than erroring out entirely, since a plausible-but-imperfect
-    // story beats no story.
+    // story beats no story. Verification always uses Groq directly (not
+    // generateText) -- it's a cheap yes/no classification, not creative
+    // writing, so it doesn't need Sarvam's quality and stays on the
+    // simpler, already-proven path.
     const matchesTheme = await verifyStoryMatchesTheme(story, theme)
     if (!matchesTheme) {
-      story = await groqChatCompletion([
+      story = await generateText([
         { role: 'system', content: systemPrompt },
         {
           role: 'user',

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/require-teacher'
 import { requireString, optionalString } from '@/lib/validation'
 import { getB2ReadUrl } from '@/lib/storage/b2'
+import { isWorksheetContent, renderWorksheetAsPlainText } from '@/lib/worksheetTypes'
 
 // POST /api/teacher/assignments -- create an assignment for one of the
 // teacher's own classes. RLS ("assignments: teacher manage own class")
@@ -22,7 +23,17 @@ export async function POST(request: Request) {
   const errors: string[] = []
   const classId = requireString(body.classId, 'Class', errors)
   const title = requireString(body.title, 'Title', errors)
-  const description = optionalString(body.description)
+  // A worksheet assignment sends structured content instead of a plain
+  // description -- rendered to plain text below, since students see
+  // assignment descriptions as plain text (no rich-content renderer).
+  let description = optionalString(body.description)
+  if (body.worksheetContent !== undefined) {
+    if (!isWorksheetContent(body.worksheetContent)) {
+      errors.push('Worksheet content is invalid')
+    } else {
+      description = renderWorksheetAsPlainText(body.worksheetContent)
+    }
+  }
   const dueDate = optionalString(body.dueDate)
   const maxScore = Number(body.maxScore)
   if (!body.maxScore || Number.isNaN(maxScore) || maxScore <= 0) {

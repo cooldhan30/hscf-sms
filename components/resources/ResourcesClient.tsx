@@ -18,6 +18,7 @@ import {
   FiCheckCircle,
   FiSearch,
   FiEdit2,
+  FiFeather,
 } from 'react-icons/fi'
 import { Modal } from '@/components/dashboard/Modal'
 import { Button } from '@/components/ui/Button'
@@ -30,6 +31,7 @@ import { toast } from '@/lib/toast'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { ResourceTaxonomyFields, EMPTY_TAXONOMY, type TaxonomyState } from '@/components/resources/ResourceTaxonomyFields'
 import { ResourceFilterPanel, EMPTY_FILTERS, type ResourceFilterState } from '@/components/resources/ResourceFilterPanel'
+import { WorksheetGeneratorPanel } from '@/components/resources/WorksheetGeneratorPanel'
 import { categoryLabel, subcategoryLabel, RESOURCE_DIFFICULTIES, RESOURCE_FORMATS, RESOURCE_SKILLS } from '@/lib/resourceTaxonomy'
 import { GRADE_LEVEL_OPTIONS } from '@/lib/constants'
 
@@ -143,6 +145,7 @@ export function ResourcesClient({
   resourceAssignments = {},
   canDeleteAny = false,
   canEditAny = false,
+  canGenerateWorksheet = false,
 }: {
   initialResources: ResourceRow[]
   classes: { id: string; name: string }[]
@@ -157,6 +160,9 @@ export function ResourcesClient({
   // didn't upload it -- distinct from canDeleteAny, which stays
   // owner-or-admin only since deleting is destructive.
   canEditAny?: boolean
+  // Teacher-only, same population as canUpload -- gates the Worksheet
+  // Generator entry point (see components/resources/WorksheetGeneratorPanel.tsx).
+  canGenerateWorksheet?: boolean
 }) {
   const router = useRouter()
   const confirm = useConfirm()
@@ -168,6 +174,7 @@ export function ResourcesClient({
   const debouncedSearch = useDebouncedValue(search, 200)
   const [filters, setFilters] = useState<ResourceFilterState>(EMPTY_FILTERS)
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [worksheetGeneratorOpen, setWorksheetGeneratorOpen] = useState(false)
   const [preview, setPreview] = useState<ResourceRow | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
@@ -477,11 +484,18 @@ export function ResourcesClient({
           </select>
         </div>
 
-        {canUpload && (
-          <Button variant="primary" icon={<FiUpload />} onClick={openUpload}>
-            Upload Resource
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {canGenerateWorksheet && (
+            <Button variant="outline" icon={<FiFeather />} onClick={() => setWorksheetGeneratorOpen(true)}>
+              Generate Worksheet
+            </Button>
+          )}
+          {canUpload && (
+            <Button variant="primary" icon={<FiUpload />} onClick={openUpload}>
+              Upload Resource
+            </Button>
+          )}
+        </div>
       </div>
 
       <ResourceFilterPanel value={filters} onChange={setFilters} availableTags={availableTags} />
@@ -873,6 +887,14 @@ export function ResourcesClient({
           </Button>
         </form>
       </Modal>
+
+      {canGenerateWorksheet && (
+        <WorksheetGeneratorPanel
+          open={worksheetGeneratorOpen}
+          onClose={() => setWorksheetGeneratorOpen(false)}
+          classes={classes.filter((c) => teacherClassIds.includes(c.id))}
+        />
+      )}
     </div>
   )
 }

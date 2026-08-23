@@ -102,6 +102,10 @@ export async function groqChatCompletion(messages: GroqChatMessage[]): Promise<s
     throw new GroqRequestError('Groq returned an empty response')
   }
 
+  if (typeof data?.usage?.total_tokens === 'number') {
+    console.log(`[groq] model=${GROQ_MODEL} tokens=${data.usage.total_tokens}`)
+  }
+
   // Defense-in-depth: reasoning_effort: 'none' above should mean there's
   // never a <think> block in the response, but strip one if it somehow
   // appears rather than showing raw chain-of-thought text to a teacher.
