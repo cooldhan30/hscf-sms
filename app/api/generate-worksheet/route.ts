@@ -45,7 +45,7 @@ function buildSystemPrompt(language: 'ta' | 'en', level: StoryLevel, worksheetTy
     return [
       ...shared,
       `Pick 5 to 8 words related to the theme, ONLY from this exact list of allowed Tamil words (do not invent, translate, or alter any word -- copy each chosen word EXACTLY as spelled here, and do not use any word outside this list): ${availableVocabWords().join(', ')}.`,
-      'Give the worksheet a short Tamil title that clearly reflects the REQUESTED THEME (not a generic label like "sentence practice" or "grammar practice") -- e.g. if the theme is about animals, the title should mention animals.',
+      'This is a PICTURE-WORD FILL-IN-THE-BLANK exercise (single words, not sentences) -- give it a short Tamil title describing that AND reflecting the requested theme, e.g. "___ விலங்குகள்: படம் பார்த்து வார்த்தையை பூர்த்தி செய்" for an animal theme. Never call it "sentence practice" (வாக்கியப் பயிற்சி) or imply full sentences, since there are none here.',
       'Return ONLY a single JSON object (no markdown fences, no commentary before or after) with exactly this shape:',
       '{"worksheetType": "picture_fillblank", "title": string, "passage": "", "items": [{"word": string}], "questions": [], "vocabulary": []}',
     ].join(' ')
