@@ -15,6 +15,14 @@ class WorksheetParseError extends Error {
   }
 }
 
+// This route's parse/validation failures were previously silent (no
+// console.error), so a 502 gave no way to see WHAT the model actually
+// returned or which check rejected it. Every WorksheetParseError now
+// logs the raw model text (or the reason) that caused it.
+function logParseFailure(reason: string, raw: string) {
+  console.error(`[generate-worksheet] ${reason}. Raw model output:`, raw)
+}
+
 const WORKSHEET_TYPE_VALUES = ['picture_fillblank', 'reading_comprehension'] as const
 
 function buildSystemPrompt(language: 'ta' | 'en', level: StoryLevel, worksheetType: WorksheetType): string {
@@ -86,14 +94,16 @@ function parseWorksheet(raw: string): ReturnType<typeof requireRawWorksheetConte
   try {
     parsed = JSON.parse(cleaned)
   } catch {
+    logParseFailure('JSON.parse failed', raw)
     throw new WorksheetParseError()
   }
 
-  return requireRawWorksheetContent(parsed)
+  return requireRawWorksheetContent(parsed, raw)
 }
 
-function requireRawWorksheetContent(parsed: unknown) {
+function requireRawWorksheetContent(parsed: unknown, raw: string) {
   if (!isRawWorksheetContent(parsed)) {
+    logParseFailure('isRawWorksheetContent rejected the parsed shape', raw)
     throw new WorksheetParseError()
   }
   return parsed
@@ -175,6 +185,10 @@ export async function POST(request: Request) {
     })
 
     if (worksheet.worksheetType === 'picture_fillblank' && items.length === 0) {
+      console.error(
+        '[generate-worksheet] every picture_fillblank item was rejected (not in dictionary, or a single-cluster word). Model picked:',
+        worksheet.items.map((i) => i.word)
+      )
       throw new WorksheetParseError()
     }
 
