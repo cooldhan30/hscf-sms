@@ -74,19 +74,21 @@ function isWorksheetShape(
   return false
 }
 
-// Validates the raw shape returned by the LLM, BEFORE each
-// picture_fillblank item's `emoji` has been resolved -- the generation
-// prompt tells the model to omit that field entirely (see
-// buildSystemPrompt in app/api/generate-worksheet/route.ts). Use this in
-// the generation route only; use isWorksheetContent everywhere else
-// (save/assign), once emoji has been added.
+// Validates the raw shape returned by the LLM, which for
+// picture_fillblank items is ONLY a chosen `word` -- blankedWord/
+// missingLetter/emoji are all computed deterministically server-side
+// afterward (see blankOutOneLetter in lib/tamilVocabEmoji.ts; asking the
+// LLM to blank a Tamil word itself was tried and produced nonsense, since
+// Tamil consonant+vowel-sign combinations are multi-codepoint grapheme
+// clusters the model doesn't reliably split/rejoin). Use this in the
+// generation route only; use isWorksheetContent everywhere else
+// (save/assign), once the full item has been resolved.
 export function isRawWorksheetContent(value: unknown): value is Omit<WorksheetContent, 'items'> & {
-  items: Omit<PictureFillBlankItem, 'emoji'>[]
+  items: { word: string }[]
 } {
   return isWorksheetShape(value, (item) => {
     if (!item || typeof item !== 'object') return false
-    const v = item as Record<string, unknown>
-    return typeof v.word === 'string' && typeof v.blankedWord === 'string' && typeof v.missingLetter === 'string'
+    return typeof (item as Record<string, unknown>).word === 'string'
   })
 }
 

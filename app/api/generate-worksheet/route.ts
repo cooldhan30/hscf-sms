@@ -6,7 +6,7 @@ import { sarvamChatCompletion } from '@/lib/sarvam'
 import { STORY_LEVEL_GUIDANCE, STORY_LEVEL_VALUES, defaultWorksheetTypeForLevel, type StoryLevel } from '@/lib/storyLevels'
 import { looksProperlySpaced } from '@/lib/storyValidation'
 import { isRawWorksheetContent, type WorksheetContent, type WorksheetType } from '@/lib/worksheetTypes'
-import { emojiForWord, availableVocabWords } from '@/lib/tamilVocabEmoji'
+import { emojiForWord, availableVocabWords, blankOutOneLetter, PLACEHOLDER_EMOJI } from '@/lib/tamilVocabEmoji'
 
 class WorksheetParseError extends Error {
   constructor() {
@@ -36,11 +36,10 @@ function buildSystemPrompt(language: 'ta' | 'en', level: StoryLevel, worksheetTy
   if (worksheetType === 'picture_fillblank') {
     return [
       ...shared,
-      `Pick 5 to 8 words related to the theme, ONLY from this exact list of allowed Tamil words (do not invent or use any word outside this list): ${availableVocabWords().join(', ')}.`,
-      'For each chosen word, blank out exactly one consonant letter (a மெய் எழுத்து) from the middle or end of the word, replacing it with "___" in a new "blankedWord" field, and put the removed letter by itself in "missingLetter".',
-      'Double-check that blankedWord, when the missingLetter is put back in its place, exactly reconstructs the original word -- verify this yourself before finalizing.',
+      `Pick 5 to 8 words related to the theme, ONLY from this exact list of allowed Tamil words (do not invent, translate, or alter any word -- copy each chosen word EXACTLY as spelled here, and do not use any word outside this list): ${availableVocabWords().join(', ')}.`,
+      'Give the worksheet a short Tamil title that clearly reflects the REQUESTED THEME (not a generic label like "sentence practice" or "grammar practice") -- e.g. if the theme is about animals, the title should mention animals.',
       'Return ONLY a single JSON object (no markdown fences, no commentary before or after) with exactly this shape:',
-      '{"worksheetType": "picture_fillblank", "title": string (a short Tamil title for this worksheet), "passage": "", "items": [{"word": string, "blankedWord": string, "missingLetter": string}], "questions": [], "vocabulary": []}',
+      '{"worksheetType": "picture_fillblank", "title": string, "passage": "", "items": [{"word": string}], "questions": [], "vocabulary": []}',
     ].join(' ')
   }
 
@@ -160,10 +159,26 @@ export async function POST(request: Request) {
       worksheet = parseWorksheet(raw)
     }
 
-    const finalWorksheet: WorksheetContent = {
-      ...worksheet,
-      items: worksheet.items.map((item) => ({ ...item, emoji: emojiForWord(item.word) })),
+    // The LLM only ever picks WHICH word to use -- blanking a letter out
+    // and picking its emoji are both done deterministically here, never
+    // trusted to the model (see blankOutOneLetter/emojiForWord in
+    // lib/tamilVocabEmoji.ts for why). A word the model invented, altered,
+    // or picked outside the allowed list (despite being told not to)
+    // won't blank cleanly or won't resolve to a real emoji -- silently
+    // dropped rather than shown as broken/placeholder content.
+    const items = worksheet.items.flatMap((item) => {
+      const blanked = blankOutOneLetter(item.word)
+      if (!blanked) return []
+      const emoji = emojiForWord(item.word)
+      if (emoji === PLACEHOLDER_EMOJI) return []
+      return [{ word: item.word, ...blanked, emoji }]
+    })
+
+    if (worksheet.worksheetType === 'picture_fillblank' && items.length === 0) {
+      throw new WorksheetParseError()
     }
+
+    const finalWorksheet: WorksheetContent = { ...worksheet, items }
 
     return NextResponse.json({ worksheet: finalWorksheet })
   } catch (err) {

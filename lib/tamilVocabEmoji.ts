@@ -70,12 +70,46 @@ export const TAMIL_VOCAB_EMOJI: Record<string, string> = {
   'கண்ணாடி': '🪞',
 }
 
-const PLACEHOLDER_EMOJI = '❓'
+export const PLACEHOLDER_EMOJI = '❓'
 
 export function emojiForWord(word: string): string {
   return TAMIL_VOCAB_EMOJI[word] ?? PLACEHOLDER_EMOJI
 }
 
+// Only words with 2+ grapheme clusters can have one blanked out and
+// still leave something behind -- a single-cluster word (e.g. பூ, one
+// consonant+vowel-sign cluster) has nothing to blank.
+const GRAPHEME_SEGMENTER = new Intl.Segmenter('ta', { granularity: 'grapheme' })
+
+function graphemeClusters(word: string): string[] {
+  // Array.from over the Segmenter's iterator, not a spread/for-of --
+  // TS's lib.es2018+ types for Intl.Segmenter's Segments require
+  // --target es2015+ (or --downlevelIteration) to spread/for-of
+  // directly, which this project's tsconfig doesn't set.
+  return Array.from(GRAPHEME_SEGMENTER.segment(word), (s) => s.segment)
+}
+
 export function availableVocabWords(): string[] {
-  return Object.keys(TAMIL_VOCAB_EMOJI)
+  return Object.keys(TAMIL_VOCAB_EMOJI).filter((word) => graphemeClusters(word).length >= 2)
+}
+
+// Confirmed by direct testing that asking an LLM to blank out a letter
+// and reconstruct the remainder itself produces nonsense in Tamil script
+// (e.g. "நாய்" came back as unrelated garbage like "___ரி") -- Tamil
+// consonant+vowel-sign combinations are multi-codepoint grapheme
+// clusters, and the model doesn't reliably split/rejoin them correctly.
+// This does the blanking deterministically instead: split into real
+// grapheme clusters (Intl.Segmenter, not raw JS chars -- "நாய்" is
+// ["நா","ய்"], not 4 separate letters), remove exactly one at random,
+// and rejoin. The LLM's only job for this worksheet type is picking
+// WHICH words fit the theme (see buildSystemPrompt in
+// app/api/generate-worksheet/route.ts) -- never how to blank them.
+export function blankOutOneLetter(word: string): { blankedWord: string; missingLetter: string } | null {
+  const clusters = graphemeClusters(word)
+  if (clusters.length < 2) return null
+
+  const index = Math.floor(Math.random() * clusters.length)
+  const missingLetter = clusters[index]
+  const blankedWord = clusters.map((c, i) => (i === index ? '___' : c)).join('')
+  return { blankedWord, missingLetter }
 }
