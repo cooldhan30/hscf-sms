@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { requireGamePlayer } from '@/lib/gameRoom/requirePlayer'
 import { getGameModule } from '@/lib/gameRoom/registry'
 import { shuffledOptionsFor } from '@/lib/gameRoom/shuffle'
 
-// POST /api/game-room/state -- anonymous, polled every ~2-3s by the
-// student client (mirrors the interval-poll idiom already proven in
-// StoryGeneratorClient.tsx, chosen over anonymous Realtime subscriptions
-// since this codebase has no precedent for the latter). Body:
-// { playerToken }. Returns the session's status, this player's progress,
-// and -- only if the game is active and this player hasn't completed --
-// their CURRENT question with freshly shuffled options and server-
-// computed remaining time. Never exposes a future question or the
+// POST /api/game-room/state -- student-only (Clerk-authenticated),
+// polled every ~2-3s by the student client (mirrors the interval-poll
+// idiom already proven in StoryGeneratorClient.tsx; Realtime for an
+// authenticated student is a viable future upgrade, not attempted here).
+// Body: { sessionId }. Returns the session's status, this player's
+// progress, and -- only if the game is active and this player hasn't
+// completed -- their CURRENT question with stable-shuffled options and
+// server-computed remaining time. Never exposes a future question or the
 // correct answer before it's answered (anti-cheat).
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null)
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const guard = await requireGamePlayer(body.playerToken)
+  const guard = await requireGamePlayer(body.sessionId)
   if (!guard.ok) {
     return NextResponse.json({ error: guard.error }, { status: guard.status })
   }
@@ -82,20 +82,19 @@ export async function POST(request: Request) {
 
 // A player's rank among all players in their session, by score
 // descending -- recomputed on every poll rather than cached, since it
-// changes continuously as other players answer. Cheap enough (one
-// indexed query over a single session's players, capped at a realistic
-// classroom size) to not warrant caching for this feature's scale.
+// changes continuously as other players answer. A student's own RLS
+// ("game_players: student manage own") only exposes their OWN row, so
+// this goes through the narrow SECURITY DEFINER RPC
+// (sms_game_session_leaderboard) instead of a direct table read --
+// same "bypass RLS for one safe, scoped lookup" idiom as the join-code
+// resolver.
 async function computeRank(
-  supabase: ReturnType<typeof createAdminClient>,
+  supabase: ReturnType<typeof createClient>,
   sessionId: string,
   playerId: string
 ): Promise<number> {
-  const { data: players } = await supabase
-    .from('sms_game_players')
-    .select('id, score')
-    .eq('session_id', sessionId)
-    .order('score', { ascending: false })
+  const { data: players } = await supabase.rpc('sms_game_session_leaderboard', { p_session_id: sessionId })
 
-  const index = (players ?? []).findIndex((p) => p.id === playerId)
+  const index = (players ?? []).findIndex((p: { id: string }) => p.id === playerId)
   return index === -1 ? 0 : index + 1
 }

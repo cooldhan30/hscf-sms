@@ -17,11 +17,12 @@ const baseNavItems: SidebarItem[] = [
   { label: 'Meetings', href: '/student/meetings', icon: <FiVideo className={iconClass} /> },
   { label: 'Chat', href: '/student/chat', icon: <FiMessageCircle className={iconClass} /> },
   { label: 'Link Requests', href: '/student/link-requests', icon: <FiUserCheck className={iconClass} /> },
-  // Game Room is a public, account-less route (see app/play) -- a
-  // student joins with just a nickname + the code their teacher shows
-  // on-screen, so this is a plain always-shown link, not conditioned on
-  // any enrollment state the way Tamil Theni's item below is.
-  { label: 'Game Room', href: '/play', icon: <FiPlayCircle className={iconClass} /> },
+  // A normal authenticated student route like every other item here --
+  // students join with their real Clerk-backed identity now, not a
+  // typed nickname, so scores/history can be aggregated across sessions
+  // for the same actual person (see
+  // supabase/migrations/057_game_room_student_identity.sql).
+  { label: 'Game Room', href: '/student/game-room', icon: <FiPlayCircle className={iconClass} /> },
 ]
 
 // Tamil Theni is the first nav item conditioned on something other than

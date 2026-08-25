@@ -1,10 +1,11 @@
 import 'server-only'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { requireStudent } from '@/lib/require-student'
+import type { createClient } from '@/lib/supabase/server'
 
 export interface GamePlayerRow {
   id: string
   session_id: string
-  player_token: string
+  student_id: string | null
   nickname: string
   question_order: string[]
   current_index: number
@@ -21,7 +22,9 @@ export interface GamePlayerRow {
 export interface GameSessionRow {
   id: string
   join_code: string
-  host_teacher_id: string
+  host_teacher_id: string | null
+  host_student_id: string | null
+  is_solo_practice: boolean
   game_type: string
   status: 'waiting' | 'active' | 'paused' | 'ended'
   quiz_mode: string
@@ -36,41 +39,50 @@ export interface GameSessionRow {
   ended_at: string | null
 }
 
-// Anonymous student routes have no Clerk session and no RLS-scoped
-// client to lean on -- the admin (service-role) client plus this
-// app-code check IS the authorization boundary for every /api/game-room/
-// {join,state,answer} route, mirroring requireTeacher()'s return shape
-// for consistency even though the underlying trust model is different.
+// Every student-facing Game Room route (join/state/answer/practice) now
+// authenticates via the same Clerk-backed requireStudent() guard every
+// other student feature uses, operating on the student's own RLS-scoped
+// client -- RLS ("game_players: student manage own" /
+// "game_answers: student manage own", 057_game_room_student_identity.sql)
+// is the real enforcement boundary, replacing the earlier anonymous
+// bearer-token + service-role admin-client model. sessionId is looked up
+// from the request itself (route param or body), not derived from a
+// token, since the student's own Clerk session IS their identity now.
 export async function requireGamePlayer(
-  playerToken: unknown
+  sessionId: unknown
 ): Promise<
-  | { ok: true; supabase: ReturnType<typeof createAdminClient>; player: GamePlayerRow; session: GameSessionRow }
+  | { ok: true; supabase: ReturnType<typeof createClient>; player: GamePlayerRow; session: GameSessionRow }
   | { ok: false; status: number; error: string }
 > {
-  if (typeof playerToken !== 'string' || !playerToken) {
-    return { ok: false, status: 400, error: 'playerToken is required' }
+  if (typeof sessionId !== 'string' || !sessionId) {
+    return { ok: false, status: 400, error: 'sessionId is required' }
   }
 
-  const supabase = createAdminClient()
-
-  const { data: player } = await supabase
-    .from('sms_game_players')
-    .select('*')
-    .eq('player_token', playerToken)
-    .single()
-
-  if (!player) {
-    return { ok: false, status: 404, error: 'Player not found -- the game session may have ended' }
+  const guard = await requireStudent()
+  if (!guard.ok) {
+    return { ok: false, status: guard.status, error: guard.error }
   }
+  const { supabase, student } = guard
 
   const { data: session } = await supabase
     .from('sms_game_sessions')
     .select('*')
-    .eq('id', player.session_id)
+    .eq('id', sessionId)
     .single()
 
   if (!session) {
     return { ok: false, status: 404, error: 'Game session not found' }
+  }
+
+  const { data: player } = await supabase
+    .from('sms_game_players')
+    .select('*')
+    .eq('session_id', sessionId)
+    .eq('student_id', student.id)
+    .single()
+
+  if (!player) {
+    return { ok: false, status: 404, error: 'You have not joined this game' }
   }
 
   return { ok: true, supabase, player: player as GamePlayerRow, session: session as GameSessionRow }

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 const POLL_INTERVAL_MS = 2000
 // Auto-advance delay after showing correct/incorrect feedback -- per
@@ -41,12 +40,11 @@ interface AnswerFeedback {
 // from /api/game-room/state -- nothing in this component is specific to
 // the Tamil grammar quiz, so a future second game module needs no
 // changes here. Polls every 2s (mirrors StoryGeneratorClient.tsx's
-// interval+ref+cleanup idiom) rather than a Realtime subscription, since
-// this is an anonymous client with no Clerk JWT to authenticate a
-// channel with.
+// interval+ref+cleanup idiom) -- the student is now a real Clerk-
+// authenticated session (see lib/gameRoom/requirePlayer.ts), so no
+// bearer token/localStorage plumbing is needed; sessionId in the URL is
+// the only thing the client needs to track.
 export function PlayGameClient({ sessionId }: { sessionId: string }) {
-  const router = useRouter()
-  const [playerToken, setPlayerToken] = useState<string | null>(null)
   const [state, setState] = useState<StatePayload | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -56,21 +54,12 @@ export function PlayGameClient({ sessionId }: { sessionId: string }) {
   const lastSeenIndexRef = useRef<number | null>(null)
   const timeoutHandledRef = useRef(false)
 
-  useEffect(() => {
-    const stored = localStorage.getItem(`gameRoom:${sessionId}:playerToken`)
-    if (!stored) {
-      router.replace('/play')
-      return
-    }
-    setPlayerToken(stored)
-  }, [sessionId, router])
-
-  async function poll(token: string) {
+  async function poll() {
     try {
       const res = await fetch('/api/game-room/state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerToken: token }),
+        body: JSON.stringify({ sessionId }),
       })
       const data = await res.json().catch(() => null)
 
@@ -98,12 +87,11 @@ export function PlayGameClient({ sessionId }: { sessionId: string }) {
   }
 
   useEffect(() => {
-    if (!playerToken) return
-    poll(playerToken)
-    const interval = setInterval(() => poll(playerToken), POLL_INTERVAL_MS)
+    poll()
+    const interval = setInterval(poll, POLL_INTERVAL_MS)
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerToken])
+  }, [sessionId])
 
   // Client-side timeout detection: if the poll shows 0 seconds left and
   // this question hasn't been answered or already auto-submitted as a
@@ -126,27 +114,25 @@ export function PlayGameClient({ sessionId }: { sessionId: string }) {
   }, [state?.remainingSeconds, state?.sessionStatus, state?.completed, feedback, submitting])
 
   async function handleAnswer(answer: string | null) {
-    if (!playerToken || !state || submitting || feedback) return
+    if (!state || submitting || feedback) return
     setSubmitting(true)
     setSelectedAnswer(answer)
 
     const res = await fetch('/api/game-room/answer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerToken, questionIndex: state.currentIndex, selectedAnswer: answer }),
+      body: JSON.stringify({ sessionId, questionIndex: state.currentIndex, selectedAnswer: answer }),
     })
     const data = await res.json().catch(() => null)
     setSubmitting(false)
 
     if (res.ok && data) {
       setFeedback(data)
-      setTimeout(() => {
-        if (playerToken) poll(playerToken)
-      }, FEEDBACK_DELAY_MS)
+      setTimeout(() => poll(), FEEDBACK_DELAY_MS)
     }
   }
 
-  if (!playerToken || !state) {
+  if (!state) {
     return <CenteredMessage>Loading...</CenteredMessage>
   }
 
@@ -223,7 +209,7 @@ export function PlayGameClient({ sessionId }: { sessionId: string }) {
   const progressPct = Math.round((state.currentIndex / state.totalQuestions) * 100)
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 dark:bg-stone-950 px-4 py-6">
+    <div className="flex flex-col px-4 py-6">
       <div className="max-w-md w-full mx-auto flex-1 flex flex-col">
         <div className="flex items-center justify-between text-sm text-stone-500 dark:text-stone-400 mb-2">
           <span>
@@ -239,7 +225,7 @@ export function PlayGameClient({ sessionId }: { sessionId: string }) {
           <div className="h-full bg-primary-600 dark:bg-primary-500 transition-all" style={{ width: `${progressPct}%` }} />
         </div>
 
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center py-8">
           <p className="text-4xl font-black text-center text-stone-800 dark:text-stone-100 tracking-wide">
             {state.question.prompt}
           </p>
@@ -268,7 +254,7 @@ export function PlayGameClient({ sessionId }: { sessionId: string }) {
 
 function CenteredMessage({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 px-4">
+    <div className="flex items-center justify-center px-4 py-16">
       <div className="max-w-sm w-full text-center text-stone-700 dark:text-stone-200">{children}</div>
     </div>
   )

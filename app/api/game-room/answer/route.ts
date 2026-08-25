@@ -3,9 +3,9 @@ import { requireGamePlayer } from '@/lib/gameRoom/requirePlayer'
 import { getGameModule } from '@/lib/gameRoom/registry'
 import { calculatePoints } from '@/lib/gameRoom/scoring'
 
-// POST /api/game-room/answer -- anonymous. Body:
-// { playerToken, questionIndex, selectedAnswer } (selectedAnswer is null
-// for a client-detected timeout). This is the only place scoring
+// POST /api/game-room/answer -- student-only (Clerk-authenticated).
+// Body: { sessionId, questionIndex, selectedAnswer } (selectedAnswer is
+// null for a client-detected timeout). This is the only place scoring
 // happens, and it happens ENTIRELY server-side: correctness, response
 // time, and points are all computed here from server-held state, never
 // trusting anything the client claims except which option it picked.
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const guard = await requireGamePlayer(body.playerToken)
+  const guard = await requireGamePlayer(body.sessionId)
   if (!guard.ok) {
     return NextResponse.json({ error: guard.error }, { status: guard.status })
   }
@@ -109,18 +109,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: updateError?.message || 'Failed to record answer' }, { status: 400 })
   }
 
+  // A student's own RLS ("game_players: student manage own") only
+  // exposes their OWN row, so both the auto-finish check below and the
+  // rank calculation go through the narrow SECURITY DEFINER RPC
+  // (sms_game_session_leaderboard) instead of a direct table read across
+  // every player in the session -- same idiom as state/route.ts.
+  const { data: sessionPlayers } = await supabase.rpc('sms_game_session_leaderboard', { p_session_id: session.id })
+  const players = sessionPlayers ?? []
+
   // Auto-finish (spec section 11): if every player in this session has
   // now completed the quiz, end it automatically -- the teacher's
   // manual "End Game" (sessions/[id]/end/route.ts) exists for the case
   // where a straggler never finishes/disconnects, not as the only path.
   if (isNowCompleted) {
-    const { data: remainingPlayers } = await supabase
-      .from('sms_game_players')
-      .select('id')
-      .eq('session_id', session.id)
-      .eq('completed', false)
+    const stillIncomplete = players.some((p: { id: string; completed: boolean }) => p.id !== player.id && !p.completed)
 
-    if ((remainingPlayers ?? []).length === 0) {
+    if (!stillIncomplete) {
       await supabase
         .from('sms_game_sessions')
         .update({ status: 'ended', ended_at: new Date().toISOString() })
@@ -129,12 +133,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data: rankedPlayers } = await supabase
-    .from('sms_game_players')
-    .select('id, score')
-    .eq('session_id', session.id)
-    .order('score', { ascending: false })
-  const rank = (rankedPlayers ?? []).findIndex((p) => p.id === player.id) + 1
+  const rank = players.findIndex((p: { id: string }) => p.id === player.id) + 1
 
   return NextResponse.json({
     isCorrect,

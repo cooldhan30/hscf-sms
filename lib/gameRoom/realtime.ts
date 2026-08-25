@@ -10,9 +10,12 @@ import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
 // StrictMode) can't create two channels for the same topic before the
 // first's cleanup runs -- same reasoning as lib/chat.ts.
 //
-// Anonymous student clients do NOT use this -- they have no Clerk JWT to
-// authenticate a Realtime channel with, so they poll /api/game-room/state
-// instead (see app/play/[sessionId]/PlayGameClient.tsx).
+// Student clients still poll /api/game-room/state instead of using this
+// (see app/student/game-room/[sessionId]/PlayGameClient.tsx) -- students
+// are now Clerk-authenticated (057_game_room_student_identity.sql), so a
+// Realtime subscription is a viable future upgrade, just not attempted
+// here since the poll-based flow already works and matches this
+// codebase's more common "keep checking server state" idiom.
 export function subscribeToGameSession(
   supabase: SupabaseClient,
   sessionId: string,
