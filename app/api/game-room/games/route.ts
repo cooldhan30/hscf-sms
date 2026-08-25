@@ -1,15 +1,28 @@
 import { NextResponse } from 'next/server'
-import { requireTeacher } from '@/lib/require-teacher'
+import { auth } from '@clerk/nextjs/server'
+import { createClient } from '@/lib/supabase/server'
 import { GAME_MODULES } from '@/lib/gameRoom/registry'
 
-// GET /api/game-room/games -- teacher-only. Lists every registered game
-// module's public metadata (never the question bank itself) -- powers
-// the host's game-type dropdown in GameRoomHostClient.tsx. Adding a new
-// module to lib/gameRoom/registry.ts makes it appear here automatically.
+// GET /api/game-room/games -- teacher OR student. Lists every
+// registered game module's public metadata (never the question bank
+// itself) -- powers both the teacher host's game-type dropdown
+// (GameRoomHostClient.tsx) and the student's solo-practice dropdown
+// (GameRoomStudentClient.tsx). Confirmed as a real bug: this was
+// teacher-only (requireTeacher()), so a student caller always got a 403
+// and the practice dropdown never populated. The list itself has
+// nothing sensitive in it (names/descriptions/counts, not question
+// content), so any active, authenticated profile is fine here -- just
+// not a fully anonymous caller.
 export async function GET() {
-  const guard = await requireTeacher()
-  if (!guard.ok) {
-    return NextResponse.json({ error: guard.error }, { status: guard.status })
+  const { userId } = await auth()
+  if (!userId) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  const supabase = createClient()
+  const { data: profile } = await supabase.from('sms_profiles').select('role, is_active').eq('id', userId).single()
+  if (!profile || !profile.is_active || !['teacher', 'student'].includes(profile.role)) {
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 })
   }
 
   const games = GAME_MODULES.map((m) => ({
