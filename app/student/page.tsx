@@ -17,15 +17,20 @@ export default async function StudentDashboardPage() {
   const { data: student } = await supabase.from('sms_students').select('id').eq('profile_id', userId ?? '').single()
   const studentId = student?.id ?? ''
 
-  const [{ data: classes }, { data: assignments }, { data: grades }, { data: attendance }, { data: announcements }, { data: theniEnrollment }] =
+  const [{ data: classes }, { data: allAssignments }, { data: mySubmissions }, { data: grades }, { data: attendance }, { data: announcements }, { data: theniEnrollment }] =
     await Promise.all([
       supabase.from('sms_classes').select('id, name'),
+      // RLS ("assignments: student read published in own class") already
+      // scopes this to published assignments in the student's own
+      // classes -- see app/student/assignments/page.tsx for the same
+      // pattern. No due_date filter here: an assignment that's already
+      // overdue is still "not submitted" and needs to keep showing up,
+      // not silently disappear the day after it was due.
       supabase
         .from('sms_assignments')
         .select('*, class:sms_classes!inner(id, name)')
-        .gte('due_date', new Date().toISOString().slice(0, 10))
-        .order('due_date', { ascending: true })
-        .limit(5),
+        .order('due_date', { ascending: true, nullsFirst: false }),
+      supabase.from('sms_submissions').select('assignment_id').eq('student_id', studentId),
       supabase
         .from('sms_grades')
         .select('*, assignment:sms_assignments!inner(title, max_score, class:sms_classes!inner(name))')
@@ -37,6 +42,13 @@ export default async function StudentDashboardPage() {
       supabase.from('sms_announcements').select('*').order('created_at', { ascending: false }).limit(3),
       supabase.from('sms_theni_enrollments').select('id').eq('student_id', studentId).limit(1).maybeSingle(),
     ])
+
+  // "Upcoming Assignments" here really means "still needs action" --
+  // anything not yet submitted, whether its due date is in the future or
+  // already past. Capped to 5 for the dashboard preview; the full list
+  // (with overdue/late-penalty detail) lives at /student/assignments.
+  const submittedIds = new Set((mySubmissions ?? []).map((s) => s.assignment_id))
+  const assignments = (allAssignments ?? []).filter((a) => !submittedIds.has(a.id)).slice(0, 5)
 
   const attendanceRecords = attendance ?? []
   const attendancePct =
@@ -77,8 +89,8 @@ export default async function StudentDashboardPage() {
               View all
             </Link>
           </div>
-          {!assignments || assignments.length === 0 ? (
-            <p className="text-sm text-stone-500 dark:text-stone-400">Nothing due soon.</p>
+          {assignments.length === 0 ? (
+            <p className="text-sm text-stone-500 dark:text-stone-400">Nothing left to submit.</p>
           ) : (
             <div className="space-y-2">
               {assignments.map((a) => (
