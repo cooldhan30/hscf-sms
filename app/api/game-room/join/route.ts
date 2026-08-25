@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
   const { data: resolved, error: resolveError } = await supabase
     .rpc('sms_resolve_game_session_by_join_code', { p_code: joinCode })
-    .maybeSingle<{ session_id: string; status: string; game_type: string }>()
+    .maybeSingle<{ session_id: string; status: string; game_type: string; question_ids: string[] }>()
 
   if (resolveError || !resolved) {
     return NextResponse.json({ error: 'Game code not found' }, { status: 404 })
@@ -57,17 +57,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const { data: session } = await supabase
-    .from('sms_game_sessions')
-    .select('question_ids')
-    .eq('id', resolved.session_id)
-    .single()
-
-  if (!session) {
-    return NextResponse.json({ error: 'Game session not found' }, { status: 404 })
-  }
-
-  const questionOrder = shuffle(session.question_ids)
+  const questionOrder = shuffle(resolved.question_ids)
   const nickname = `${student.first_name} ${student.last_name}`.trim()
 
   const { data: player, error: insertError } = await supabase
