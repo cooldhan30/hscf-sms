@@ -60,7 +60,7 @@ const QUESTION_BANK = buildValidatedQuestionBank()
 
 export const tamilGrammarModule: GameModule = {
   id: MODULE_ID,
-  name: 'தமிழ் எழுத்து வேட்டை',
+  name: 'இன எழுத்துகள்',
   description: 'ண் (டண்ணகரம்), ந் (தந்நகரம்), ன் (றன்னகரம்) — Tamil consonant grammar practice',
   categories: Object.entries(CATEGORY_LABELS).map(([id, label]) => ({ id, label })),
   getQuestionBank: () => QUESTION_BANK,
