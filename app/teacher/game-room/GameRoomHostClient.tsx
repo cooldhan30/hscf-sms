@@ -96,6 +96,22 @@ export function GameRoomHostClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.session.id])
 
+  // Fallback poll, independent of the Realtime subscription above --
+  // Realtime requires the game tables to be correctly registered in the
+  // Postgres publication (see supabase/migrations/054_game_room.sql's
+  // ALTER PUBLICATION block); if that step didn't apply cleanly, the
+  // channel joins successfully but silently never delivers an event, and
+  // the dashboard would otherwise look permanently frozen with no error.
+  // This keeps the leaderboard live regardless of whether Realtime is
+  // actually working, at the cost of a slightly slower (5s) worst case.
+  useEffect(() => {
+    if (!state?.session.id || state.session.status === 'ended') return
+    const sessionId = state.session.id
+    const interval = setInterval(() => refreshState(sessionId), 5000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.session.id, state?.session.status])
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setCreating(true)

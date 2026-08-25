@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireGamePlayer } from '@/lib/gameRoom/requirePlayer'
 import { getGameModule } from '@/lib/gameRoom/registry'
-import { shuffle } from '@/lib/gameRoom/shuffle'
+import { shuffledOptionsFor } from '@/lib/gameRoom/shuffle'
 
 // POST /api/game-room/state -- anonymous, polled every ~2-3s by the
 // student client (mirrors the interval-poll idiom already proven in
@@ -67,7 +67,15 @@ export async function POST(request: Request) {
     question: {
       id: question.id,
       prompt: question.prompt,
-      options: shuffle(question.options),
+      // Deterministic per (player, question) -- NOT a fresh shuffle every
+      // poll. Confirmed as a real bug: shuffling on every ~2s poll
+      // reordered the answer buttons out from under a student mid-
+      // question, causing taps to land on the wrong option as the layout
+      // shifted. Same order is returned every time this player polls
+      // this exact question, but still differs from player to player and
+      // question to question -- no shared "always the same layout" for
+      // an unrelated exploit either.
+      options: shuffledOptionsFor(question.options, `${player.id}:${question.id}`),
     },
   })
 }
