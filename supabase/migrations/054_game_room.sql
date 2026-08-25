@@ -139,3 +139,28 @@ AS $$
   SET current_question_started_at = current_question_started_at + make_interval(secs => p_seconds)
   WHERE session_id = p_session_id AND completed = false;
 $$;
+
+-- =====================================================
+-- Realtime: add sms_game_sessions and sms_game_players to the Realtime
+-- publication so the host dashboard can subscribe to postgres_changes
+-- on them (see lib/gameRoom/realtime.ts) -- same idiom as
+-- 017_chat_system.sql's equivalent block for sms_messages. Without
+-- this, the RLS SELECT policies above are necessary but not sufficient:
+-- the subscription would silently receive nothing. Idempotent -- safe
+-- to rerun.
+-- =====================================================
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'sms_game_sessions'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE sms_game_sessions;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'sms_game_players'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE sms_game_players;
+  END IF;
+END $$;
