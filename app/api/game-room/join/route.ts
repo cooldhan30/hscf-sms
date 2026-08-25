@@ -31,7 +31,13 @@ export async function POST(request: Request) {
     .rpc('sms_resolve_game_session_by_join_code', { p_code: joinCode })
     .maybeSingle<{ session_id: string; status: string; game_type: string; question_ids: string[] }>()
 
-  if (resolveError || !resolved) {
+  if (resolveError || !resolved || !Array.isArray(resolved.question_ids)) {
+    // The !Array.isArray check specifically catches a stale/not-yet-
+    // migrated sms_resolve_game_session_by_join_code (the original
+    // version, before 059_game_room_join_resolver_question_ids.sql,
+    // never returned question_ids at all) -- without it, shuffle()
+    // below throws an opaque "is not iterable" on undefined instead of
+    // a clear, actionable error.
     return NextResponse.json({ error: 'Game code not found' }, { status: 404 })
   }
 
