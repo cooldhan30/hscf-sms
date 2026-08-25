@@ -13,6 +13,13 @@
 -- entirely instead of working around it.
 -- =====================================================
 
+-- CREATE OR REPLACE cannot change an existing function's OUT parameters
+-- (return column signature) -- confirmed directly (Postgres 42P13:
+-- "cannot change return type of existing function... Row type defined
+-- by OUT parameters is different"). Must drop the old 3-column version
+-- first.
+DROP FUNCTION IF EXISTS sms_resolve_game_session_by_join_code(text);
+
 CREATE OR REPLACE FUNCTION sms_resolve_game_session_by_join_code(p_code TEXT)
 RETURNS TABLE (session_id UUID, status TEXT, game_type TEXT, question_ids TEXT[])
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
