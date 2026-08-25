@@ -94,13 +94,17 @@ export default async function StudentDashboardPage() {
           ) : (
             <div className="space-y-2">
               {assignments.map((a) => (
-                <div key={a.id} className="flex items-center justify-between text-sm">
+                <Link
+                  key={a.id}
+                  href={`/student/assignments/${a.id}`}
+                  className="flex items-center justify-between text-sm -mx-2 px-2 py-1 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-800/60 transition-colors"
+                >
                   <div>
                     <p className="font-medium text-stone-800 dark:text-stone-100">{a.title}</p>
                     <p className="text-stone-500 dark:text-stone-400">{a.class.name}</p>
                   </div>
                   {a.due_date && <span className="text-stone-500 dark:text-stone-400">{formatDateOnly(a.due_date)}</span>}
-                </div>
+                </Link>
               ))}
             </div>
           )}
