@@ -1,4 +1,4 @@
-import { FiHome, FiBookOpen, FiFileText, FiAward, FiCheckSquare, FiSpeaker, FiUserCheck, FiMessageCircle, FiVideo, FiFolder, FiBarChart2 } from 'react-icons/fi'
+import { FiHome, FiBookOpen, FiFileText, FiAward, FiCheckSquare, FiSpeaker, FiUserCheck, FiMessageCircle, FiVideo, FiFolder, FiBarChart2, FiPlayCircle } from 'react-icons/fi'
 import { auth } from '@clerk/nextjs/server'
 import { RoleGuard, DashboardLayout, type SidebarItem } from '@/components/dashboard'
 import { createClient } from '@/lib/supabase/server'
@@ -17,6 +17,11 @@ const baseNavItems: SidebarItem[] = [
   { label: 'Meetings', href: '/student/meetings', icon: <FiVideo className={iconClass} /> },
   { label: 'Chat', href: '/student/chat', icon: <FiMessageCircle className={iconClass} /> },
   { label: 'Link Requests', href: '/student/link-requests', icon: <FiUserCheck className={iconClass} /> },
+  // Game Room is a public, account-less route (see app/play) -- a
+  // student joins with just a nickname + the code their teacher shows
+  // on-screen, so this is a plain always-shown link, not conditioned on
+  // any enrollment state the way Tamil Theni's item below is.
+  { label: 'Game Room', href: '/play', icon: <FiPlayCircle className={iconClass} /> },
 ]
 
 // Tamil Theni is the first nav item conditioned on something other than
