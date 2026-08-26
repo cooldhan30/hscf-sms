@@ -44,7 +44,16 @@ export async function POST(request: Request) {
       {
         host_teacher_id: null,
         host_student_id: student.id,
-        is_solo_practice: true,
+        // Unlike quiz solo practice, these two interactive games DO
+        // count toward the all-time leaderboard (explicit user request)
+        // -- is_solo_practice stays false here specifically so
+        // sms_game_room_alltime_leaderboard()'s "is_solo_practice =
+        // false" filter includes them, same as a teacher-hosted quiz
+        // session would be. Every completed play adds to the student's
+        // total (matches how quiz points already accumulate); replaying
+        // is unlimited, so a student's total naturally reflects how much
+        // they've practiced.
+        is_solo_practice: false,
         game_kind: 'interactive',
         status: 'active',
         started_at: new Date().toISOString(),
