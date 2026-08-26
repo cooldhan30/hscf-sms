@@ -47,10 +47,25 @@ export function TamilMissingLetterGame({
   const correctCount = filled.filter((f) => f !== null).length
 
   function handleDragEnd(letter: string, pointerX: number, pointerY: number) {
+    // The blanks are small (48-56px) worksheet-style cells, much
+    // smaller than the drop zones in the other drag games -- an exact
+    // "pointer inside this rect" containment test made it nearly
+    // impossible for a child to land a drop, since releasing even a
+    // few pixels outside the tiny box counted as a miss even when
+    // aimed at the right blank. Padding the hit box (rather than
+    // requiring pixel-perfect containment) makes the same blanks far
+    // more forgiving to drop onto, matching how the other drag games
+    // already feel.
+    const HIT_PADDING_PX = 24
     const slotIndex = slotRefs.current.findIndex((el) => {
       if (!el) return false
       const rect = el.getBoundingClientRect()
-      return pointerX >= rect.left && pointerX <= rect.right && pointerY >= rect.top && pointerY <= rect.bottom
+      return (
+        pointerX >= rect.left - HIT_PADDING_PX &&
+        pointerX <= rect.right + HIT_PADDING_PX &&
+        pointerY >= rect.top - HIT_PADDING_PX &&
+        pointerY <= rect.bottom + HIT_PADDING_PX
+      )
     })
 
     if (slotIndex === -1 || !sequence[slotIndex].missing || filled[slotIndex] !== null) {
@@ -136,7 +151,7 @@ export function TamilMissingLetterGame({
             }}
             animate={celebrateSlot === i ? { scale: [1, 1.25, 1] } : { scale: 1 }}
             transition={{ duration: 0.4 }}
-            className={`w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-xl text-xl sm:text-2xl font-black ${
+            className={`w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center rounded-xl text-xl sm:text-2xl font-black ${
               !slot.missing
                 ? 'text-stone-700 dark:text-stone-200'
                 : filled[i]
