@@ -5,10 +5,14 @@ import { useRouter } from 'next/navigation'
 import { getInteractiveGameModule } from '@/lib/gameRoom/registry'
 import { TamilLetterOrderGame } from '@/components/gameRoom/TamilLetterOrderGame'
 import { TamilLetterMemoryGame } from '@/components/gameRoom/TamilLetterMemoryGame'
+import { UyirKurilNedilSortGame } from '@/components/gameRoom/UyirKurilNedilSortGame'
+import { UyirKurilNedilMemoryGame } from '@/components/gameRoom/UyirKurilNedilMemoryGame'
 import { UYIR_EZHUTHUKKAL } from '@/lib/gameRoom/modules/uyirEzhuthukkal/letters'
 import { MEI_EZHUTHUKKAL } from '@/lib/gameRoom/modules/meiEzhuthukkal/letters'
 import type { OrderGameData } from '@/lib/gameRoom/modules/tamilLetterGames/orderGame'
 import type { MemoryGameData } from '@/lib/gameRoom/modules/tamilLetterGames/memoryGame'
+import type { SortGameData } from '@/lib/gameRoom/modules/uyirKurilNedil/sortGame'
+import type { KurilNedilMemoryGameData } from '@/lib/gameRoom/modules/uyirKurilNedil/memoryGame'
 
 // The canonical letter order for each game id -- the order game needs
 // this as its "correct answer" sequence; the memory game only needs
@@ -40,7 +44,9 @@ const COMPLETION_MESSAGES: Record<string, string | ((attempts: number) => string
 export function InteractivePlayClient({ sessionId: initialSessionId, gameType }: { sessionId: string; gameType: string }) {
   const router = useRouter()
   const [sessionId, setSessionId] = useState(initialSessionId)
-  const [gameData, setGameData] = useState<OrderGameData | MemoryGameData | null | undefined>(undefined)
+  const [gameData, setGameData] = useState<
+    OrderGameData | MemoryGameData | SortGameData | KurilNedilMemoryGameData | null | undefined
+  >(undefined)
   // Bumped on every restart so the game component remounts with fresh
   // internal state (placed tiles, matched pairs, etc.) instead of
   // reusing a stale instance -- neither game resets its own state if its
@@ -93,13 +99,39 @@ export function InteractivePlayClient({ sessionId: initialSessionId, gameType }:
     return <p className="text-center py-16 text-stone-400 dark:text-stone-500">Loading...</p>
   }
 
-  if (!gameData || !gameModule || !letters) {
+  if (!gameData || !gameModule || (!letters && !gameType.startsWith('uyir-kuril-nedil-'))) {
     return (
       <div className="text-center py-16 space-y-3">
         <p className="text-stone-500 dark:text-stone-400">
           This game session has expired -- start a fresh one from Game Room.
         </p>
       </div>
+    )
+  }
+
+  if (gameType === 'uyir-kuril-nedil-sort') {
+    return (
+      <UyirKurilNedilSortGame
+        key={instanceKey}
+        sessionId={sessionId}
+        tiles={(gameData as SortGameData).tiles}
+        instructions={gameModule.instructions}
+        onComplete={handleComplete}
+        onRestart={handleRestart}
+      />
+    )
+  }
+
+  if (gameType === 'uyir-kuril-nedil-memory') {
+    return (
+      <UyirKurilNedilMemoryGame
+        key={instanceKey}
+        sessionId={sessionId}
+        tiles={(gameData as KurilNedilMemoryGameData).tiles}
+        instructions={gameModule.instructions}
+        onComplete={handleComplete}
+        onRestart={handleRestart}
+      />
     )
   }
 

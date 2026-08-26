@@ -5,6 +5,8 @@ import { generateOrderGame } from '@/lib/gameRoom/modules/tamilLetterGames/order
 import { generateMemoryGame } from '@/lib/gameRoom/modules/tamilLetterGames/memoryGame'
 import { UYIR_EZHUTHUKKAL } from '@/lib/gameRoom/modules/uyirEzhuthukkal/letters'
 import { MEI_EZHUTHUKKAL } from '@/lib/gameRoom/modules/meiEzhuthukkal/letters'
+import { generateSortGame } from '@/lib/gameRoom/modules/uyirKurilNedil/sortGame'
+import { generateKurilNedilMemoryGame } from '@/lib/gameRoom/modules/uyirKurilNedil/memoryGame'
 
 // Maps each interactive game's id to the letter set it plays with --
 // the single place that ties a game id to its data, so adding a third
@@ -15,6 +17,15 @@ const LETTER_SETS: Record<string, readonly string[]> = {
   'uyir-memory': UYIR_EZHUTHUKKAL,
   'mei-order': MEI_EZHUTHUKKAL,
   'mei-memory': MEI_EZHUTHUKKAL,
+}
+
+// Kuril/Nedil games have their own board shapes (a classification sort,
+// and a "same type" memory match) that don't fit the plain letter-set
+// order/memory generators above, so they get their own small dispatch
+// rather than being forced through LETTER_SETS.
+const BOARD_GENERATORS: Record<string, () => unknown> = {
+  'uyir-kuril-nedil-sort': generateSortGame,
+  'uyir-kuril-nedil-memory': generateKurilNedilMemoryGame,
 }
 
 // POST /api/game-room/interactive/start -- student-only. Starts a solo
@@ -43,18 +54,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Unknown game: "${gameType}"` }, { status: 400 })
   }
 
-  const letters = LETTER_SETS[gameType]
-  if (!letters) {
-    return NextResponse.json({ error: `Unknown letter set for game: "${gameType}"` }, { status: 400 })
-  }
-
   // Board data is generated once here and handed to the client -- it is
   // NEVER re-derived or re-fetched afterward (unlike the quiz engine's
   // question_ids/question_order, which the server keeps re-reading on
   // every poll). The whole point of a solo, non-competitive game is that
   // the interaction can live entirely in client state until the single
   // terminal /complete call.
-  const gameData = gameType.endsWith('-order') ? generateOrderGame(letters) : generateMemoryGame(letters)
+  let gameData: unknown
+  const letters = LETTER_SETS[gameType]
+  if (letters) {
+    gameData = gameType.endsWith('-order') ? generateOrderGame(letters) : generateMemoryGame(letters)
+  } else if (BOARD_GENERATORS[gameType]) {
+    gameData = BOARD_GENERATORS[gameType]()
+  } else {
+    return NextResponse.json({ error: `Unknown letter set for game: "${gameType}"` }, { status: 400 })
+  }
 
   const { data: session, error: sessionError } = await supabase
     .from('sms_game_sessions')

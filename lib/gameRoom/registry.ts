@@ -3,6 +3,7 @@ import type { InteractiveGameModule } from './interactiveModule'
 import { tamilGrammarModule } from './modules/tamilGrammar'
 import { uyirOrderModule, uyirMemoryModule } from './modules/uyirEzhuthukkal'
 import { meiOrderModule, meiMemoryModule } from './modules/meiEzhuthukkal'
+import { uyirKurilNedilSortModule, uyirKurilNedilMemoryModule } from './modules/uyirKurilNedil'
 
 // The platform's single extension point -- a future second game
 // registers itself here and immediately appears in the host's game-type
@@ -24,6 +25,8 @@ export const INTERACTIVE_GAME_MODULES: InteractiveGameModule[] = [
   uyirMemoryModule,
   meiOrderModule,
   meiMemoryModule,
+  uyirKurilNedilSortModule,
+  uyirKurilNedilMemoryModule,
 ]
 
 export function getInteractiveGameModule(id: string): InteractiveGameModule | undefined {
