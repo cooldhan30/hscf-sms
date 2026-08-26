@@ -57,11 +57,20 @@ export function TamilLetterSortGame({
   const correctCount = Object.values(boxes).reduce((sum, arr) => sum + arr.length, 0)
 
   function handleDragEnd(letter: string, pointerX: number, pointerY: number) {
+    // Padded rather than exact containment -- an imprecise pointing
+    // device (trackpad especially) makes landing inside a box edge
+    // unreliable even when visually "close enough."
+    const HIT_PADDING_PX = 24
     const target = categories.find((c) => {
       const el = boxRefs.current[c.id]
       if (!el) return false
       const rect = el.getBoundingClientRect()
-      return pointerX >= rect.left && pointerX <= rect.right && pointerY >= rect.top && pointerY <= rect.bottom
+      return (
+        pointerX >= rect.left - HIT_PADDING_PX &&
+        pointerX <= rect.right + HIT_PADDING_PX &&
+        pointerY >= rect.top - HIT_PADDING_PX &&
+        pointerY <= rect.bottom + HIT_PADDING_PX
+      )
     })
 
     if (!target) return
@@ -106,7 +115,7 @@ export function TamilLetterSortGame({
         </p>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-3 min-h-[5rem]">
+      <div className="flex flex-wrap justify-center gap-4 sm:gap-5 min-h-[5rem]">
         {tray.map((letter) => (
           <motion.div
             key={letter}

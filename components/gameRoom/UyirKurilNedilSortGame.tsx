@@ -43,10 +43,19 @@ export function UyirKurilNedilSortGame({
   const correctCount = kurilBox.length + nedilBox.length
 
   function handleDragEnd(letter: string, pointerX: number, pointerY: number) {
+    // Padded rather than exact containment -- an imprecise pointing
+    // device (trackpad especially) makes landing inside a box edge
+    // unreliable even when visually "close enough."
+    const HIT_PADDING_PX = 24
     const inBox = (el: HTMLDivElement | null) => {
       if (!el) return false
       const rect = el.getBoundingClientRect()
-      return pointerX >= rect.left && pointerX <= rect.right && pointerY >= rect.top && pointerY <= rect.bottom
+      return (
+        pointerX >= rect.left - HIT_PADDING_PX &&
+        pointerX <= rect.right + HIT_PADDING_PX &&
+        pointerY >= rect.top - HIT_PADDING_PX &&
+        pointerY <= rect.bottom + HIT_PADDING_PX
+      )
     }
 
     let target: KurilNedilType | null = null
@@ -96,7 +105,7 @@ export function UyirKurilNedilSortGame({
         </p>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-3 min-h-[5rem]">
+      <div className="flex flex-wrap justify-center gap-4 sm:gap-5 min-h-[5rem]">
         {tray.map((letter) => (
           <motion.div
             key={letter}

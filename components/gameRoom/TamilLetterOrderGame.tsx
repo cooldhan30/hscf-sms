@@ -52,10 +52,20 @@ export function TamilLetterOrderGame({
   const correctCount = placed.filter((p) => p !== null).length
 
   function handleDragEnd(letter: string, pointerX: number, pointerY: number) {
+    // Padded rather than exact containment -- an imprecise pointing
+    // device (trackpad especially) makes landing inside a small exact
+    // box unreliable even when visually "close enough," so a release a
+    // little outside a slot's edge still counts as that slot.
+    const HIT_PADDING_PX = 24
     const slotIndex = slotRefs.current.findIndex((el) => {
       if (!el) return false
       const rect = el.getBoundingClientRect()
-      return pointerX >= rect.left && pointerX <= rect.right && pointerY >= rect.top && pointerY <= rect.bottom
+      return (
+        pointerX >= rect.left - HIT_PADDING_PX &&
+        pointerX <= rect.right + HIT_PADDING_PX &&
+        pointerY >= rect.top - HIT_PADDING_PX &&
+        pointerY <= rect.bottom + HIT_PADDING_PX
+      )
     })
 
     if (slotIndex === -1 || placed[slotIndex] !== null) {
@@ -111,7 +121,7 @@ export function TamilLetterOrderGame({
         </p>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-3">
+      <div className="flex flex-wrap justify-center gap-4 sm:gap-5">
         {tray.map((letter) => (
           <motion.div
             key={letter}
@@ -129,7 +139,7 @@ export function TamilLetterOrderGame({
         ))}
       </div>
 
-      <div className="flex flex-wrap justify-center gap-2">
+      <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
         {placed.map((letter, i) => (
           <motion.div
             key={i}
