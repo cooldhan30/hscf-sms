@@ -7,9 +7,10 @@
 // it's one continuous whole-board interaction with its own completion
 // condition, so it gets its own minimal contract instead of being forced
 // into GameQuestion's shape. There is deliberately no getQuestionBank()
-// here -- each interactive game generates its own board data via its own
-// dedicated logic (see modules/uyirEzhuthukkal/orderGame.ts and
-// memoryGame.ts), not a bank the engine iterates.
+// here -- each interactive game generates its own board data via the
+// shared, letter-set-parameterized generators in
+// modules/tamilLetterGames/orderGame.ts and memoryGame.ts, not a bank
+// the engine iterates.
 export interface InteractiveGameModule {
   // Stored verbatim on sms_game_sessions.game_type, same as GameModule.id.
   id: string

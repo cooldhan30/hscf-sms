@@ -3,13 +3,18 @@
 import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { playSound } from '@/lib/gameRoom/sound'
-import { isCorrectAtSlot } from '@/lib/gameRoom/modules/uyirEzhuthukkal/orderGame'
 import { InteractiveCompletionScreen } from './InteractiveCompletionScreen'
 
-interface UyirOrderGameProps {
+interface TamilLetterOrderGameProps {
   sessionId: string
   tiles: string[]
+  // The canonical answer order -- a tile is correct in a slot iff it
+  // matches this array at that index. Passed in (rather than imported
+  // directly) so this one component serves every Tamil letter set
+  // (Uyir Ezhuthukkal, Mei Ezhuthukkal, and any future set).
+  letters: readonly string[]
   instructions: string
+  completionMessage: string
   onComplete: (sessionId: string, score: number) => Promise<void>
   onRestart: () => void
 }
@@ -20,12 +25,24 @@ interface UyirOrderGameProps {
 // native `drag` prop (already a dependency, already used elsewhere in
 // this app for enter/exit animation -- e.g. components/dashboard/
 // Modal.tsx) for pointer/touch/mouse drag physics, rather than adding a
-// new drag-and-drop library.
-export function UyirOrderGame({ sessionId, tiles, instructions, onComplete, onRestart }: UyirOrderGameProps) {
-  // `null` = still in the tray (available), a number = locked into that
+// new drag-and-drop library. Generic over `letters` so it backs both
+// the Uyir and Mei Ezhuthukkal order games (and any future letter set)
+// from one implementation.
+export function TamilLetterOrderGame({
+  sessionId,
+  tiles,
+  letters,
+  instructions,
+  completionMessage,
+  onComplete,
+  onRestart,
+}: TamilLetterOrderGameProps) {
+  const total = letters.length
+
+  // `null` = still in the tray (available), a letter = locked into that
   // slot index. A locked tile is correct by construction -- an incorrect
   // drop never locks in, it just snaps back to the tray.
-  const [placed, setPlaced] = useState<(string | null)[]>(() => Array(12).fill(null))
+  const [placed, setPlaced] = useState<(string | null)[]>(() => Array(total).fill(null))
   const [tray, setTray] = useState<string[]>(tiles)
   const [shake, setShake] = useState<string | null>(null)
   const [celebrate, setCelebrate] = useState<number | null>(null)
@@ -48,7 +65,7 @@ export function UyirOrderGame({ sessionId, tiles, instructions, onComplete, onRe
       return
     }
 
-    if (isCorrectAtSlot(letter, slotIndex)) {
+    if (letters[slotIndex] === letter) {
       playSound('correct')
       setPlaced((prev) => {
         const next = [...prev]
@@ -59,10 +76,10 @@ export function UyirOrderGame({ sessionId, tiles, instructions, onComplete, onRe
       setCelebrate(slotIndex)
       setTimeout(() => setCelebrate(null), 400)
 
-      if (correctCount + 1 === 12) {
+      if (correctCount + 1 === total) {
         playSound('complete')
         setCompleted(true)
-        onComplete(sessionId, 12)
+        onComplete(sessionId, total)
       }
     } else {
       // Incorrect -- gentle shake feedback, tile stays in the tray
@@ -77,9 +94,9 @@ export function UyirOrderGame({ sessionId, tiles, instructions, onComplete, onRe
   if (completed) {
     return (
       <InteractiveCompletionScreen
-        score={12}
-        maxScore={12}
-        message="நீங்கள் 12 உயிரெழுத்துகளையும் சரியாக வரிசைப்படுத்திவிட்டீர்கள்!"
+        score={total}
+        maxScore={total}
+        message={completionMessage}
         onPlayAgain={onRestart}
       />
     )
@@ -89,7 +106,9 @@ export function UyirOrderGame({ sessionId, tiles, instructions, onComplete, onRe
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
       <div className="text-center space-y-1">
         <p className="text-sm font-semibold text-stone-500 dark:text-stone-400">{instructions}</p>
-        <p className="text-xs text-stone-400 dark:text-stone-500">{correctCount} / 12</p>
+        <p className="text-xs text-stone-400 dark:text-stone-500">
+          {correctCount} / {total}
+        </p>
       </div>
 
       <div className="flex flex-wrap justify-center gap-3">

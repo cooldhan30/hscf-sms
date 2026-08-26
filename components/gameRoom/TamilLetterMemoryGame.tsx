@@ -4,13 +4,15 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { FiStar } from 'react-icons/fi'
 import { playSound } from '@/lib/gameRoom/sound'
-import type { MemoryTile } from '@/lib/gameRoom/modules/uyirEzhuthukkal/memoryGame'
+import type { MemoryTile } from '@/lib/gameRoom/modules/tamilLetterGames/memoryGame'
 import { InteractiveCompletionScreen } from './InteractiveCompletionScreen'
 
-interface UyirMemoryGameProps {
+interface TamilLetterMemoryGameProps {
   sessionId: string
   tiles: MemoryTile[]
+  pairCount: number
   instructions: string
+  completionMessage: (attempts: number) => string
   onComplete: (sessionId: string, score: number) => Promise<void>
   onRestart: () => void
 }
@@ -19,8 +21,18 @@ const MISMATCH_DELAY_MS = 700
 
 // Memory/matching card-flip -- entirely client-side interaction (flip/
 // match state never touches the server mid-game); only the final
-// completion is reported once, via onComplete.
-export function UyirMemoryGame({ sessionId, tiles, instructions, onComplete, onRestart }: UyirMemoryGameProps) {
+// completion is reported once, via onComplete. Generic over `tiles`/
+// `pairCount` so it backs both the Uyir (12 pairs / 24 cards) and Mei
+// (18 pairs / 36 cards) Ezhuthukkal memory games from one implementation.
+export function TamilLetterMemoryGame({
+  sessionId,
+  tiles,
+  pairCount,
+  instructions,
+  completionMessage,
+  onComplete,
+  onRestart,
+}: TamilLetterMemoryGameProps) {
   const [flipped, setFlipped] = useState<string[]>([])
   const [matched, setMatched] = useState<Set<string>>(new Set())
   const [mismatched, setMismatched] = useState<string[]>([])
@@ -57,7 +69,7 @@ export function UyirMemoryGame({ sessionId, tiles, instructions, onComplete, onR
       if (newMatched.size === tiles.length) {
         playSound('complete')
         setCompleted(true)
-        onComplete(sessionId, 12)
+        onComplete(sessionId, pairCount)
       }
     } else {
       playSound('incorrect')
@@ -73,19 +85,25 @@ export function UyirMemoryGame({ sessionId, tiles, instructions, onComplete, onR
   if (completed) {
     return (
       <InteractiveCompletionScreen
-        score={12}
-        maxScore={12}
-        message={`12 உயிரெழுத்துகளையும் கண்டுபிடித்துவிட்டீர்கள்! (${attempts} attempts)`}
+        score={pairCount}
+        maxScore={pairCount}
+        message={completionMessage(attempts)}
         onPlayAgain={onRestart}
       />
     )
   }
 
+  // 24 cards (Uyir): 4 cols mobile / 6 desktop. 36 cards (Mei): 4 cols
+  // mobile / 6 desktop-and-tablet, same as the spec's requested 4x9 /
+  // 6x6 responsive layout -- Tailwind's grid-cols wraps to the right row
+  // count automatically from the tile count, no per-set branch needed.
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
       <div className="text-center space-y-1">
         <p className="text-sm font-semibold text-stone-500 dark:text-stone-400">{instructions}</p>
-        <p className="text-xs text-stone-400 dark:text-stone-500">{matchedPairs} / 12</p>
+        <p className="text-xs text-stone-400 dark:text-stone-500">
+          {matchedPairs} / {pairCount}
+        </p>
       </div>
 
       <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 sm:gap-3">

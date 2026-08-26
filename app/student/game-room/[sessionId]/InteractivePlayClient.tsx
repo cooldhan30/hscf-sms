@@ -3,10 +3,30 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getInteractiveGameModule } from '@/lib/gameRoom/registry'
-import { UyirOrderGame } from '@/components/gameRoom/UyirOrderGame'
-import { UyirMemoryGame } from '@/components/gameRoom/UyirMemoryGame'
-import type { OrderGameData } from '@/lib/gameRoom/modules/uyirEzhuthukkal/orderGame'
-import type { MemoryGameData } from '@/lib/gameRoom/modules/uyirEzhuthukkal/memoryGame'
+import { TamilLetterOrderGame } from '@/components/gameRoom/TamilLetterOrderGame'
+import { TamilLetterMemoryGame } from '@/components/gameRoom/TamilLetterMemoryGame'
+import { UYIR_EZHUTHUKKAL } from '@/lib/gameRoom/modules/uyirEzhuthukkal/letters'
+import { MEI_EZHUTHUKKAL } from '@/lib/gameRoom/modules/meiEzhuthukkal/letters'
+import type { OrderGameData } from '@/lib/gameRoom/modules/tamilLetterGames/orderGame'
+import type { MemoryGameData } from '@/lib/gameRoom/modules/tamilLetterGames/memoryGame'
+
+// The canonical letter order for each game id -- the order game needs
+// this as its "correct answer" sequence; the memory game only needs
+// its length (pairCount). Kept here (not in the registry) since it's
+// purely a client-side rendering concern, same as gameModule.instructions.
+const LETTER_SETS: Record<string, readonly string[]> = {
+  'uyir-order': UYIR_EZHUTHUKKAL,
+  'uyir-memory': UYIR_EZHUTHUKKAL,
+  'mei-order': MEI_EZHUTHUKKAL,
+  'mei-memory': MEI_EZHUTHUKKAL,
+}
+
+const COMPLETION_MESSAGES: Record<string, string | ((attempts: number) => string)> = {
+  'uyir-order': 'நீங்கள் 12 உயிரெழுத்துகளையும் சரியாக வரிசைப்படுத்திவிட்டீர்கள்!',
+  'uyir-memory': (attempts: number) => `12 உயிரெழுத்துகளையும் கண்டுபிடித்துவிட்டீர்கள்! (${attempts} attempts)`,
+  'mei-order': 'மிகவும் அருமை! 18 மெய்யெழுத்துகளையும் சரியான வரிசையில் அமைத்துவிட்டீர்கள்!',
+  'mei-memory': (attempts: number) => `18 மெய்யெழுத்துகளையும் கண்டுபிடித்துவிட்டீர்கள்! (${attempts} attempts)`,
+}
 
 // Board data (shuffled tiles/cards) is generated once by
 // /api/game-room/interactive/start and handed straight to the client --
@@ -21,8 +41,8 @@ export function InteractivePlayClient({ sessionId: initialSessionId, gameType }:
   const router = useRouter()
   const [sessionId, setSessionId] = useState(initialSessionId)
   const [gameData, setGameData] = useState<OrderGameData | MemoryGameData | null | undefined>(undefined)
-  // Bumped on every restart so UyirOrderGame/UyirMemoryGame remount with
-  // fresh internal state (placed tiles, matched pairs, etc.) instead of
+  // Bumped on every restart so the game component remounts with fresh
+  // internal state (placed tiles, matched pairs, etc.) instead of
   // reusing a stale instance -- neither game resets its own state if its
   // `tiles` prop changes without a key change.
   const [instanceKey, setInstanceKey] = useState(0)
@@ -33,6 +53,7 @@ export function InteractivePlayClient({ sessionId: initialSessionId, gameType }:
   }, [sessionId])
 
   const gameModule = getInteractiveGameModule(gameType)
+  const letters = LETTER_SETS[gameType]
 
   async function handleComplete(sid: string, score: number) {
     await fetch('/api/game-room/interactive/complete', {
@@ -72,7 +93,7 @@ export function InteractivePlayClient({ sessionId: initialSessionId, gameType }:
     return <p className="text-center py-16 text-stone-400 dark:text-stone-500">Loading...</p>
   }
 
-  if (!gameData || !gameModule) {
+  if (!gameData || !gameModule || !letters) {
     return (
       <div className="text-center py-16 space-y-3">
         <p className="text-stone-500 dark:text-stone-400">
@@ -82,13 +103,15 @@ export function InteractivePlayClient({ sessionId: initialSessionId, gameType }:
     )
   }
 
-  if (gameType === 'uyir-order') {
+  if (gameType.endsWith('-order')) {
     return (
-      <UyirOrderGame
+      <TamilLetterOrderGame
         key={instanceKey}
         sessionId={sessionId}
         tiles={(gameData as OrderGameData).tiles}
+        letters={letters}
         instructions={gameModule.instructions}
+        completionMessage={COMPLETION_MESSAGES[gameType] as string}
         onComplete={handleComplete}
         onRestart={handleRestart}
       />
@@ -96,11 +119,13 @@ export function InteractivePlayClient({ sessionId: initialSessionId, gameType }:
   }
 
   return (
-    <UyirMemoryGame
+    <TamilLetterMemoryGame
       key={instanceKey}
       sessionId={sessionId}
       tiles={(gameData as MemoryGameData).tiles}
+      pairCount={letters.length}
       instructions={gameModule.instructions}
+      completionMessage={COMPLETION_MESSAGES[gameType] as (attempts: number) => string}
       onComplete={handleComplete}
       onRestart={handleRestart}
     />

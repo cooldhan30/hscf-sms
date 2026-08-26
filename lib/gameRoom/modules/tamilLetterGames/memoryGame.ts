@@ -1,5 +1,4 @@
 import { shuffle } from '@/lib/gameRoom/shuffle'
-import { UYIR_EZHUTHUKKAL } from './letters'
 
 export interface MemoryTile {
   // Unique per tile, distinct from `letter` -- two face-up tiles showing
@@ -14,10 +13,11 @@ export interface MemoryGameData {
   tiles: MemoryTile[]
 }
 
-// 24 tiles -- each of the 12 letters appears exactly twice, shuffled
-// into a random board layout every time a student starts or replays.
-export function generateMemoryGame(): MemoryGameData {
-  const pairs: MemoryTile[] = UYIR_EZHUTHUKKAL.flatMap((letter, i) => [
+// Generic memory-board generator, shared by every Tamil letter set --
+// each letter appears exactly twice, shuffled into a random layout
+// every time a student starts or replays.
+export function generateMemoryGame(letters: readonly string[]): MemoryGameData {
+  const pairs: MemoryTile[] = letters.flatMap((letter, i) => [
     { id: `${i}-a`, letter },
     { id: `${i}-b`, letter },
   ])

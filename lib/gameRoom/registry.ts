@@ -2,6 +2,7 @@ import type { GameModule } from './gameModule'
 import type { InteractiveGameModule } from './interactiveModule'
 import { tamilGrammarModule } from './modules/tamilGrammar'
 import { uyirOrderModule, uyirMemoryModule } from './modules/uyirEzhuthukkal'
+import { meiOrderModule, meiMemoryModule } from './modules/meiEzhuthukkal'
 
 // The platform's single extension point -- a future second game
 // registers itself here and immediately appears in the host's game-type
@@ -18,7 +19,12 @@ export function getGameModule(id: string): GameModule | undefined {
 // memory-match) -- see lib/gameRoom/interactiveModule.ts for why these
 // don't share GameModule's contract. Additive alongside GAME_MODULES;
 // neither registry affects the other.
-export const INTERACTIVE_GAME_MODULES: InteractiveGameModule[] = [uyirOrderModule, uyirMemoryModule]
+export const INTERACTIVE_GAME_MODULES: InteractiveGameModule[] = [
+  uyirOrderModule,
+  uyirMemoryModule,
+  meiOrderModule,
+  meiMemoryModule,
+]
 
 export function getInteractiveGameModule(id: string): InteractiveGameModule | undefined {
   return INTERACTIVE_GAME_MODULES.find((m) => m.id === id)

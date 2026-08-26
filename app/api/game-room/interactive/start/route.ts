@@ -1,8 +1,21 @@
 import { NextResponse } from 'next/server'
 import { requireStudent } from '@/lib/require-student'
 import { getInteractiveGameModule } from '@/lib/gameRoom/registry'
-import { generateOrderGame } from '@/lib/gameRoom/modules/uyirEzhuthukkal/orderGame'
-import { generateMemoryGame } from '@/lib/gameRoom/modules/uyirEzhuthukkal/memoryGame'
+import { generateOrderGame } from '@/lib/gameRoom/modules/tamilLetterGames/orderGame'
+import { generateMemoryGame } from '@/lib/gameRoom/modules/tamilLetterGames/memoryGame'
+import { UYIR_EZHUTHUKKAL } from '@/lib/gameRoom/modules/uyirEzhuthukkal/letters'
+import { MEI_EZHUTHUKKAL } from '@/lib/gameRoom/modules/meiEzhuthukkal/letters'
+
+// Maps each interactive game's id to the letter set it plays with --
+// the single place that ties a game id to its data, so adding a third
+// letter set (or a third game type on an existing set) never touches
+// the order/memory generation logic itself.
+const LETTER_SETS: Record<string, readonly string[]> = {
+  'uyir-order': UYIR_EZHUTHUKKAL,
+  'uyir-memory': UYIR_EZHUTHUKKAL,
+  'mei-order': MEI_EZHUTHUKKAL,
+  'mei-memory': MEI_EZHUTHUKKAL,
+}
 
 // POST /api/game-room/interactive/start -- student-only. Starts a solo
 // interactive game (drag-order or memory-match) -- no join code, no
@@ -30,13 +43,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Unknown game: "${gameType}"` }, { status: 400 })
   }
 
+  const letters = LETTER_SETS[gameType]
+  if (!letters) {
+    return NextResponse.json({ error: `Unknown letter set for game: "${gameType}"` }, { status: 400 })
+  }
+
   // Board data is generated once here and handed to the client -- it is
   // NEVER re-derived or re-fetched afterward (unlike the quiz engine's
   // question_ids/question_order, which the server keeps re-reading on
   // every poll). The whole point of a solo, non-competitive game is that
   // the interaction can live entirely in client state until the single
   // terminal /complete call.
-  const gameData = gameType === 'uyir-order' ? generateOrderGame() : generateMemoryGame()
+  const gameData = gameType.endsWith('-order') ? generateOrderGame(letters) : generateMemoryGame(letters)
 
   const { data: session, error: sessionError } = await supabase
     .from('sms_game_sessions')
