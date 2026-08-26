@@ -5,6 +5,7 @@ import { uyirOrderModule, uyirMemoryModule } from './modules/uyirEzhuthukkal'
 import { meiOrderModule, meiMemoryModule } from './modules/meiEzhuthukkal'
 import { uyirKurilNedilSortModule, uyirKurilNedilMemoryModule } from './modules/uyirKurilNedil'
 import { meiVallinamMellinamIdaiyinamSortModule } from './modules/meiVallinamMellinamIdaiyinam'
+import { inaEzhuthukkalMatchingModule } from './modules/inaEzhuthukkal'
 
 // The platform's single extension point -- a future second game
 // registers itself here and immediately appears in the host's game-type
@@ -29,6 +30,7 @@ export const INTERACTIVE_GAME_MODULES: InteractiveGameModule[] = [
   uyirKurilNedilSortModule,
   uyirKurilNedilMemoryModule,
   meiVallinamMellinamIdaiyinamSortModule,
+  inaEzhuthukkalMatchingModule,
 ]
 
 export function getInteractiveGameModule(id: string): InteractiveGameModule | undefined {
