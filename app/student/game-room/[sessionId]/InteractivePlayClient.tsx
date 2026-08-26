@@ -7,12 +7,39 @@ import { TamilLetterOrderGame } from '@/components/gameRoom/TamilLetterOrderGame
 import { TamilLetterMemoryGame } from '@/components/gameRoom/TamilLetterMemoryGame'
 import { UyirKurilNedilSortGame } from '@/components/gameRoom/UyirKurilNedilSortGame'
 import { UyirKurilNedilMemoryGame } from '@/components/gameRoom/UyirKurilNedilMemoryGame'
+import { TamilLetterSortGame, type SortCategory } from '@/components/gameRoom/TamilLetterSortGame'
 import { UYIR_EZHUTHUKKAL } from '@/lib/gameRoom/modules/uyirEzhuthukkal/letters'
 import { MEI_EZHUTHUKKAL } from '@/lib/gameRoom/modules/meiEzhuthukkal/letters'
+import { MEI_VALLINAM_MELLINAM_IDAIYINAM } from '@/lib/gameRoom/modules/meiVallinamMellinamIdaiyinam/letters'
 import type { OrderGameData } from '@/lib/gameRoom/modules/tamilLetterGames/orderGame'
 import type { MemoryGameData } from '@/lib/gameRoom/modules/tamilLetterGames/memoryGame'
+import type { ClassifySortGameData } from '@/lib/gameRoom/modules/tamilLetterGames/classifySortGame'
 import type { SortGameData } from '@/lib/gameRoom/modules/uyirKurilNedil/sortGame'
 import type { KurilNedilMemoryGameData } from '@/lib/gameRoom/modules/uyirKurilNedil/memoryGame'
+
+const MEI_VALLINAM_MELLINAM_IDAIYINAM_CATEGORIES: SortCategory[] = [
+  {
+    id: 'vallinam',
+    label: 'வல்லினம்',
+    borderClass: 'border-primary-700 dark:border-primary-400',
+    bgClass: 'bg-primary-50 dark:bg-primary-950',
+    textClass: 'text-primary-800 dark:text-primary-300',
+  },
+  {
+    id: 'mellinam',
+    label: 'மெல்லினம்',
+    borderClass: 'border-amber-600 dark:border-amber-400',
+    bgClass: 'bg-amber-50 dark:bg-amber-950',
+    textClass: 'text-amber-800 dark:text-amber-300',
+  },
+  {
+    id: 'idaiyinam',
+    label: 'இடையினம்',
+    borderClass: 'border-emerald-700 dark:border-emerald-400',
+    bgClass: 'bg-emerald-50 dark:bg-emerald-950',
+    textClass: 'text-emerald-800 dark:text-emerald-300',
+  },
+]
 
 // The canonical letter order for each game id -- the order game needs
 // this as its "correct answer" sequence; the memory game only needs
@@ -45,7 +72,13 @@ export function InteractivePlayClient({ sessionId: initialSessionId, gameType }:
   const router = useRouter()
   const [sessionId, setSessionId] = useState(initialSessionId)
   const [gameData, setGameData] = useState<
-    OrderGameData | MemoryGameData | SortGameData | KurilNedilMemoryGameData | null | undefined
+    | OrderGameData
+    | MemoryGameData
+    | SortGameData
+    | KurilNedilMemoryGameData
+    | ClassifySortGameData
+    | null
+    | undefined
   >(undefined)
   // Bumped on every restart so the game component remounts with fresh
   // internal state (placed tiles, matched pairs, etc.) instead of
@@ -99,7 +132,9 @@ export function InteractivePlayClient({ sessionId: initialSessionId, gameType }:
     return <p className="text-center py-16 text-stone-400 dark:text-stone-500">Loading...</p>
   }
 
-  if (!gameData || !gameModule || (!letters && !gameType.startsWith('uyir-kuril-nedil-'))) {
+  const isCustomBoardGame = gameType.startsWith('uyir-kuril-nedil-') || gameType === 'mei-vallinam-mellinam-idaiyinam-sort'
+
+  if (!gameData || !gameModule || (!letters && !isCustomBoardGame)) {
     return (
       <div className="text-center py-16 space-y-3">
         <p className="text-stone-500 dark:text-stone-400">
@@ -129,6 +164,22 @@ export function InteractivePlayClient({ sessionId: initialSessionId, gameType }:
         sessionId={sessionId}
         tiles={(gameData as KurilNedilMemoryGameData).tiles}
         instructions={gameModule.instructions}
+        onComplete={handleComplete}
+        onRestart={handleRestart}
+      />
+    )
+  }
+
+  if (gameType === 'mei-vallinam-mellinam-idaiyinam-sort') {
+    return (
+      <TamilLetterSortGame
+        key={instanceKey}
+        sessionId={sessionId}
+        tiles={(gameData as ClassifySortGameData).tiles}
+        items={MEI_VALLINAM_MELLINAM_IDAIYINAM}
+        categories={MEI_VALLINAM_MELLINAM_IDAIYINAM_CATEGORIES}
+        instructions={gameModule.instructions}
+        completionMessage="18 மெய்யெழுத்துகளையும் சரியாக வகைப்படுத்திவிட்டீர்கள்! வல்லினம், மெல்லினம், இடையினம் — மூன்றையும் கண்டுபிடித்துவிட்டீர்கள்!"
         onComplete={handleComplete}
         onRestart={handleRestart}
       />

@@ -7,6 +7,8 @@ import { UYIR_EZHUTHUKKAL } from '@/lib/gameRoom/modules/uyirEzhuthukkal/letters
 import { MEI_EZHUTHUKKAL } from '@/lib/gameRoom/modules/meiEzhuthukkal/letters'
 import { generateSortGame } from '@/lib/gameRoom/modules/uyirKurilNedil/sortGame'
 import { generateKurilNedilMemoryGame } from '@/lib/gameRoom/modules/uyirKurilNedil/memoryGame'
+import { generateClassifySortGame } from '@/lib/gameRoom/modules/tamilLetterGames/classifySortGame'
+import { MEI_VALLINAM_MELLINAM_IDAIYINAM } from '@/lib/gameRoom/modules/meiVallinamMellinamIdaiyinam/letters'
 
 // Maps each interactive game's id to the letter set it plays with --
 // the single place that ties a game id to its data, so adding a third
@@ -26,6 +28,7 @@ const LETTER_SETS: Record<string, readonly string[]> = {
 const BOARD_GENERATORS: Record<string, () => unknown> = {
   'uyir-kuril-nedil-sort': generateSortGame,
   'uyir-kuril-nedil-memory': generateKurilNedilMemoryGame,
+  'mei-vallinam-mellinam-idaiyinam-sort': () => generateClassifySortGame(MEI_VALLINAM_MELLINAM_IDAIYINAM),
 }
 
 // POST /api/game-room/interactive/start -- student-only. Starts a solo
