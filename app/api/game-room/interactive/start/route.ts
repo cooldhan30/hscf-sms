@@ -11,6 +11,18 @@ import { generateClassifySortGame } from '@/lib/gameRoom/modules/tamilLetterGame
 import { MEI_VALLINAM_MELLINAM_IDAIYINAM } from '@/lib/gameRoom/modules/meiVallinamMellinamIdaiyinam/letters'
 import { generatePairMatchGame } from '@/lib/gameRoom/modules/tamilLetterGames/pairMatchGame'
 import { INA_EZHUTHUKKAL_PAIRS } from '@/lib/gameRoom/modules/inaEzhuthukkal/letters'
+import { generateMissingLetterGame } from '@/lib/gameRoom/modules/missingLetterGames/missingLetterGame'
+import {
+  UYIR_EZHUTHUKKAL as UYIR_EZHUTHUKKAL_FOR_MISSING_LETTER,
+  MEI_EZHUTHUKKAL_MISSING_LETTER_ORDER,
+} from '@/lib/gameRoom/modules/missingLetterGames/letters'
+
+// Missing-count range per spec: 4-6 for the 12-letter Uyir sequence,
+// 6-8 for the 18-letter Mei sequence -- randomized within range every
+// round so replay doesn't always remove the same number of letters.
+function randomInRange(min: number, max: number): number {
+  return min + Math.floor(Math.random() * (max - min + 1))
+}
 
 // Maps each interactive game's id to the letter set it plays with --
 // the single place that ties a game id to its data, so adding a third
@@ -33,6 +45,10 @@ const BOARD_GENERATORS: Record<string, () => unknown> = {
   'mei-vallinam-mellinam-idaiyinam-sort': () => generateClassifySortGame(MEI_VALLINAM_MELLINAM_IDAIYINAM),
   'ina-ezhuthukkal-matching': () =>
     generatePairMatchGame(INA_EZHUTHUKKAL_PAIRS.map((p) => ({ left: p.mei, right: p.ina }))),
+  'uyir-missing-letter': () =>
+    generateMissingLetterGame(UYIR_EZHUTHUKKAL_FOR_MISSING_LETTER, randomInRange(4, 6)),
+  'mei-missing-letter': () =>
+    generateMissingLetterGame(MEI_EZHUTHUKKAL_MISSING_LETTER_ORDER, randomInRange(6, 8)),
 }
 
 // POST /api/game-room/interactive/start -- student-only. Starts a solo

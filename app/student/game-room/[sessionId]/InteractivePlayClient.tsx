@@ -9,6 +9,7 @@ import { UyirKurilNedilSortGame } from '@/components/gameRoom/UyirKurilNedilSort
 import { UyirKurilNedilMemoryGame } from '@/components/gameRoom/UyirKurilNedilMemoryGame'
 import { TamilLetterSortGame, type SortCategory } from '@/components/gameRoom/TamilLetterSortGame'
 import { TamilPairMatchGame } from '@/components/gameRoom/TamilPairMatchGame'
+import { TamilMissingLetterGame } from '@/components/gameRoom/TamilMissingLetterGame'
 import { UYIR_EZHUTHUKKAL } from '@/lib/gameRoom/modules/uyirEzhuthukkal/letters'
 import { MEI_EZHUTHUKKAL } from '@/lib/gameRoom/modules/meiEzhuthukkal/letters'
 import { MEI_VALLINAM_MELLINAM_IDAIYINAM } from '@/lib/gameRoom/modules/meiVallinamMellinamIdaiyinam/letters'
@@ -17,6 +18,7 @@ import type { OrderGameData } from '@/lib/gameRoom/modules/tamilLetterGames/orde
 import type { MemoryGameData } from '@/lib/gameRoom/modules/tamilLetterGames/memoryGame'
 import type { ClassifySortGameData } from '@/lib/gameRoom/modules/tamilLetterGames/classifySortGame'
 import type { PairMatchGameData } from '@/lib/gameRoom/modules/tamilLetterGames/pairMatchGame'
+import type { MissingLetterGameData } from '@/lib/gameRoom/modules/missingLetterGames/missingLetterGame'
 import type { SortGameData } from '@/lib/gameRoom/modules/uyirKurilNedil/sortGame'
 import type { KurilNedilMemoryGameData } from '@/lib/gameRoom/modules/uyirKurilNedil/memoryGame'
 
@@ -81,6 +83,7 @@ export function InteractivePlayClient({ sessionId: initialSessionId, gameType }:
     | KurilNedilMemoryGameData
     | ClassifySortGameData
     | PairMatchGameData
+    | MissingLetterGameData
     | null
     | undefined
   >(undefined)
@@ -139,7 +142,9 @@ export function InteractivePlayClient({ sessionId: initialSessionId, gameType }:
   const isCustomBoardGame =
     gameType.startsWith('uyir-kuril-nedil-') ||
     gameType === 'mei-vallinam-mellinam-idaiyinam-sort' ||
-    gameType === 'ina-ezhuthukkal-matching'
+    gameType === 'ina-ezhuthukkal-matching' ||
+    gameType === 'uyir-missing-letter' ||
+    gameType === 'mei-missing-letter'
 
   if (!gameData || !gameModule || (!letters && !isCustomBoardGame)) {
     return (
@@ -204,6 +209,26 @@ export function InteractivePlayClient({ sessionId: initialSessionId, gameType }:
         pairs={INA_EZHUTHUKKAL_PAIRS.map((p) => ({ left: p.mei, right: p.ina }))}
         instructions={gameModule.instructions}
         completionMessage="அனைத்து இன எழுத்துகளையும் சரியாக இணைத்துவிட்டீர்கள்!"
+        onComplete={handleComplete}
+        onRestart={handleRestart}
+      />
+    )
+  }
+
+  if (gameType === 'uyir-missing-letter' || gameType === 'mei-missing-letter') {
+    const missingData = gameData as MissingLetterGameData
+    const completionMessage =
+      gameType === 'uyir-missing-letter'
+        ? 'உயிரெழுத்துகளை சரியாக நிரப்பிவிட்டீர்கள்!'
+        : 'மெய்யெழுத்துகளை சரியாக நிரப்பிவிட்டீர்கள்!'
+    return (
+      <TamilMissingLetterGame
+        key={instanceKey}
+        sessionId={sessionId}
+        sequence={missingData.sequence}
+        sourceLetters={missingData.sourceLetters}
+        instructions={gameModule.instructions}
+        completionMessage={completionMessage}
         onComplete={handleComplete}
         onRestart={handleRestart}
       />
