@@ -16,7 +16,7 @@ interface UyirKurilNedilMemoryGameProps {
 }
 
 const MISMATCH_DELAY_MS = 700
-const TOTAL_PAIRS = 10
+const TOTAL_PAIRS = 12
 
 // Classification memory match -- unlike TamilLetterMemoryGame, two
 // cards match when their `type` (kuril/nedil) is the same, NOT when
@@ -99,7 +99,7 @@ export function UyirKurilNedilMemoryGame({
         </p>
       </div>
 
-      <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3">
+      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 sm:gap-3">
         {tiles.map((tile) => {
           const isFaceUp = flipped.includes(tile.id) || matched.has(tile.id)
           const isMatched = matched.has(tile.id)

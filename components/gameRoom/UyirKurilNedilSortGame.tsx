@@ -15,7 +15,7 @@ interface UyirKurilNedilSortGameProps {
   onRestart: () => void
 }
 
-const TOTAL = 10
+const TOTAL = 12
 
 // Classify-into-one-of-two-boxes -- a different shape from
 // TamilLetterOrderGame's ordered slots (10 fixed positions), since here
