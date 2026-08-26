@@ -23,6 +23,7 @@ const MISMATCH_DELAY_MS = 700
 export function UyirMemoryGame({ sessionId, tiles, instructions, onComplete, onRestart }: UyirMemoryGameProps) {
   const [flipped, setFlipped] = useState<string[]>([])
   const [matched, setMatched] = useState<Set<string>>(new Set())
+  const [mismatched, setMismatched] = useState<string[]>([])
   const [attempts, setAttempts] = useState(0)
   const [busy, setBusy] = useState(false)
   const [completed, setCompleted] = useState(false)
@@ -60,8 +61,10 @@ export function UyirMemoryGame({ sessionId, tiles, instructions, onComplete, onR
       }
     } else {
       playSound('incorrect')
+      setMismatched([firstId, secondId])
       setTimeout(() => {
         setFlipped([])
+        setMismatched([])
         setBusy(false)
       }, MISMATCH_DELAY_MS)
     }
@@ -89,6 +92,7 @@ export function UyirMemoryGame({ sessionId, tiles, instructions, onComplete, onR
         {tiles.map((tile) => {
           const isFaceUp = flipped.includes(tile.id) || matched.has(tile.id)
           const isMatched = matched.has(tile.id)
+          const isMismatched = mismatched.includes(tile.id)
 
           return (
             <button
@@ -99,7 +103,11 @@ export function UyirMemoryGame({ sessionId, tiles, instructions, onComplete, onR
               aria-label={isFaceUp ? tile.letter : 'Hidden card'}
             >
               <motion.div
-                animate={{ rotateY: isFaceUp ? 180 : 0 }}
+                animate={{
+                  rotateY: isFaceUp ? 180 : 0,
+                  scale: isMatched ? [1, 1.15, 1] : 1,
+                  x: isMismatched ? [0, -6, 6, -6, 0] : 0,
+                }}
                 transition={{ duration: 0.35 }}
                 className="relative w-full h-full [transform-style:preserve-3d]"
               >

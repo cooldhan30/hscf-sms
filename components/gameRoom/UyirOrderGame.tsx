@@ -28,6 +28,7 @@ export function UyirOrderGame({ sessionId, tiles, instructions, onComplete, onRe
   const [placed, setPlaced] = useState<(string | null)[]>(() => Array(12).fill(null))
   const [tray, setTray] = useState<string[]>(tiles)
   const [shake, setShake] = useState<string | null>(null)
+  const [celebrate, setCelebrate] = useState<number | null>(null)
   const [completed, setCompleted] = useState(false)
   const slotRefs = useRef<(HTMLDivElement | null)[]>([])
 
@@ -55,6 +56,8 @@ export function UyirOrderGame({ sessionId, tiles, instructions, onComplete, onRe
         return next
       })
       setTray((prev) => prev.filter((t) => t !== letter))
+      setCelebrate(slotIndex)
+      setTimeout(() => setCelebrate(null), 400)
 
       if (correctCount + 1 === 12) {
         playSound('complete')
@@ -109,11 +112,13 @@ export function UyirOrderGame({ sessionId, tiles, instructions, onComplete, onRe
 
       <div className="flex flex-wrap justify-center gap-2">
         {placed.map((letter, i) => (
-          <div
+          <motion.div
             key={i}
             ref={(el) => {
               slotRefs.current[i] = el
             }}
+            animate={celebrate === i ? { scale: [1, 1.25, 1] } : { scale: 1 }}
+            transition={{ duration: 0.4 }}
             className={`w-14 h-14 flex items-center justify-center rounded-xl border-2 border-dashed text-2xl font-black transition-colors ${
               letter
                 ? 'border-primary-700 dark:border-primary-400 bg-primary-50 dark:bg-primary-950 text-primary-800 dark:text-primary-300'
@@ -121,7 +126,7 @@ export function UyirOrderGame({ sessionId, tiles, instructions, onComplete, onRe
             }`}
           >
             {letter ?? ''}
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>
