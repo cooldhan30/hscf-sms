@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { playSound } from '@/lib/gameRoom/sound'
 import type { SequenceSlot } from '@/lib/gameRoom/modules/missingLetterGames/missingLetterGame'
@@ -42,18 +42,21 @@ export function TamilMissingLetterGame({
   const [shake, setShake] = useState<string | null>(null)
   const [celebrateSlot, setCelebrateSlot] = useState<number | null>(null)
   const [completed, setCompleted] = useState(false)
+  const lastHoveredSlot = useRef<number>(-1)
 
   const correctCount = filled.filter((f) => f !== null).length
 
-  // Resolves a raw client-space point (from the native pointer event,
-  // NOT framer-motion's info.point -- see handleDragEnd) to a slot
-  // index using the browser's own hit-testing (elementFromPoint),
-  // walking up from whatever element is actually under that pixel to
-  // find the nearest ancestor tagged with data-slot-index. This is far
-  // more reliable than comparing getBoundingClientRect() rects against
-  // a pointer coordinate by hand: it can't drift out of sync with
-  // scroll position, and it matches exactly what the user visually
-  // sees under their finger/cursor at the moment of release.
+  // Resolves a raw client-space point to a slot index using the
+  // browser's own hit-testing (elementFromPoint), walking up from
+  // whatever element is actually under that pixel to find the nearest
+  // ancestor tagged with data-slot-index. Called continuously during
+  // the drag (onDrag), NOT just once at drop -- on a trackpad/mouse,
+  // by the moment onDragEnd's event fires, framer-motion may already be
+  // mid-transition back toward the origin (dragSnapToOrigin), so the
+  // element actually under the pointer at that instant can no longer
+  // be trusted. Tracking the last slot seen under the pointer WHILE
+  // dragging and using that at drop time sidesteps the timing issue
+  // entirely.
   function resolveSlotIndexAtPoint(clientX: number, clientY: number): number {
     const el = document.elementFromPoint(clientX, clientY)
     const slotEl = el?.closest<HTMLElement>('[data-slot-index]')
@@ -61,8 +64,12 @@ export function TamilMissingLetterGame({
     return Number(slotEl.dataset.slotIndex)
   }
 
-  function handleDragEnd(letter: string, clientX: number, clientY: number) {
-    const slotIndex = resolveSlotIndexAtPoint(clientX, clientY)
+  function handleDrag(clientX: number, clientY: number) {
+    lastHoveredSlot.current = resolveSlotIndexAtPoint(clientX, clientY)
+  }
+
+  function handleDragEnd(letter: string) {
+    const slotIndex = lastHoveredSlot.current
 
     if (slotIndex === -1 || !sequence[slotIndex].missing || filled[slotIndex] !== null) {
       // Not dropped on an empty missing-slot -- ignore, no feedback (a
@@ -122,23 +129,16 @@ export function TamilMissingLetterGame({
               drag={!isUsed}
               dragSnapToOrigin
               dragElastic={0.2}
-              whileDrag={{ scale: 1.15, zIndex: 10, pointerEvents: 'none' }}
-              onDragEnd={(e) => {
-                // Deliberately NOT using framer-motion's info.point here
-                // -- on this board (small worksheet-style blanks) that
-                // coordinate was found to be unreliable for hit-testing
-                // against getBoundingClientRect() rects (drops that
-                // visually landed on the correct blank were still
-                // scored as misses). The raw native event's own
-                // clientX/clientY (what the browser itself considers
-                // "under the pointer") is more trustworthy for
-                // elementFromPoint-based hit-testing.
-                const point =
-                  'changedTouches' in e && e.changedTouches.length > 0
-                    ? e.changedTouches[0]
-                    : (e as MouseEvent)
-                handleDragEnd(letter, point.clientX, point.clientY)
+              whileDrag={{ scale: 1.15, zIndex: 10 }}
+              onDragStart={() => {
+                lastHoveredSlot.current = -1
               }}
+              onDrag={(e) => {
+                const point =
+                  'changedTouches' in e && e.changedTouches.length > 0 ? e.changedTouches[0] : (e as MouseEvent)
+                handleDrag(point.clientX, point.clientY)
+              }}
+              onDragEnd={() => handleDragEnd(letter)}
               animate={shake === letter ? { x: [0, -8, 8, -8, 0] } : {}}
               transition={{ duration: 0.3 }}
               className={`w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center rounded-2xl border-2 text-2xl sm:text-3xl font-black select-none ${
