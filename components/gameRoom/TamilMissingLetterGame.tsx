@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { playSound } from '@/lib/gameRoom/sound'
 import type { SequenceSlot } from '@/lib/gameRoom/modules/missingLetterGames/missingLetterGame'
@@ -16,14 +16,17 @@ interface TamilMissingLetterGameProps {
   onRestart: () => void
 }
 
-// Drag-the-missing-letter-into-its-blank -- a worksheet-style sequence-
-// recall game. Different from TamilLetterOrderGame (which arranges ALL
-// tiles from scratch): here most positions are already filled in and
-// only a subset of slots are empty, and the source pool shows the
-// COMPLETE letter set (not just the missing ones) so the child must
-// recognize the right letter among all of them, not just pick from an
-// already-filtered short list. Entirely client-side until the single
-// onComplete call, same as every other interactive game here.
+// Tap-a-letter-then-tap-a-blank missing-letter game -- a worksheet-
+// style sequence-recall activity. Originally built as drag-and-drop,
+// but coordinate-based drop detection (pointer position vs. blank
+// bounding rects, then elementFromPoint, then continuous hover
+// tracking) proved unreliable across input devices (confirmed broken
+// on a trackpad even after three different hit-testing approaches).
+// Switched to the same tap-to-select pattern already proven in
+// TamilPairMatchGame -- select a source letter, then select the blank
+// it belongs in -- which sidesteps drag physics/coordinate timing
+// entirely and is also more accessible (keyboard/switch-friendly,
+// unlike a drag gesture).
 export function TamilMissingLetterGame({
   sessionId,
   sequence,
@@ -39,43 +42,23 @@ export function TamilMissingLetterGame({
   // missing slots), null while still empty.
   const [filled, setFilled] = useState<(string | null)[]>(() => sequence.map(() => null))
   const [usedLetters, setUsedLetters] = useState<Set<string>>(new Set())
-  const [shake, setShake] = useState<string | null>(null)
+  const [selectedLetter, setSelectedLetter] = useState<string | null>(null)
+  const [shakeSlot, setShakeSlot] = useState<number | null>(null)
   const [celebrateSlot, setCelebrateSlot] = useState<number | null>(null)
   const [completed, setCompleted] = useState(false)
-  const lastHoveredSlot = useRef<number>(-1)
 
   const correctCount = filled.filter((f) => f !== null).length
 
-  // Resolves a raw client-space point to a slot index using the
-  // browser's own hit-testing (elementFromPoint), walking up from
-  // whatever element is actually under that pixel to find the nearest
-  // ancestor tagged with data-slot-index. Called continuously during
-  // the drag (onDrag), NOT just once at drop -- on a trackpad/mouse,
-  // by the moment onDragEnd's event fires, framer-motion may already be
-  // mid-transition back toward the origin (dragSnapToOrigin), so the
-  // element actually under the pointer at that instant can no longer
-  // be trusted. Tracking the last slot seen under the pointer WHILE
-  // dragging and using that at drop time sidesteps the timing issue
-  // entirely.
-  function resolveSlotIndexAtPoint(clientX: number, clientY: number): number {
-    const el = document.elementFromPoint(clientX, clientY)
-    const slotEl = el?.closest<HTMLElement>('[data-slot-index]')
-    if (!slotEl) return -1
-    return Number(slotEl.dataset.slotIndex)
+  function handleSelectLetter(letter: string) {
+    if (usedLetters.has(letter)) return
+    setSelectedLetter((prev) => (prev === letter ? null : letter))
   }
 
-  function handleDrag(clientX: number, clientY: number) {
-    lastHoveredSlot.current = resolveSlotIndexAtPoint(clientX, clientY)
-  }
+  function handleSelectSlot(slotIndex: number) {
+    if (!sequence[slotIndex].missing || filled[slotIndex] !== null) return
+    if (!selectedLetter) return
 
-  function handleDragEnd(letter: string) {
-    const slotIndex = lastHoveredSlot.current
-
-    if (slotIndex === -1 || !sequence[slotIndex].missing || filled[slotIndex] !== null) {
-      // Not dropped on an empty missing-slot -- ignore, no feedback (a
-      // miss, not a wrong answer).
-      return
-    }
+    const letter = selectedLetter
 
     if (sequence[slotIndex].letter === letter) {
       playSound('correct')
@@ -85,6 +68,7 @@ export function TamilMissingLetterGame({
         return next
       })
       setUsedLetters((prev) => new Set(prev).add(letter))
+      setSelectedLetter(null)
       setCelebrateSlot(slotIndex)
       setTimeout(() => setCelebrateSlot(null), 400)
 
@@ -95,8 +79,9 @@ export function TamilMissingLetterGame({
       }
     } else {
       playSound('incorrect')
-      setShake(letter)
-      setTimeout(() => setShake(null), 400)
+      setShakeSlot(slotIndex)
+      setSelectedLetter(null)
+      setTimeout(() => setShakeSlot(null), 400)
     }
   }
 
@@ -123,53 +108,54 @@ export function TamilMissingLetterGame({
       <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
         {sourceLetters.map((letter) => {
           const isUsed = usedLetters.has(letter)
+          const isSelected = selectedLetter === letter
           return (
-            <motion.div
+            <button
               key={letter}
-              drag={!isUsed}
-              dragSnapToOrigin
-              dragElastic={0.2}
-              whileDrag={{ scale: 1.15, zIndex: 10 }}
-              onDragStart={() => {
-                lastHoveredSlot.current = -1
-              }}
-              onDrag={(e) => {
-                const point =
-                  'changedTouches' in e && e.changedTouches.length > 0 ? e.changedTouches[0] : (e as MouseEvent)
-                handleDrag(point.clientX, point.clientY)
-              }}
-              onDragEnd={() => handleDragEnd(letter)}
-              animate={shake === letter ? { x: [0, -8, 8, -8, 0] } : {}}
-              transition={{ duration: 0.3 }}
-              className={`w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center rounded-2xl border-2 text-2xl sm:text-3xl font-black select-none ${
+              type="button"
+              onClick={() => handleSelectLetter(letter)}
+              disabled={isUsed}
+              className={`w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center rounded-2xl border-2 text-2xl sm:text-3xl font-black select-none transition-transform ${
                 isUsed
-                  ? 'opacity-30 pointer-events-none border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-900 text-stone-400 dark:text-stone-600'
-                  : 'border-primary-700 dark:border-primary-400 bg-white dark:bg-stone-900 text-primary-800 dark:text-primary-300 cursor-grab active:cursor-grabbing shadow-md touch-none'
+                  ? 'opacity-30 border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-900 text-stone-400 dark:text-stone-600'
+                  : isSelected
+                    ? 'scale-110 border-amber-600 dark:border-amber-400 bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-300 shadow-lg'
+                    : 'border-primary-700 dark:border-primary-400 bg-white dark:bg-stone-900 text-primary-800 dark:text-primary-300 shadow-md hover:scale-105'
               }`}
             >
               {letter}
-            </motion.div>
+            </button>
           )
         })}
       </div>
 
       <div className="flex flex-wrap justify-center gap-2">
         {sequence.map((slot, i) => (
-          <motion.div
+          <motion.button
             key={i}
-            data-slot-index={i}
-            animate={celebrateSlot === i ? { scale: [1, 1.25, 1] } : { scale: 1 }}
+            type="button"
+            onClick={() => handleSelectSlot(i)}
+            disabled={!slot.missing || filled[i] !== null}
+            animate={
+              celebrateSlot === i
+                ? { scale: [1, 1.25, 1] }
+                : shakeSlot === i
+                  ? { x: [0, -8, 8, -8, 0] }
+                  : { scale: 1 }
+            }
             transition={{ duration: 0.4 }}
             className={`w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center rounded-xl text-xl sm:text-2xl font-black ${
               !slot.missing
                 ? 'text-stone-700 dark:text-stone-200'
                 : filled[i]
                   ? 'border-2 border-primary-700 dark:border-primary-400 bg-primary-50 dark:bg-primary-950 text-primary-800 dark:text-primary-300'
-                  : 'border-2 border-dashed border-stone-300 dark:border-stone-700 text-stone-300 dark:text-stone-700'
+                  : selectedLetter
+                    ? 'border-2 border-dashed border-amber-500 dark:border-amber-400 text-stone-300 dark:text-stone-700 cursor-pointer'
+                    : 'border-2 border-dashed border-stone-300 dark:border-stone-700 text-stone-300 dark:text-stone-700'
             }`}
           >
             {!slot.missing ? slot.letter : (filled[i] ?? '')}
-          </motion.div>
+          </motion.button>
         ))}
       </div>
     </div>
