@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createClient } from '@/lib/supabase/server'
-import { GAME_MODULES } from '@/lib/gameRoom/registry'
+import { GAME_MODULES, INTERACTIVE_GAME_MODULES } from '@/lib/gameRoom/registry'
 
 // GET /api/game-room/games -- teacher OR student. Lists every
 // registered game module's public metadata (never the question bank
@@ -25,7 +25,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 })
   }
 
-  const games = GAME_MODULES.map((m) => ({
+  const quizGames = GAME_MODULES.map((m) => ({
     id: m.id,
     name: m.name,
     description: m.description,
@@ -33,5 +33,20 @@ export async function GET() {
     questionCount: m.getQuestionBank().length,
   }))
 
-  return NextResponse.json({ games })
+  // Interactive games (drag-order, memory-match) are solo/practice-only
+  // -- a teacher can't host a live session for them (confirmed scope
+  // decision), so they only ever appear for a student caller, never in
+  // the teacher's host dropdown (GameRoomHostClient.tsx).
+  const interactiveGames =
+    profile.role === 'student'
+      ? INTERACTIVE_GAME_MODULES.map((m) => ({
+          id: m.id,
+          name: m.name,
+          description: m.description,
+          categories: [],
+          interactive: true as const,
+        }))
+      : []
+
+  return NextResponse.json({ games: [...quizGames, ...interactiveGames] })
 }

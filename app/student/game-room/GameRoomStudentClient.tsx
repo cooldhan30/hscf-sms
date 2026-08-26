@@ -12,6 +12,11 @@ interface GameOption {
   name: string
   description: string
   categories: { id: string; label: string }[]
+  // Only present for the two Uyir Ezhuthukkal interactive games (see
+  // lib/gameRoom/interactiveModule.ts) -- quiz-mode/count/category/timer
+  // config is meaningless for these, so the form hides those fields and
+  // starts the game via a different endpoint when this is true.
+  interactive?: boolean
 }
 
 interface MyStats {
@@ -130,6 +135,31 @@ export function GameRoomStudentClient() {
     setStarting(true)
     setStartError(null)
 
+    // Interactive games (drag-order, memory-match) skip the quiz config
+    // entirely -- they're a single "just press play" action, and the
+    // board data comes back immediately in this same response instead of
+    // being fetched separately by the play screen (see
+    // [sessionId]/page.tsx's sessionStorage handoff below).
+    if (selectedGame?.interactive) {
+      const res = await fetch('/api/game-room/interactive/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameType }),
+      })
+      const data = await res.json().catch(() => ({}))
+      setStarting(false)
+
+      if (!res.ok) {
+        setStartError(data.error || 'Failed to start game')
+        return
+      }
+
+      sessionStorage.setItem(`gameRoom:${data.sessionId}:gameData`, JSON.stringify(data.gameData))
+      sessionStorage.setItem(`gameRoom:${data.sessionId}:gameType`, gameType)
+      router.push(`/student/game-room/${data.sessionId}`)
+      return
+    }
+
     const res = await fetch('/api/game-room/practice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -238,24 +268,26 @@ export function GameRoomStudentClient() {
               ))}
             </select>
 
-            <div className="grid grid-cols-3 gap-1.5">
-              {(['count', 'category', 'full'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setQuizMode(mode)}
-                  className={`px-2 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
-                    quizMode === mode
-                      ? 'border-primary-700 bg-primary-50 text-primary-800 dark:border-primary-400 dark:bg-primary-950 dark:text-primary-300'
-                      : 'border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300'
-                  }`}
-                >
-                  {mode === 'count' ? 'Count' : mode === 'category' ? 'Category' : 'Full'}
-                </button>
-              ))}
-            </div>
+            {!selectedGame?.interactive && (
+              <div className="grid grid-cols-3 gap-1.5">
+                {(['count', 'category', 'full'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setQuizMode(mode)}
+                    className={`px-2 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+                      quizMode === mode
+                        ? 'border-primary-700 bg-primary-50 text-primary-800 dark:border-primary-400 dark:bg-primary-950 dark:text-primary-300'
+                        : 'border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300'
+                    }`}
+                  >
+                    {mode === 'count' ? 'Count' : mode === 'category' ? 'Category' : 'Full'}
+                  </button>
+                ))}
+              </div>
+            )}
 
-            {quizMode === 'count' && (
+            {!selectedGame?.interactive && quizMode === 'count' && (
               <div className="grid grid-cols-4 gap-1.5">
                 {COUNT_PRESETS.map((c) => (
                   <button
@@ -274,7 +306,7 @@ export function GameRoomStudentClient() {
               </div>
             )}
 
-            {quizMode === 'category' && selectedGame && selectedGame.categories.length > 0 && (
+            {!selectedGame?.interactive && quizMode === 'category' && selectedGame && selectedGame.categories.length > 0 && (
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
@@ -288,6 +320,7 @@ export function GameRoomStudentClient() {
               </select>
             )}
 
+            {!selectedGame?.interactive && (
             <div className="grid grid-cols-4 gap-1.5">
               {TIME_LIMITS.map((t) => (
                 <button
@@ -304,9 +337,10 @@ export function GameRoomStudentClient() {
                 </button>
               ))}
             </div>
+            )}
 
             <Button type="submit" variant="outline" fullWidth disabled={starting || !gameType}>
-              {starting ? 'Starting...' : 'Start Practice'}
+              {starting ? 'Starting...' : selectedGame?.interactive ? 'Start Game' : 'Start Practice'}
             </Button>
           </form>
         </div>

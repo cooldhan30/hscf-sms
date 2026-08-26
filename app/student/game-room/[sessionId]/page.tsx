@@ -1,11 +1,11 @@
-import { PlayGameClient } from './PlayGameClient'
+import { SessionRouter } from './SessionRouter'
 
 export const dynamic = 'force-dynamic'
 
 export default function PlaySessionPage({ params }: { params: { sessionId: string } }) {
   return (
     <div className="max-w-2xl mx-auto">
-      <PlayGameClient sessionId={params.sessionId} />
+      <SessionRouter sessionId={params.sessionId} />
     </div>
   )
 }
