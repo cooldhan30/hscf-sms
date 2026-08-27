@@ -39,11 +39,19 @@ export function TamilLetterOrderGame({
 }: TamilLetterOrderGameProps) {
   const total = letters.length
 
-  // `null` = still in the tray (available), a letter = locked into that
+  // `null` = still available in the tray, a letter = locked into that
   // slot index. A locked tile is correct by construction -- an incorrect
   // drop never locks in, it just snaps back to the tray.
   const [placed, setPlaced] = useState<(string | null)[]>(() => Array(total).fill(null))
-  const [tray, setTray] = useState<string[]>(tiles)
+  // The tray always renders every tile at a fixed position (never
+  // removes/reflows an entry) -- placed letters just become invisible/
+  // disabled in place. Reflowing the flex-wrap layout mid-game (e.g. by
+  // filtering the array down after each correct drop) was found to
+  // desync framer-motion's drag gesture from the tile's actual screen
+  // position for whichever tile the child dragged next, making drops
+  // fail unpredictably a few placements in -- keeping tile count and
+  // position stable for the whole round avoids that entirely.
+  const [usedLetters, setUsedLetters] = useState<Set<string>>(new Set())
   const [shake, setShake] = useState<string | null>(null)
   const [celebrate, setCelebrate] = useState<number | null>(null)
   const [completed, setCompleted] = useState(false)
@@ -82,7 +90,7 @@ export function TamilLetterOrderGame({
         next[slotIndex] = letter
         return next
       })
-      setTray((prev) => prev.filter((t) => t !== letter))
+      setUsedLetters((prev) => new Set(prev).add(letter))
       setCelebrate(slotIndex)
       setTimeout(() => setCelebrate(null), 400)
 
@@ -92,9 +100,8 @@ export function TamilLetterOrderGame({
         onComplete(sessionId, total)
       }
     } else {
-      // Incorrect -- gentle shake feedback, tile stays in the tray
-      // (framer-motion's drag with no dragConstraints snaps it back to
-      // its layout position automatically since we never update `tray`).
+      // Incorrect -- gentle shake feedback; dragSnapToOrigin returns
+      // the tile to its tray position automatically.
       playSound('incorrect')
       setShake(letter)
       setTimeout(() => setShake(null), 400)
@@ -122,21 +129,28 @@ export function TamilLetterOrderGame({
       </div>
 
       <div className="flex flex-wrap justify-center gap-4 sm:gap-5">
-        {tray.map((letter) => (
-          <motion.div
-            key={letter}
-            drag
-            dragSnapToOrigin
-            dragElastic={0.2}
-            whileDrag={{ scale: 1.15, zIndex: 10 }}
-            onDragEnd={(_e, info) => handleDragEnd(letter, info.point.x, info.point.y)}
-            animate={shake === letter ? { x: [0, -8, 8, -8, 0] } : {}}
-            transition={{ duration: 0.3 }}
-            className="w-16 h-16 flex items-center justify-center rounded-2xl border-2 border-primary-700 dark:border-primary-400 bg-white dark:bg-stone-900 text-3xl font-black text-primary-800 dark:text-primary-300 cursor-grab active:cursor-grabbing shadow-md select-none touch-none"
-          >
-            {letter}
-          </motion.div>
-        ))}
+        {tiles.map((letter, tileIndex) => {
+          const isUsed = usedLetters.has(letter)
+          return (
+            <motion.div
+              key={`${letter}-${tileIndex}`}
+              drag={!isUsed}
+              dragSnapToOrigin
+              dragElastic={0.2}
+              whileDrag={{ scale: 1.15, zIndex: 10 }}
+              onDragEnd={(_e, info) => handleDragEnd(letter, info.point.x, info.point.y)}
+              animate={shake === letter ? { x: [0, -8, 8, -8, 0] } : {}}
+              transition={{ duration: 0.3 }}
+              className={`w-16 h-16 flex items-center justify-center rounded-2xl border-2 text-3xl font-black select-none ${
+                isUsed
+                  ? 'opacity-0 pointer-events-none border-transparent'
+                  : 'border-primary-700 dark:border-primary-400 bg-white dark:bg-stone-900 text-primary-800 dark:text-primary-300 cursor-grab active:cursor-grabbing shadow-md touch-none'
+              }`}
+            >
+              {letter}
+            </motion.div>
+          )
+        })}
       </div>
 
       <div className="flex flex-wrap justify-center gap-3 sm:gap-4">

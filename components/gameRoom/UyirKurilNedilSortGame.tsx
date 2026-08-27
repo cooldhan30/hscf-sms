@@ -31,7 +31,13 @@ export function UyirKurilNedilSortGame({
   onComplete,
   onRestart,
 }: UyirKurilNedilSortGameProps) {
-  const [tray, setTray] = useState<string[]>(tiles)
+  // Every tile stays rendered at a fixed tray position for the whole
+  // round (never removed/reflowed) -- placed letters just become
+  // invisible/disabled in place. Reflowing the tray after each correct
+  // drop was found to desync framer-motion's drag gesture from a
+  // tile's actual screen position for whichever tile got dragged next,
+  // making drops fail unpredictably partway through a round.
+  const [usedLetters, setUsedLetters] = useState<Set<string>>(new Set())
   const [kurilBox, setKurilBox] = useState<string[]>([])
   const [nedilBox, setNedilBox] = useState<string[]>([])
   const [shake, setShake] = useState<string | null>(null)
@@ -67,7 +73,7 @@ export function UyirKurilNedilSortGame({
     const actual = classify(letter)
     if (actual === target) {
       playSound('correct')
-      setTray((prev) => prev.filter((t) => t !== letter))
+      setUsedLetters((prev) => new Set(prev).add(letter))
       if (target === 'kuril') setKurilBox((prev) => [...prev, letter])
       else setNedilBox((prev) => [...prev, letter])
       setCelebrateBox(target)
@@ -106,21 +112,28 @@ export function UyirKurilNedilSortGame({
       </div>
 
       <div className="flex flex-wrap justify-center gap-4 sm:gap-5 min-h-[5rem]">
-        {tray.map((letter) => (
-          <motion.div
-            key={letter}
-            drag
-            dragSnapToOrigin
-            dragElastic={0.2}
-            whileDrag={{ scale: 1.15, zIndex: 10 }}
-            onDragEnd={(_e, info) => handleDragEnd(letter, info.point.x, info.point.y)}
-            animate={shake === letter ? { x: [0, -8, 8, -8, 0] } : {}}
-            transition={{ duration: 0.3 }}
-            className="w-16 h-16 flex items-center justify-center rounded-2xl border-2 border-primary-700 dark:border-primary-400 bg-white dark:bg-stone-900 text-3xl font-black text-primary-800 dark:text-primary-300 cursor-grab active:cursor-grabbing shadow-md select-none touch-none"
-          >
-            {letter}
-          </motion.div>
-        ))}
+        {tiles.map((letter, tileIndex) => {
+          const isUsed = usedLetters.has(letter)
+          return (
+            <motion.div
+              key={`${letter}-${tileIndex}`}
+              drag={!isUsed}
+              dragSnapToOrigin
+              dragElastic={0.2}
+              whileDrag={{ scale: 1.15, zIndex: 10 }}
+              onDragEnd={(_e, info) => handleDragEnd(letter, info.point.x, info.point.y)}
+              animate={shake === letter ? { x: [0, -8, 8, -8, 0] } : {}}
+              transition={{ duration: 0.3 }}
+              className={`w-16 h-16 flex items-center justify-center rounded-2xl border-2 text-3xl font-black select-none ${
+                isUsed
+                  ? 'opacity-0 pointer-events-none border-transparent'
+                  : 'border-primary-700 dark:border-primary-400 bg-white dark:bg-stone-900 text-primary-800 dark:text-primary-300 cursor-grab active:cursor-grabbing shadow-md touch-none'
+              }`}
+            >
+              {letter}
+            </motion.div>
+          )
+        })}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">
