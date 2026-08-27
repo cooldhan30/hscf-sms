@@ -1,8 +1,23 @@
+import { createClient } from '@/lib/supabase/server'
+import { auth } from '@clerk/nextjs/server'
 import { MyStoriesClient } from './MyStoriesClient'
 
 export const dynamic = 'force-dynamic'
 
-export default function MyStoriesPage() {
+export default async function MyStoriesPage() {
+  const supabase = createClient()
+  const { userId } = await auth()
+
+  const { data: teacher } = await supabase.from('sms_teachers').select('id').eq('profile_id', userId ?? '').single()
+
+  const { data: myClassLinks } = teacher
+    ? await supabase.from('sms_class_teachers').select('class:sms_classes(id, name)').eq('teacher_id', teacher.id)
+    : { data: [] }
+
+  const classes = ((myClassLinks ?? []) as unknown as { class: { id: string; name: string } | null }[])
+    .map((l) => l.class)
+    .filter((c): c is { id: string; name: string } => c !== null)
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
@@ -10,7 +25,7 @@ export default function MyStoriesPage() {
         <p className="text-stone-500 dark:text-stone-400 mt-1">Stories you&apos;ve saved from the Story Generator.</p>
       </div>
 
-      <MyStoriesClient />
+      <MyStoriesClient classes={classes} />
     </div>
   )
 }
