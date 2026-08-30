@@ -1,28 +1,31 @@
 import type { WordComplexity } from './words'
+import { getCrosswordPuzzle, CROSSWORD_LEVEL_COUNT } from './crossword'
 
 export interface LevelConfig {
   level: number
   complexity: WordComplexity
   wordsPerLevel: number
-  distractorCount: number
 }
 
 // Level progression -- data-driven per spec ("do not hardcode the
 // entire progression into the UI"). 3 levels per complexity for the
-// initial release (9 total), each drawing 5 words from that
-// complexity's word bank. distractorCount scales with complexity
-// (1-2 easy, 2-3 medium, 3-4 hard), matching the spec's guidance.
-export const LEVEL_CONFIGS: LevelConfig[] = [
-  { level: 1, complexity: 'easy', wordsPerLevel: 5, distractorCount: 1 },
-  { level: 2, complexity: 'easy', wordsPerLevel: 5, distractorCount: 2 },
-  { level: 3, complexity: 'easy', wordsPerLevel: 5, distractorCount: 2 },
-  { level: 4, complexity: 'medium', wordsPerLevel: 5, distractorCount: 2 },
-  { level: 5, complexity: 'medium', wordsPerLevel: 5, distractorCount: 3 },
-  { level: 6, complexity: 'medium', wordsPerLevel: 5, distractorCount: 3 },
-  { level: 7, complexity: 'hard', wordsPerLevel: 5, distractorCount: 3 },
-  { level: 8, complexity: 'hard', wordsPerLevel: 5, distractorCount: 4 },
-  { level: 9, complexity: 'hard', wordsPerLevel: 5, distractorCount: 4 },
-]
+// initial release (9 total). wordsPerLevel is read directly off each
+// level's curated crossword puzzle (see crossword.ts) rather than a
+// fixed number, since a real crossword's word count is however many
+// words were curated to intersect for that grid (2 or 3 here), not an
+// arbitrary target -- keeping this derived avoids the two ever
+// drifting out of sync.
+const COMPLEXITY_BY_LEVEL: WordComplexity[] = ['easy', 'easy', 'easy', 'medium', 'medium', 'medium', 'hard', 'hard', 'hard']
+
+export const LEVEL_CONFIGS: LevelConfig[] = Array.from({ length: CROSSWORD_LEVEL_COUNT }, (_, i) => {
+  const level = i + 1
+  const puzzle = getCrosswordPuzzle(level)!
+  return {
+    level,
+    complexity: COMPLEXITY_BY_LEVEL[i],
+    wordsPerLevel: puzzle.words.length,
+  }
+})
 
 export function getLevelConfig(level: number): LevelConfig | undefined {
   return LEVEL_CONFIGS.find((l) => l.level === level)

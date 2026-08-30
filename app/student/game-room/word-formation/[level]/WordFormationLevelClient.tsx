@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { TamilWordFormationGame } from '@/components/gameRoom/TamilWordFormationGame'
+import { TamilCrosswordGame } from '@/components/gameRoom/TamilCrosswordGame'
 import { WordFormationLevelCompleteScreen } from '@/components/gameRoom/WordFormationLevelCompleteScreen'
-import type { WordPuzzle } from '@/lib/gameRoom/modules/tamilWordFormation/puzzle'
+import type { CrosswordPuzzle } from '@/lib/gameRoom/modules/tamilWordFormation/crossword'
 import { getLevelConfig, MAX_LEVEL } from '@/lib/gameRoom/modules/tamilWordFormation/levels'
 
 interface CompletionResult {
@@ -13,16 +13,16 @@ interface CompletionResult {
   unlockedNext: boolean
 }
 
-// Owns the level's lifecycle: fetch a fresh (unlock-checked, shuffled)
-// puzzle set on mount/replay via /word-formation/start, render the
-// play component, and report completion via /word-formation/complete
-// once all words are done. Mirrors the sessionStorage-free, no-
-// mid-play-persistence pattern every other interactive game here
-// uses -- board state lives entirely in this component/its child until
-// the single terminal call.
+// Owns the level's lifecycle: fetch the level's curated crossword
+// puzzle on mount/replay via /word-formation/start (unlock-checked
+// server-side), render the crossword+wheel play component, and report
+// completion via /word-formation/complete once every word in the grid
+// is solved. Mirrors the sessionStorage-free, no-mid-play-persistence
+// pattern every other interactive game here uses -- board state lives
+// entirely in this component/its child until the single terminal call.
 export function WordFormationLevelClient({ level }: { level: number }) {
   const router = useRouter()
-  const [puzzles, setPuzzles] = useState<WordPuzzle[] | null | undefined>(undefined)
+  const [puzzle, setPuzzle] = useState<CrosswordPuzzle | null | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
   const [completion, setCompletion] = useState<CompletionResult | null>(null)
   const [instanceKey, setInstanceKey] = useState(0)
@@ -35,7 +35,7 @@ export function WordFormationLevelClient({ level }: { level: number }) {
   }, [instanceKey])
 
   async function startLevel() {
-    setPuzzles(undefined)
+    setPuzzle(undefined)
     setError(null)
     setCompletion(null)
 
@@ -48,11 +48,11 @@ export function WordFormationLevelClient({ level }: { level: number }) {
 
     if (!res.ok) {
       setError(data.error || 'Failed to start level')
-      setPuzzles(null)
+      setPuzzle(null)
       return
     }
 
-    setPuzzles(data.puzzleData.puzzles)
+    setPuzzle(data.puzzle)
   }
 
   async function handleLevelComplete(wordsCompleted: number, hintsUsed: number) {
@@ -94,11 +94,11 @@ export function WordFormationLevelClient({ level }: { level: number }) {
     )
   }
 
-  if (puzzles === undefined) {
+  if (puzzle === undefined) {
     return <p className="text-center py-16 text-stone-400 dark:text-stone-500">Loading level...</p>
   }
 
-  if (!puzzles) {
+  if (!puzzle) {
     return (
       <div className="text-center py-16 space-y-3">
         <p className="text-stone-500 dark:text-stone-400">{error || 'This level could not be started.'}</p>
@@ -106,5 +106,5 @@ export function WordFormationLevelClient({ level }: { level: number }) {
     )
   }
 
-  return <TamilWordFormationGame key={instanceKey} level={level} puzzles={puzzles} onLevelComplete={handleLevelComplete} />
+  return <TamilCrosswordGame key={instanceKey} level={level} puzzle={puzzle} onLevelComplete={handleLevelComplete} />
 }

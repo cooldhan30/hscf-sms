@@ -8,9 +8,11 @@ const POINTS_PER_WORD = 10
 // { level, wordsCompleted }. hintsUsed is tracked and shown by the
 // client's own completion screen but isn't persisted server-side (no
 // column for it yet, and it isn't part of the leaderboard score).
-// Called once when a level's 5 words are all correctly formed. Writes
-// ONE sms_game_sessions +
-// sms_game_players row (is_solo_practice: false, same as every other
+// Called once when every word in the level's crossword has been
+// correctly formed (wordsPerLevel varies per level -- 2 or 3 words,
+// however many were curated to intersect in that level's grid). Writes
+// ONE sms_game_sessions + sms_game_players row (is_solo_practice:
+// false, same as every other
 // interactive game) so completed levels show up in history/leaderboard
 // exactly like a completed board in any other game -- score is
 // wordsCompleted * 10, matching the spec's "+10 per correct word".

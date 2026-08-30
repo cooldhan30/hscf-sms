@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server'
 import { requireStudent } from '@/lib/require-student'
 import { getLevelConfig, levelPositionWithinComplexity } from '@/lib/gameRoom/modules/tamilWordFormation/levels'
-import { generateLevelPuzzles } from '@/lib/gameRoom/modules/tamilWordFormation/puzzle'
+import { getCrosswordPuzzle } from '@/lib/gameRoom/modules/tamilWordFormation/crossword'
 
 // POST /api/game-room/word-formation/start -- student-only. Body:
-// { level }. Unlike every other interactive game's /start, this
-// checks the level is actually unlocked for this student
-// (sms_word_formation_progress) before generating anything -- a
-// student can't skip ahead by guessing a session-start call for a
-// level they haven't reached, since level-gating is the whole point of
-// this table. Board data (5 shuffled word puzzles, each with its own
-// shuffled tile set) is generated fresh every call, same "generate
-// once, hand to client, never re-fetch mid-play" pattern as every
-// other interactive game here.
+// { level }. Checks the level is actually unlocked for this student
+// (sms_word_formation_progress) before returning anything -- a student
+// can't skip ahead by guessing a session-start call for a level they
+// haven't reached, since level-gating is the whole point of that
+// table. Returns the level's curated crossword puzzle (grid layout +
+// word list) -- these are hand-curated, not randomly generated, so
+// there's nothing to shuffle/regenerate server-side; the letter WHEEL
+// order is shuffled client-side per play (see buildWheelLetters).
 export async function POST(request: Request) {
   const guard = await requireStudent()
   if (!guard.ok) {
@@ -48,10 +47,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'This level is locked' }, { status: 403 })
   }
 
-  const puzzleData = generateLevelPuzzles(level)
-  if (!puzzleData) {
-    return NextResponse.json({ error: 'Failed to generate level' }, { status: 500 })
+  const puzzle = getCrosswordPuzzle(level)
+  if (!puzzle) {
+    return NextResponse.json({ error: 'Failed to load level' }, { status: 500 })
   }
 
-  return NextResponse.json({ puzzleData })
+  return NextResponse.json({ puzzle })
 }
