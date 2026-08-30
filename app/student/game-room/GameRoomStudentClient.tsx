@@ -346,6 +346,24 @@ export function GameRoomStudentClient() {
         </div>
       )}
 
+      {tab === 'play' && (
+        <button
+          type="button"
+          onClick={() => router.push('/student/game-room/word-formation')}
+          className="w-full flex items-center justify-between p-5 rounded-2xl border border-primary-200 dark:border-primary-900 bg-white dark:bg-stone-900 hover:border-primary-400 transition-colors text-left"
+        >
+          <div>
+            <h2 className="font-bold text-stone-800 dark:text-stone-100">சொல் உருவாக்குவோம்!</h2>
+            <p className="text-sm text-stone-500 dark:text-stone-400 mt-0.5">
+              எழுத்துகளை இணைத்து சொற்களை உருவாக்குங்கள்! · Levels &amp; difficulty
+            </p>
+          </div>
+          <span className="text-primary-700 dark:text-primary-400 font-semibold text-sm whitespace-nowrap">
+            Play →
+          </span>
+        </button>
+      )}
+
       {tab === 'history' && (
         <div className="space-y-2">
           {history === null ? (
