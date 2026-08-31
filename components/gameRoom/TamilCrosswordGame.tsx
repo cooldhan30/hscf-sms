@@ -12,9 +12,9 @@ interface TamilCrosswordGameProps {
   onLevelComplete: (wordsCompleted: number, hintsUsed: number) => Promise<void>
 }
 
-const CELL_PX = 44
-const WHEEL_RADIUS_PX = 90
-const WHEEL_TILE_PX = 52
+const CELL_PX = 48
+const WHEEL_SIZE_PX = 220
+const WHEEL_TILE_PX = 56
 
 // Wordscapes-style crossword: a grid of intersecting target words
 // (built from curated puzzle data -- see crossword.ts for why these
@@ -23,11 +23,7 @@ const WHEEL_TILE_PX = 52
 // wheel tile selects it (in order); lifting the finger/mouse submits
 // the word if it matches one of the puzzle's remaining words, and the
 // tiles animate into their crossword cells on success (or the
-// selection is rejected with a shake on failure). This is a genuinely
-// different interaction from the tap-one-at-a-time TamilWordFormationGame
-// (kept as its own component; not a variant of it) -- selection here
-// is continuous-pointer-drag over a circular layout, not discrete taps
-// on a linear tray.
+// selection is rejected with a shake on failure).
 export function TamilCrosswordGame({ level, puzzle, onLevelComplete }: TamilCrosswordGameProps) {
   const [gridCells] = useState(() => buildGridCells(puzzle))
   const [wheelLetters] = useState<WheelLetter[]>(() => buildWheelLetters(puzzle))
@@ -44,22 +40,32 @@ export function TamilCrosswordGame({ level, puzzle, onLevelComplete }: TamilCros
   const minRow = Math.min(...gridCells.map((c) => c.row))
   const minCol = Math.min(...gridCells.map((c) => c.col))
 
-  const wheelPositions = wheelLetters.map((_, i) => {
+  // Positions are fractions of the wheel's OWN rendered radius (0..1),
+  // not fixed pixels -- the wheel itself scales responsively (w-full +
+  // aspect-ratio) to fit narrow screens, so tile placement and hit-
+  // testing both need to read the wheel's actual current size at
+  // pointer time rather than assume a constant.
+  const wheelPositionFractions = wheelLetters.map((_, i) => {
     const angle = (i / wheelLetters.length) * 2 * Math.PI - Math.PI / 2
-    return { x: Math.cos(angle) * WHEEL_RADIUS_PX, y: Math.sin(angle) * WHEEL_RADIUS_PX }
+    return { fx: Math.cos(angle), fy: Math.sin(angle) }
   })
+  // Tiles sit at 78% of the way to the edge, leaving room for the
+  // tile's own radius so it doesn't clip outside the circle.
+  const TILE_DISTANCE_FRACTION = 0.78
 
   function tileAtPoint(clientX: number, clientY: number): string | null {
     if (!wheelRef.current) return null
     const rect = wheelRef.current.getBoundingClientRect()
     const centerX = rect.left + rect.width / 2
     const centerY = rect.top + rect.height / 2
+    const radius = (rect.width / 2) * TILE_DISTANCE_FRACTION
+    const hitRadius = (rect.width / WHEEL_SIZE_PX) * (WHEEL_TILE_PX / 2 + 12)
 
     for (let i = 0; i < wheelLetters.length; i++) {
-      const tileX = centerX + wheelPositions[i].x
-      const tileY = centerY + wheelPositions[i].y
+      const tileX = centerX + wheelPositionFractions[i].fx * radius
+      const tileY = centerY + wheelPositionFractions[i].fy * radius
       const dist = Math.hypot(clientX - tileX, clientY - tileY)
-      if (dist <= WHEEL_TILE_PX / 2 + 12) return wheelLetters[i].wheelId
+      if (dist <= hitRadius) return wheelLetters[i].wheelId
     }
     return null
   }
@@ -133,7 +139,7 @@ export function TamilCrosswordGame({ level, puzzle, onLevelComplete }: TamilCros
 
   return (
     <div
-      className="max-w-lg mx-auto px-4 py-6 space-y-8 select-none"
+      className="max-w-md mx-auto px-4 py-4 flex flex-col items-center gap-4 select-none"
       onMouseMove={(e) => handlePointerMove(e.clientX, e.clientY)}
       onMouseUp={handlePointerUp}
       onMouseLeave={handlePointerUp}
@@ -143,7 +149,7 @@ export function TamilCrosswordGame({ level, puzzle, onLevelComplete }: TamilCros
       }}
       onTouchEnd={handlePointerUp}
     >
-      <div className="text-center space-y-1">
+      <div className="text-center space-y-0.5">
         <p className="text-sm font-semibold text-stone-500 dark:text-stone-400">
           எழுத்துகளை இணைத்து சொற்களை உருவாக்குங்கள்!
         </p>
@@ -152,18 +158,21 @@ export function TamilCrosswordGame({ level, puzzle, onLevelComplete }: TamilCros
         </p>
       </div>
 
-      {/* Crossword grid */}
-      <div className="relative mx-auto" style={{ width: gridWidth, height: gridHeight }}>
+      {/* Crossword grid -- every cell always has a visible border, so
+          the puzzle's shape reads clearly even before anything is
+          filled in (an unfilled cell used to render fully invisible,
+          which made the grid look broken/incomplete). */}
+      <div className="relative shrink-0" style={{ width: gridWidth, height: gridHeight }}>
         {gridCells.map((cell) => {
           const key = `${cell.row},${cell.col}`
           const isFilled = filledCells.has(key)
           return (
             <div
               key={key}
-              className={`absolute flex items-center justify-center border-2 text-lg font-black rounded-md ${
+              className={`absolute flex items-center justify-center border-2 rounded-lg text-xl font-black transition-colors ${
                 isFilled
                   ? 'border-primary-700 dark:border-primary-400 bg-primary-50 dark:bg-primary-950 text-primary-800 dark:text-primary-300'
-                  : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-transparent'
+                  : 'border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-transparent'
               }`}
               style={{
                 left: (cell.col - minCol) * CELL_PX,
@@ -178,78 +187,89 @@ export function TamilCrosswordGame({ level, puzzle, onLevelComplete }: TamilCros
         })}
       </div>
 
-      {/* Hints for unsolved words */}
-      <div className="flex flex-wrap justify-center gap-3">
-        {puzzle.words
-          .filter((w) => !solvedWords.has(w.word))
-          .map((w) => (
-            <button
-              key={w.word}
-              type="button"
-              onClick={() => handleHint(w.word)}
-              className="text-xs px-3 py-1.5 rounded-full border border-stone-300 dark:border-stone-700 text-stone-500 dark:text-stone-400 hover:border-primary-400"
-            >
-              {revealedHints.has(w.word) ? `${w.hintEmoji ?? ''} ${w.meaningEnglish}` : `💡 Hint (${w.units.length})`}
-            </button>
-          ))}
+      <div className="min-h-[2.25rem] flex items-center justify-center">
+        {justSolved ? (
+          <div className="text-center">
+            <span className="text-lg font-black text-primary-700 dark:text-primary-400">{justSolved.word}</span>
+            {justSolved.hintEmoji && <span className="text-xl ml-1.5">{justSolved.hintEmoji}</span>}
+            <span className="text-sm text-stone-500 dark:text-stone-400 ml-1.5">{justSolved.meaningEnglish}</span>
+          </div>
+        ) : (
+          <div className="flex flex-wrap justify-center gap-2">
+            {puzzle.words
+              .filter((w) => !solvedWords.has(w.word))
+              .map((w) => (
+                <button
+                  key={w.word}
+                  type="button"
+                  onClick={() => handleHint(w.word)}
+                  className="text-xs px-3 py-1 rounded-full border border-stone-300 dark:border-stone-700 text-stone-500 dark:text-stone-400 hover:border-primary-400"
+                >
+                  {revealedHints.has(w.word) ? `${w.hintEmoji ?? ''} ${w.meaningEnglish}` : `💡 (${w.units.length})`}
+                </button>
+              ))}
+          </div>
+        )}
       </div>
 
-      {justSolved && (
-        <div className="text-center space-y-1">
-          <p className="text-2xl font-black text-primary-700 dark:text-primary-400">{justSolved.word}</p>
-          {justSolved.hintEmoji && <p className="text-3xl">{justSolved.hintEmoji}</p>}
-          <p className="text-sm text-stone-500 dark:text-stone-400">{justSolved.meaningEnglish}</p>
-        </div>
-      )}
-
       {/* Selected-letters preview */}
-      <div className="min-h-[3rem] flex items-center justify-center gap-1 flex-wrap">
+      <div className="min-h-[2.5rem] flex items-center justify-center gap-1.5 flex-wrap">
         {selectedIds.map((id) => (
           <span
             key={id}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950 border border-amber-400 text-lg font-black text-amber-800 dark:text-amber-300"
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950 border-2 border-amber-400 text-lg font-black text-amber-800 dark:text-amber-300"
           >
             {wheelLetters.find((w) => w.wheelId === id)?.unit}
           </span>
         ))}
       </div>
 
-      {/* Circular letter wheel */}
-      <motion.div
-        ref={wheelRef}
-        animate={shake ? { x: [0, -8, 8, -8, 0] } : {}}
-        transition={{ duration: 0.3 }}
-        className="relative mx-auto rounded-full bg-primary-50 dark:bg-primary-950/40 border-2 border-primary-200 dark:border-primary-900"
-        style={{ width: WHEEL_RADIUS_PX * 2 + WHEEL_TILE_PX, height: WHEEL_RADIUS_PX * 2 + WHEEL_TILE_PX }}
-        onMouseDown={(e) => handlePointerDown(e.clientX, e.clientY)}
-        onTouchStart={(e) => {
-          const t = e.touches[0]
-          if (t) handlePointerDown(t.clientX, t.clientY)
-        }}
-      >
-        {wheelLetters.map((letter, i) => {
-          const isSelected = selectedIds.includes(letter.wheelId)
-          return (
-            <div
-              key={letter.wheelId}
-              className={`absolute flex items-center justify-center rounded-full border-2 text-2xl font-black shadow-md touch-none ${
-                isSelected
-                  ? 'border-amber-500 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 scale-110'
-                  : 'border-primary-700 dark:border-primary-400 bg-white dark:bg-stone-900 text-primary-800 dark:text-primary-300'
-              }`}
-              style={{
-                width: WHEEL_TILE_PX,
-                height: WHEEL_TILE_PX,
-                left: '50%',
-                top: '50%',
-                transform: `translate(calc(-50% + ${wheelPositions[i].x}px), calc(-50% + ${wheelPositions[i].y}px))`,
-              }}
-            >
-              {letter.unit}
-            </div>
-          )
-        })}
-      </motion.div>
+      {/* Circular letter wheel -- sized in a fixed px box, but that
+          box itself scales down via CSS on narrow viewports (see the
+          wrapper's max-width/aspect-ratio) so it never overflows a
+          phone-width screen. */}
+      <div className="w-full flex justify-center" style={{ maxWidth: WHEEL_SIZE_PX }}>
+        <motion.div
+          ref={wheelRef}
+          animate={shake ? { x: [0, -8, 8, -8, 0] } : {}}
+          transition={{ duration: 0.3 }}
+          className="relative rounded-full bg-primary-50 dark:bg-primary-950/40 border-2 border-primary-200 dark:border-primary-900 w-full"
+          style={{ aspectRatio: '1 / 1' }}
+          onMouseDown={(e) => handlePointerDown(e.clientX, e.clientY)}
+          onTouchStart={(e) => {
+            const t = e.touches[0]
+            if (t) handlePointerDown(t.clientX, t.clientY)
+          }}
+        >
+          {wheelLetters.map((letter, i) => {
+            const isSelected = selectedIds.includes(letter.wheelId)
+            // Tile center as a percentage of the wheel's own box --
+            // scales correctly at any rendered size since it never
+            // references a fixed pixel constant.
+            const leftPct = 50 + wheelPositionFractions[i].fx * (TILE_DISTANCE_FRACTION / 2) * 100
+            const topPct = 50 + wheelPositionFractions[i].fy * (TILE_DISTANCE_FRACTION / 2) * 100
+            return (
+              <div
+                key={letter.wheelId}
+                className={`absolute flex items-center justify-center rounded-full border-2 text-xl sm:text-2xl font-black shadow-md touch-none ${
+                  isSelected
+                    ? 'border-amber-500 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 scale-110'
+                    : 'border-primary-700 dark:border-primary-400 bg-white dark:bg-stone-900 text-primary-800 dark:text-primary-300'
+                }`}
+                style={{
+                  width: '26%',
+                  aspectRatio: '1 / 1',
+                  left: `${leftPct}%`,
+                  top: `${topPct}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              >
+                {letter.unit}
+              </div>
+            )
+          })}
+        </motion.div>
+      </div>
       <p className="text-center text-xs text-stone-400 dark:text-stone-500">
         Swipe across the letters to form a word
       </p>
