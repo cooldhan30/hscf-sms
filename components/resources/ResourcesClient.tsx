@@ -187,6 +187,7 @@ export function ResourcesClient({
   const [editTarget, setEditTarget] = useState<ResourceRow | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editDescription, setEditDescription] = useState('')
+  const [editClassId, setEditClassId] = useState<string>('')
   const [editTaxonomy, setEditTaxonomy] = useState<TaxonomyState>(EMPTY_TAXONOMY)
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
@@ -302,6 +303,7 @@ export function ResourcesClient({
     setEditTarget(resource)
     setEditTitle(resource.title)
     setEditDescription(resource.description ?? '')
+    setEditClassId(resource.class_id ?? '')
     setEditTaxonomy({
       category: resource.category ?? '',
       subcategory: resource.subcategory ?? '',
@@ -312,6 +314,17 @@ export function ResourcesClient({
       tags: resource.tags,
     })
     setEditError(null)
+  }
+
+  // Whether THIS resource's class can be reassigned by the current
+  // user -- moving a resource to a different class is owner-or-admin
+  // only (see app/api/resources/[id]/route.ts's PATCH), unlike
+  // taxonomy edits which any teacher/admin can make on any resource.
+  // canDeleteAny is already scoped to the same "admin, or nothing"
+  // population as that check (delete is also owner-or-admin), so it
+  // doubles as the admin half of this gate.
+  function canEditClass(resource: ResourceRow): boolean {
+    return canDeleteAny || resource.created_by === currentProfileId
   }
 
   async function handleEdit(e: React.FormEvent) {
@@ -326,6 +339,7 @@ export function ResourcesClient({
       body: JSON.stringify({
         title: editTitle,
         description: editDescription || null,
+        ...(canEditClass(editTarget) ? { classId: editClassId || null } : {}),
         category: editTaxonomy.category || null,
         subcategory: editTaxonomy.subcategory || null,
         difficulty: editTaxonomy.difficulty || null,
@@ -714,6 +728,34 @@ export function ResourcesClient({
               className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
             />
           </div>
+
+          {editTarget && (
+            <div>
+              <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Class</label>
+              {canEditClass(editTarget) ? (
+                <select
+                  value={editClassId}
+                  onChange={(e) => setEditClassId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                >
+                  <option value="">All Classes / Everyone</option>
+                  {(canUploadAllClasses ? classes : classes.filter((c) => teacherClassIds.includes(c.id))).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                // Only the uploader or an admin can move a resource to a
+                // different class (see app/api/resources/[id]/route.ts) --
+                // shown read-only here so it's still visible, per the
+                // original complaint that the class wasn't shown at all.
+                <p className="text-sm text-stone-600 dark:text-stone-300 px-3 py-2 rounded-lg bg-stone-50 dark:bg-stone-800/60">
+                  {editTarget.class?.name ?? 'All Classes / Everyone'}
+                </p>
+              )}
+            </div>
+          )}
 
           <ResourceTaxonomyFields value={editTaxonomy} onChange={setEditTaxonomy} />
 
