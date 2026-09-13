@@ -44,6 +44,18 @@ interface SessionState {
 const COUNT_PRESETS = [10, 20, 30, 60]
 const TIME_LIMITS = [10, 15, 20, 30]
 
+// Persists which session this teacher is currently hosting so a page
+// reload mid-game reattaches to the live dashboard instead of silently
+// resetting to the Create Game form -- confirmed as a real bug: there
+// was previously no way at all to recover an in-progress session after
+// a reload, which looked exactly like a "frozen dashboard" (the create
+// form and the actual live game state are indistinguishable to a
+// teacher who reloaded without realizing the whole component remounted
+// from scratch). sessionStorage (not localStorage) since this is
+// specifically "what tab is this browser tab looking at right now,"
+// not a durable cross-session preference.
+const ACTIVE_SESSION_KEY = 'gameRoom:activeHostSessionId'
+
 export function GameRoomHostClient() {
   const confirm = useConfirm()
   const supabase = useSupabaseBrowserClient()
@@ -73,12 +85,41 @@ export function GameRoomHostClient() {
       .catch(() => setGames([]))
   }, [])
 
+  // Reattaches to whatever session this teacher was last hosting, if
+  // any, so a page reload mid-game restores the live dashboard instead
+  // of resetting to the Create Game form. A session that's since ended
+  // (or vanished) is treated the same as "no session" -- the create
+  // form is the right thing to show once a game is actually over.
+  useEffect(() => {
+    const savedSessionId = sessionStorage.getItem(ACTIVE_SESSION_KEY)
+    if (!savedSessionId) return
+
+    setLoadingState(true)
+    fetch(`/api/game-room/sessions/${savedSessionId}`)
+      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (ok && data && data.session.status !== 'ended') {
+          setState(data)
+        } else {
+          sessionStorage.removeItem(ACTIVE_SESSION_KEY)
+        }
+      })
+      .catch(() => sessionStorage.removeItem(ACTIVE_SESSION_KEY))
+      .finally(() => setLoadingState(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const selectedGame = games?.find((g) => g.id === gameType)
 
   async function refreshState(sessionId: string) {
     const res = await fetch(`/api/game-room/sessions/${sessionId}`)
     const data = await res.json().catch(() => null)
-    if (res.ok && data) setState(data)
+    if (res.ok && data) {
+      setState(data)
+      if (data.session.status === 'ended') {
+        sessionStorage.removeItem(ACTIVE_SESSION_KEY)
+      }
+    }
   }
 
   // Realtime subscription drives the live dashboard once a session
@@ -136,6 +177,7 @@ export function GameRoomHostClient() {
       return
     }
 
+    sessionStorage.setItem(ACTIVE_SESSION_KEY, data.sessionId)
     setLoadingState(true)
     await refreshState(data.sessionId)
     setLoadingState(false)
