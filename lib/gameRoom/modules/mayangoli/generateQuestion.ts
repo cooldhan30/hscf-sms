@@ -20,17 +20,6 @@ function seedFor(sessionId: string, questionIndex: number, salt: string): string
   return `${sessionId}:${questionIndex}:${salt}`
 }
 
-// Deterministically picks one index in [0, length) from a seed, reusing
-// shuffledOptionsFor's own seeded PRNG rather than a second ad-hoc hash
-// -- the first element of a seeded shuffle of index positions is itself
-// a stable, uniformly distributed pick.
-function seededIndex(length: number, seed: string): number {
-  return shuffledOptionsFor(
-    Array.from({ length }, (_, i) => i),
-    seed
-  )[0]
-}
-
 function genFillMissingLetter(word: MayangoliWord, sessionId: string, questionIndex: number): MayangoliQuestion {
   // Options are the actual grapheme cluster that fills the blank (e.g.
   // "லை"/"ளை"/"ழை" for மலை's blank "ம__"), not the bare consonant with
@@ -102,35 +91,6 @@ function genMeaningChallenge(
   }
 }
 
-function genFindWrongSpelling(
-  word: MayangoliWord,
-  allWords: MayangoliWord[],
-  sessionId: string,
-  questionIndex: number
-): MayangoliQuestion {
-  // One misspelled version of `word` is mixed in among several OTHER
-  // correctly-spelled group words (not the same word repeated -- a
-  // student can't "find the wrong spelling" among duplicate strings).
-  const wrongPickIndex = seededIndex(word.distractors.length, seedFor(sessionId, questionIndex, 'wrong_index'))
-  const wrongSpelling = substituteLetterAt(word, word.distractors[wrongPickIndex])
-
-  const correctFillerPool = allWords.filter((w) => w.groupId === word.groupId && w.id !== word.id)
-  const correctFillers = shuffledOptionsFor(correctFillerPool, seedFor(sessionId, questionIndex, 'wrong_spelling_fillers'))
-    .slice(0, 3)
-    .map((w) => w.word)
-
-  const options = shuffledOptionsFor([wrongSpelling, ...correctFillers], seedFor(sessionId, questionIndex, 'find_wrong_spelling'))
-  return {
-    questionType: 'find_wrong_spelling',
-    wordId: word.id,
-    targetLetter: word.targetLetter,
-    groupId: word.groupId,
-    prompt: 'Find the misspelled word',
-    options,
-    correctAnswer: wrongSpelling,
-  }
-}
-
 export function generateMayangoliQuestion(
   word: MayangoliWord,
   allWords: MayangoliWord[],
@@ -145,7 +105,5 @@ export function generateMayangoliQuestion(
       return genChooseCorrectSpelling(word, sessionId, questionIndex)
     case 'meaning_challenge':
       return genMeaningChallenge(word, allWords, sessionId, questionIndex)
-    case 'find_wrong_spelling':
-      return genFindWrongSpelling(word, allWords, sessionId, questionIndex)
   }
 }

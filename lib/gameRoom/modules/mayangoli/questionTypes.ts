@@ -1,14 +1,9 @@
-export type MayangoliQuestionType =
-  | 'fill_missing_letter'
-  | 'choose_correct_spelling'
-  | 'meaning_challenge'
-  | 'find_wrong_spelling'
+export type MayangoliQuestionType = 'fill_missing_letter' | 'choose_correct_spelling' | 'meaning_challenge'
 
 export const MAYANGOLI_QUESTION_TYPES: MayangoliQuestionType[] = [
   'fill_missing_letter',
   'choose_correct_spelling',
   'meaning_challenge',
-  'find_wrong_spelling',
 ]
 
 // One rendered question, fully resolved server-side -- the client only

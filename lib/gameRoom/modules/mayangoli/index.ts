@@ -33,12 +33,12 @@ const MODULE_ID = 'mayangoli'
 // bug: fill_missing_letter rendered the masked word with no meaning
 // hint attached, leaving no context for what's being asked -- fixed by
 // folding the English meaning into the same line, in parentheses.
-// (A separate identify_the_letter type was dropped entirely: it showed
-// the COMPLETE, correctly-spelled word and asked the student to pick
-// which of 3 letters was correct -- but the letter was already visible
-// in the word, so there was nothing to actually figure out. Not a
-// terse-instruction problem like this one; the mechanic itself didn't
-// work.)
+// (identify_the_letter and find_wrong_spelling were both dropped
+// entirely: identify_the_letter showed the COMPLETE, correctly-spelled
+// word and asked which of 3 letters was correct, but the letter was
+// already visible in the word -- nothing to figure out. find_wrong_
+// spelling was dropped per an explicit product request to favor
+// fill-in-the-blank-style questions over "find the misspelled word.")
 function composePrompt(questionType: MayangoliQuestionType, rawPrompt: string, supportingText?: string): string {
   switch (questionType) {
     case 'fill_missing_letter':
@@ -52,8 +52,6 @@ function composePrompt(questionType: MayangoliQuestionType, rawPrompt: string, s
     case 'meaning_challenge':
       // rawPrompt is the Tamil word itself -- pairing it with English
       // meaning options below already makes the task clear.
-      return rawPrompt
-    case 'find_wrong_spelling':
       return rawPrompt
   }
 }
