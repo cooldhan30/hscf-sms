@@ -1,4 +1,4 @@
-import { GameRoomHostClient } from './GameRoomHostClient'
+import { GameRoomModeSelector } from './GameRoomModeSelector'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,11 +8,11 @@ export default function GameRoomPage() {
       <div>
         <h1 className="text-2xl font-bold text-primary-900 dark:text-white">Game Room</h1>
         <p className="text-stone-500 dark:text-stone-400 mt-1">
-          Host a live classroom quiz -- students join with a code, you start the game once, and everyone plays at their own pace.
+          Host a live classroom game -- students join with a code, you start the game once everyone&apos;s in.
         </p>
       </div>
 
-      <GameRoomHostClient />
+      <GameRoomModeSelector />
     </div>
   )
 }

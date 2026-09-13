@@ -67,7 +67,16 @@ interface LetterAccuracyRow {
   accuracy_pct: number | null
 }
 
-export function MayangoliHostClient() {
+interface MayangoliHostClientProps {
+  // Where the QR-code deep link points students to, and any extra
+  // query params to append (e.g. a mode switch on a shared Game Room
+  // join page) -- defaults to the original standalone Mayangoli join
+  // page for any caller that doesn't care.
+  joinLinkPath?: string
+  joinLinkExtraParams?: string
+}
+
+export function MayangoliHostClient({ joinLinkPath = '/student/mayangoli', joinLinkExtraParams = '' }: MayangoliHostClientProps = {}) {
   const confirm = useConfirm()
   const supabase = useSupabaseBrowserClient()
 
@@ -327,10 +336,13 @@ export function MayangoliHostClient() {
         <div className="p-8 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
           <p className="text-sm font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide">Game Code</p>
           <p className="text-6xl font-black text-primary-800 dark:text-primary-300 tracking-widest mt-2">{state.joinCode}</p>
-          <p className="text-sm text-stone-500 dark:text-stone-400 mt-3">Students go to /student/mayangoli and enter this code</p>
+          <p className="text-sm text-stone-500 dark:text-stone-400 mt-3">Students go to Game Room and enter this code</p>
           <div className="flex justify-center mt-5">
             <div className="p-3 bg-white rounded-xl">
-              <QRCodeSVG value={`${typeof window !== 'undefined' ? window.location.origin : ''}/student/mayangoli?code=${state.joinCode}`} size={140} />
+              <QRCodeSVG
+                value={`${typeof window !== 'undefined' ? window.location.origin : ''}${joinLinkPath}?code=${state.joinCode}${joinLinkExtraParams}`}
+                size={140}
+              />
             </div>
           </div>
         </div>

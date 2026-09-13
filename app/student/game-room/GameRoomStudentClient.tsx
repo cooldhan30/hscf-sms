@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { FiAward, FiUsers, FiClock } from 'react-icons/fi'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/dashboard/EmptyState'
+import { MayangoliJoinClient } from '@/app/student/mayangoli/MayangoliJoinClient'
 
 interface GameOption {
   id: string
@@ -54,12 +55,15 @@ type Tab = 'play' | 'history' | 'leaderboard'
 
 export function GameRoomStudentClient() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState<Tab>('play')
 
   const [stats, setStats] = useState<MyStats | null>(null)
   const [games, setGames] = useState<GameOption[] | null>(null)
   const [history, setHistory] = useState<HistoryEntry[] | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(null)
+
+  const [joinMode, setJoinMode] = useState<'classic' | 'mayangoli'>('classic')
 
   const [joinCode, setJoinCode] = useState('')
   const [joining, setJoining] = useState(false)
@@ -90,6 +94,14 @@ export function GameRoomStudentClient() {
       })
       .catch(() => setGames([]))
   }, [])
+
+  // Auto-selects Mayangoli join mode from the QR-code deep link
+  // (?mode=mayangoli&code=XXXXXX) generated on the teacher's lobby
+  // screen -- the code itself is prefilled by MayangoliJoinClient's own
+  // searchParams read, this just gets the right form showing first.
+  useEffect(() => {
+    if (searchParams.get('mode') === 'mayangoli') setJoinMode('mayangoli')
+  }, [searchParams])
 
   useEffect(() => {
     if (tab === 'history' && history === null) {
@@ -224,25 +236,40 @@ export function GameRoomStudentClient() {
 
       {tab === 'play' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <form onSubmit={handleJoin} className="space-y-3 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
+          <div className="space-y-3 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
             <h2 className="font-bold text-stone-800 dark:text-stone-100">Join a Game</h2>
-            {joinError && (
-              <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">
-                {joinError}
-              </p>
+            <select
+              value={joinMode}
+              onChange={(e) => setJoinMode(e.target.value as 'classic' | 'mayangoli')}
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+            >
+              <option value="classic">Classic Quiz</option>
+              <option value="mayangoli">மயங்கொலி Challenge</option>
+            </select>
+
+            {joinMode === 'classic' ? (
+              <form onSubmit={handleJoin} className="space-y-3">
+                {joinError && (
+                  <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">
+                    {joinError}
+                  </p>
+                )}
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  placeholder="Game code"
+                  maxLength={8}
+                  className="w-full px-4 py-3 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white text-center text-lg font-semibold tracking-widest focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                />
+                <Button type="submit" variant="primary" fullWidth disabled={joining || !joinCode.trim()}>
+                  {joining ? 'Joining...' : 'Join Game'}
+                </Button>
+              </form>
+            ) : (
+              <MayangoliJoinClient embedded />
             )}
-            <input
-              type="text"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              placeholder="Game code"
-              maxLength={8}
-              className="w-full px-4 py-3 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white text-center text-lg font-semibold tracking-widest focus:ring-2 focus:ring-primary-600 focus:border-transparent"
-            />
-            <Button type="submit" variant="primary" fullWidth disabled={joining || !joinCode.trim()}>
-              {joining ? 'Joining...' : 'Join Game'}
-            </Button>
-          </form>
+          </div>
 
           <form onSubmit={handleStartPractice} className="space-y-3 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
             <h2 className="font-bold text-stone-800 dark:text-stone-100">Practice on Your Own</h2>

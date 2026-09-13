@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { GameRoomStudentClient } from './GameRoomStudentClient'
 
 export const dynamic = 'force-dynamic'
@@ -12,7 +13,9 @@ export default function StudentGameRoomPage() {
         </p>
       </div>
 
-      <GameRoomStudentClient />
+      <Suspense fallback={null}>
+        <GameRoomStudentClient />
+      </Suspense>
     </div>
   )
 }

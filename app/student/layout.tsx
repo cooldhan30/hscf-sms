@@ -1,4 +1,4 @@
-import { FiHome, FiBookOpen, FiFileText, FiAward, FiCheckSquare, FiSpeaker, FiUserCheck, FiMessageCircle, FiVideo, FiFolder, FiBarChart2, FiPlayCircle, FiZap } from 'react-icons/fi'
+import { FiHome, FiBookOpen, FiFileText, FiAward, FiCheckSquare, FiSpeaker, FiUserCheck, FiMessageCircle, FiVideo, FiFolder, FiBarChart2, FiPlayCircle } from 'react-icons/fi'
 import { auth } from '@clerk/nextjs/server'
 import { RoleGuard, DashboardLayout, type SidebarItem } from '@/components/dashboard'
 import { createClient } from '@/lib/supabase/server'
@@ -23,7 +23,6 @@ const baseNavItems: SidebarItem[] = [
   // for the same actual person (see
   // supabase/migrations/057_game_room_student_identity.sql).
   { label: 'Game Room', href: '/student/game-room', icon: <FiPlayCircle className={iconClass} /> },
-  { label: 'Mayangoli Challenge', href: '/student/mayangoli', icon: <FiZap className={iconClass} /> },
 ]
 
 // Tamil Theni is the first nav item conditioned on something other than

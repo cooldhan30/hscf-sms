@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 
-export function MayangoliJoinClient() {
+// `embedded` renders just the form (no outer card) for use inside
+// another card, e.g. the Game Room "Join a Game" card's Mayangoli mode
+// -- the standalone /student/mayangoli page still wants its own card.
+export function MayangoliJoinClient({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -43,7 +46,10 @@ export function MayangoliJoinClient() {
   }
 
   return (
-    <form onSubmit={handleJoin} className="space-y-3 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
+    <form
+      onSubmit={handleJoin}
+      className={embedded ? 'space-y-3' : 'space-y-3 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900'}
+    >
       {joinError && (
         <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">
           {joinError}
