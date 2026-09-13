@@ -1,6 +1,6 @@
 import type { MayangoliWord } from './wordEntry'
 import type { MayangoliQuestion, MayangoliQuestionType } from './questionTypes'
-import { displayForm, getMayangoliGroup } from './groups'
+import { displayForm } from './groups'
 import { shuffledOptionsFor } from '@/lib/gameRoom/shuffle'
 
 // All distractor building blocks below reuse `word.distractors`' exact
@@ -125,21 +125,6 @@ function genFindWrongSpelling(
   }
 }
 
-function genIdentifyTheLetter(word: MayangoliWord, sessionId: string, questionIndex: number): MayangoliQuestion {
-  const group = getMayangoliGroup(word.groupId)!
-  const correctAnswer = displayForm(word.targetLetter)
-  const options = shuffledOptionsFor(group.letters.map(displayForm), seedFor(sessionId, questionIndex, 'identify_the_letter'))
-  return {
-    questionType: 'identify_the_letter',
-    wordId: word.id,
-    targetLetter: word.targetLetter,
-    groupId: word.groupId,
-    prompt: word.word,
-    options,
-    correctAnswer,
-  }
-}
-
 export function generateMayangoliQuestion(
   word: MayangoliWord,
   allWords: MayangoliWord[],
@@ -156,7 +141,5 @@ export function generateMayangoliQuestion(
       return genMeaningChallenge(word, allWords, sessionId, questionIndex)
     case 'find_wrong_spelling':
       return genFindWrongSpelling(word, allWords, sessionId, questionIndex)
-    case 'identify_the_letter':
-      return genIdentifyTheLetter(word, sessionId, questionIndex)
   }
 }

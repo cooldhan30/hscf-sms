@@ -13,7 +13,19 @@
 -- sms_mayangoli_* tables, their RPCs, the word-override table, and the
 -- two RLS-recursion-fix helper functions. sms_game_sessions/players/
 -- answers (the engine Mayangoli now actually uses) are untouched.
+--
+-- Tables are dropped BEFORE the two helper functions -- their RLS
+-- policies (e.g. "mayangoli_players: host reads own session's
+-- players") reference sms_is_mayangoli_session_host/_player, so
+-- dropping the functions first fails with "cannot drop function ...
+-- because other objects depend on it" until the dependent
+-- tables/policies are gone.
 -- =====================================================
+
+DROP TABLE IF EXISTS sms_mayangoli_answers;
+DROP TABLE IF EXISTS sms_mayangoli_players;
+DROP TABLE IF EXISTS sms_mayangoli_sessions;
+DROP TABLE IF EXISTS sms_mayangoli_word_overrides;
 
 DROP FUNCTION IF EXISTS sms_is_mayangoli_session_host(UUID);
 DROP FUNCTION IF EXISTS sms_is_mayangoli_session_player(UUID);
@@ -21,11 +33,6 @@ DROP FUNCTION IF EXISTS sms_resolve_mayangoli_session_by_join_code(TEXT);
 DROP FUNCTION IF EXISTS sms_mayangoli_leaderboard(UUID);
 DROP FUNCTION IF EXISTS sms_mayangoli_question_summary(UUID, INT);
 DROP FUNCTION IF EXISTS sms_mayangoli_letter_accuracy(UUID);
-
-DROP TABLE IF EXISTS sms_mayangoli_answers;
-DROP TABLE IF EXISTS sms_mayangoli_players;
-DROP TABLE IF EXISTS sms_mayangoli_sessions;
-DROP TABLE IF EXISTS sms_mayangoli_word_overrides;
 
 -- Realtime publication membership is dropped automatically along with
 -- the tables themselves -- no separate ALTER PUBLICATION ... DROP
