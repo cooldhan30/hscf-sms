@@ -2,15 +2,6 @@ import type { MayangoliWord } from './wordEntry'
 import type { MayangoliQuestion, MayangoliQuestionType } from './questionTypes'
 import { shuffledOptionsFor } from '@/lib/gameRoom/shuffle'
 
-// All distractor building blocks below reuse `word.distractors`' exact
-// grapheme shape (see wordEntry.ts's validation), so every generated
-// option is itself a real, well-formed Tamil grapheme cluster -- never
-// a raw bare-letter substitution spliced into a vowel-sign position.
-
-function substituteLetterAt(word: MayangoliWord, replacement: string): string {
-  return word.clusters.map((c, i) => (i === word.targetIndex ? replacement : c)).join('')
-}
-
 // A stable seed for this exact question instance -- same
 // (sessionId, questionIndex) always yields the same option order/pick,
 // so every connected player/reconnect sees an identical shared
@@ -45,55 +36,8 @@ function genFillMissingLetter(word: MayangoliWord, sessionId: string, questionIn
   }
 }
 
-function genChooseCorrectSpelling(word: MayangoliWord, sessionId: string, questionIndex: number): MayangoliQuestion {
-  const wrongSpellings = word.distractors.map((d) => substituteLetterAt(word, d))
-  const options = shuffledOptionsFor(
-    [word.word, ...wrongSpellings],
-    seedFor(sessionId, questionIndex, 'choose_correct_spelling')
-  )
-  return {
-    questionType: 'choose_correct_spelling',
-    wordId: word.id,
-    targetLetter: word.targetLetter,
-    groupId: word.groupId,
-    prompt: word.meaningEnglish,
-    options,
-    correctAnswer: word.word,
-  }
-}
-
-function genMeaningChallenge(
-  word: MayangoliWord,
-  allWords: MayangoliWord[],
-  sessionId: string,
-  questionIndex: number
-): MayangoliQuestion {
-  // Wrong-meaning options are pulled from other words in the same
-  // Mayangoli group so they're plausible confusions, not random noise.
-  const pool = allWords.filter(
-    (w) => w.groupId === word.groupId && w.id !== word.id && w.meaningEnglish !== word.meaningEnglish
-  )
-  const distractorMeanings = shuffledOptionsFor(pool, seedFor(sessionId, questionIndex, 'meaning_pool'))
-    .slice(0, 3)
-    .map((w) => w.meaningEnglish)
-  const options = shuffledOptionsFor(
-    [word.meaningEnglish, ...distractorMeanings],
-    seedFor(sessionId, questionIndex, 'meaning_challenge')
-  )
-  return {
-    questionType: 'meaning_challenge',
-    wordId: word.id,
-    targetLetter: word.targetLetter,
-    groupId: word.groupId,
-    prompt: word.word,
-    options,
-    correctAnswer: word.meaningEnglish,
-  }
-}
-
 export function generateMayangoliQuestion(
   word: MayangoliWord,
-  allWords: MayangoliWord[],
   questionType: MayangoliQuestionType,
   sessionId: string,
   questionIndex: number
@@ -101,9 +45,5 @@ export function generateMayangoliQuestion(
   switch (questionType) {
     case 'fill_missing_letter':
       return genFillMissingLetter(word, sessionId, questionIndex)
-    case 'choose_correct_spelling':
-      return genChooseCorrectSpelling(word, sessionId, questionIndex)
-    case 'meaning_challenge':
-      return genMeaningChallenge(word, allWords, sessionId, questionIndex)
   }
 }

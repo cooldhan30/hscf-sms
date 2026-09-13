@@ -1,7 +1,7 @@
 import type { GameModule, GameQuestion } from '@/lib/gameRoom/gameModule'
 import { ALL_MAYANGOLI_WORDS } from './selectWords'
 import { generateMayangoliQuestion } from './generateQuestion'
-import { MAYANGOLI_QUESTION_TYPES, type MayangoliQuestionType } from './questionTypes'
+import { MAYANGOLI_QUESTION_TYPES } from './questionTypes'
 import { MAYANGOLI_GROUPS } from './groups'
 
 const MODULE_ID = 'mayangoli'
@@ -33,27 +33,19 @@ const MODULE_ID = 'mayangoli'
 // bug: fill_missing_letter rendered the masked word with no meaning
 // hint attached, leaving no context for what's being asked -- fixed by
 // folding the English meaning into the same line, in parentheses.
-// (identify_the_letter and find_wrong_spelling were both dropped
-// entirely: identify_the_letter showed the COMPLETE, correctly-spelled
-// word and asked which of 3 letters was correct, but the letter was
-// already visible in the word -- nothing to figure out. find_wrong_
-// spelling was dropped per an explicit product request to favor
-// fill-in-the-blank-style questions over "find the misspelled word.")
-function composePrompt(questionType: MayangoliQuestionType, rawPrompt: string, supportingText?: string): string {
-  switch (questionType) {
-    case 'fill_missing_letter':
-      // rawPrompt is the masked word (e.g. "ப__ம்"); supportingText is
-      // the English meaning, shown as a small hint in parentheses.
-      return supportingText ? `${rawPrompt} (${supportingText})` : rawPrompt
-    case 'choose_correct_spelling':
-      // rawPrompt is the English meaning -- already self-explanatory
-      // paired with the spelling options below it.
-      return rawPrompt
-    case 'meaning_challenge':
-      // rawPrompt is the Tamil word itself -- pairing it with English
-      // meaning options below already makes the task clear.
-      return rawPrompt
-  }
+//
+// Mayangoli is now fill_missing_letter ONLY, per explicit product
+// feedback that ruled out every other type: identify_the_letter showed
+// the COMPLETE, correctly-spelled word and asked which of 3 letters
+// was correct (but the letter was already visible -- nothing to figure
+// out); find_wrong_spelling was dropped in favor of fill-in-the-blank
+// style; choose_correct_spelling/meaning_challenge (the "English <->
+// Tamil word check" types) were dropped next, leaving only the direct
+// letter-completion task.
+function composePrompt(rawPrompt: string, supportingText?: string): string {
+  // rawPrompt is the masked word (e.g. "ப__ம்"); supportingText is the
+  // English meaning, shown as a small hint in parentheses.
+  return supportingText ? `${rawPrompt} (${supportingText})` : rawPrompt
 }
 
 function buildValidatedQuestionBank(): GameQuestion[] {
@@ -62,7 +54,7 @@ function buildValidatedQuestionBank(): GameQuestion[] {
 
   for (const word of ALL_MAYANGOLI_WORDS) {
     for (const questionType of MAYANGOLI_QUESTION_TYPES) {
-      const q = generateMayangoliQuestion(word, ALL_MAYANGOLI_WORDS, questionType, word.id, 0)
+      const q = generateMayangoliQuestion(word, questionType, word.id, 0)
       const id = `${MODULE_ID}:${word.id}:${questionType}`
 
       if (seenIds.has(id)) {
@@ -72,7 +64,7 @@ function buildValidatedQuestionBank(): GameQuestion[] {
 
       questions.push({
         id,
-        prompt: composePrompt(questionType, q.prompt, q.supportingText),
+        prompt: composePrompt(q.prompt, q.supportingText),
         correctAnswer: q.correctAnswer,
         options: q.options,
         explanation: word.meaningEnglish,
