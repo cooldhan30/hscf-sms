@@ -85,7 +85,7 @@ const QUESTION_BANK = buildValidatedQuestionBank()
 
 export const mayangoliModule: GameModule = {
   id: MODULE_ID,
-  name: 'மயங்கொலி Challenge',
+  name: 'மயங்கொலி',
   description: 'ல்/ள்/ழ், ன்/ண்/ந், ர்/ற் — practice telling apart commonly-confused Tamil letters',
   categories: MAYANGOLI_GROUPS.map((g) => ({ id: g.id, label: g.label })),
   getQuestionBank: () => QUESTION_BANK,
