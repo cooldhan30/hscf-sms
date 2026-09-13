@@ -1,6 +1,5 @@
 import type { MayangoliWord } from './wordEntry'
 import type { MayangoliQuestion, MayangoliQuestionType } from './questionTypes'
-import { displayForm } from './groups'
 import { shuffledOptionsFor } from '@/lib/gameRoom/shuffle'
 
 // All distractor building blocks below reuse `word.distractors`' exact
@@ -33,9 +32,16 @@ function seededIndex(length: number, seed: string): number {
 }
 
 function genFillMissingLetter(word: MayangoliWord, sessionId: string, questionIndex: number): MayangoliQuestion {
-  const correctAnswer = displayForm(word.targetLetter)
-  const optionLetters = shuffledOptionsFor(
-    [word.targetLetter, ...word.distractorBaseLetters],
+  // Options are the actual grapheme cluster that fills the blank (e.g.
+  // "லை"/"ளை"/"ழை" for மலை's blank "ம__"), not the bare consonant with
+  // a pulli (ல்/ள்/ழ்) -- a bare-letter option doesn't visually match
+  // what the blank represents whenever the target is fused with a
+  // vowel sign rather than closing the syllable on its own. word.word
+  // itself is the correct answer's source of truth; word.distractors
+  // are already stored in this same grapheme shape (see wordEntry.ts).
+  const correctAnswer = word.matchedForm
+  const options = shuffledOptionsFor(
+    [correctAnswer, ...word.distractors],
     seedFor(sessionId, questionIndex, 'fill_missing_letter')
   )
   return {
@@ -44,7 +50,7 @@ function genFillMissingLetter(word: MayangoliWord, sessionId: string, questionIn
     targetLetter: word.targetLetter,
     groupId: word.groupId,
     prompt: word.maskedWord,
-    options: optionLetters.map(displayForm),
+    options,
     correctAnswer,
     supportingText: word.meaningEnglish,
   }
