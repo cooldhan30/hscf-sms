@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/require-teacher'
 import { requireEnum } from '@/lib/validation'
 
-const ATTENDANCE_STATUSES = ['present', 'absent', 'late', 'excused'] as const
+const ATTENDANCE_STATUSES = ['present', 'absent', 'late', 'excused', 'holiday'] as const
 
 // GET /api/teacher/attendance?classId=&date= -- roster + any existing
 // attendance for that class/date, so the form can load in "edit" mode.

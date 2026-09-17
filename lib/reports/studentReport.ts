@@ -7,6 +7,7 @@ export interface AttendanceSummary {
   absent: number
   late: number
   excused: number
+  holiday: number
   attendancePct: number | null
 }
 
@@ -48,17 +49,24 @@ export interface StudentReport {
 }
 
 function summarizeAttendance(rows: { status: string }[]): AttendanceSummary {
-  const total = rows.length
-  const present = rows.filter((r) => r.status === 'present').length
-  const absent = rows.filter((r) => r.status === 'absent').length
-  const late = rows.filter((r) => r.status === 'late').length
-  const excused = rows.filter((r) => r.status === 'excused').length
+  const holiday = rows.filter((r) => r.status === 'holiday').length
+  // Holidays aren't school days a student could attend or miss, so
+  // they're excluded from the attendance-rate denominator entirely
+  // (not just from the numerator) -- marking a day 'holiday' never
+  // moves any student's attendance percentage.
+  const schoolDayRows = rows.filter((r) => r.status !== 'holiday')
+  const total = schoolDayRows.length
+  const present = schoolDayRows.filter((r) => r.status === 'present').length
+  const absent = schoolDayRows.filter((r) => r.status === 'absent').length
+  const late = schoolDayRows.filter((r) => r.status === 'late').length
+  const excused = schoolDayRows.filter((r) => r.status === 'excused').length
   return {
     total,
     present,
     absent,
     late,
     excused,
+    holiday,
     attendancePct: total > 0 ? Math.round(((present + late) / total) * 1000) / 10 : null,
   }
 }

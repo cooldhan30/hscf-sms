@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 
-export type AttendanceCellStatus = 'present' | 'absent' | 'late' | 'excused' | 'marked'
+export type AttendanceCellStatus = 'present' | 'absent' | 'late' | 'excused' | 'holiday' | 'marked'
 
 const CELL_STYLES: Record<AttendanceCellStatus, string> = {
   present: 'bg-primary-500 text-white hover:bg-primary-600',
@@ -11,6 +11,7 @@ const CELL_STYLES: Record<AttendanceCellStatus, string> = {
   absent: 'bg-terracotta-500 text-white hover:bg-terracotta-600',
   late: 'bg-gold-500 text-white hover:bg-gold-600',
   excused: 'bg-stone-400 text-white hover:bg-stone-500 dark:bg-stone-600 dark:hover:bg-stone-500',
+  holiday: 'bg-sky-500 text-white hover:bg-sky-600',
 }
 
 const LEGEND: { status: AttendanceCellStatus; label: string }[] = [
@@ -18,6 +19,7 @@ const LEGEND: { status: AttendanceCellStatus; label: string }[] = [
   { status: 'absent', label: 'Absent' },
   { status: 'late', label: 'Late' },
   { status: 'excused', label: 'Excused' },
+  { status: 'holiday', label: 'Holiday' },
 ]
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']

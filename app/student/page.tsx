@@ -50,7 +50,10 @@ export default async function StudentDashboardPage() {
   const submittedIds = new Set((mySubmissions ?? []).map((s) => s.assignment_id))
   const assignments = (allAssignments ?? []).filter((a) => !submittedIds.has(a.id)).slice(0, 5)
 
-  const attendanceRecords = attendance ?? []
+  // Holidays aren't school days the student could attend or miss, so
+  // they're excluded from the attendance-rate denominator entirely --
+  // marking a day 'holiday' never affects this rate.
+  const attendanceRecords = (attendance ?? []).filter((r) => r.status !== 'holiday')
   const attendancePct =
     attendanceRecords.length > 0
       ? ((attendanceRecords.filter((r) => r.status === 'present').length / attendanceRecords.length) * 100).toFixed(1)

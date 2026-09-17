@@ -15,6 +15,7 @@ const STATUS_LABEL: Record<string, string> = {
   absent: 'Absent',
   late: 'Late',
   excused: 'Excused',
+  holiday: 'Holiday',
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -22,6 +23,7 @@ const STATUS_COLOR: Record<string, string> = {
   absent: 'bg-terracotta-100 text-terracotta-800 dark:bg-terracotta-950 dark:text-terracotta-300',
   late: 'bg-gold-100 text-gold-800 dark:bg-gold-950 dark:text-gold-300',
   excused: 'bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300',
+  holiday: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300',
 }
 
 // Same two-column calendar-plus-detail-panel layout as the teacher's

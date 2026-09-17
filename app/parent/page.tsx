@@ -39,8 +39,12 @@ export default async function ParentDashboardPage() {
             .returns<{ score: number; assignment: { max_score: number } }[]>(),
         ])
 
-        const attTotal = attendance?.length ?? 0
-        const attPresent = attendance?.filter((r) => r.status === 'present').length ?? 0
+        // Holidays aren't school days the student could attend or miss,
+        // so they're excluded from the attendance-rate denominator
+        // entirely -- marking a day 'holiday' never affects this rate.
+        const schoolDayAttendance = (attendance ?? []).filter((r) => r.status !== 'holiday')
+        const attTotal = schoolDayAttendance.length
+        const attPresent = schoolDayAttendance.filter((r) => r.status === 'present').length
         const attendancePct = attTotal > 0 ? Math.round((attPresent / attTotal) * 100) : null
 
         const gradeList = grades ?? []

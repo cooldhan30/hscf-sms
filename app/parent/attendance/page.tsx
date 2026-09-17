@@ -34,8 +34,12 @@ export default async function ParentAttendancePage({ searchParams }: { searchPar
     : { data: [] }
 
   const all = records ?? []
-  const total = all.length
-  const presentCount = all.filter((r) => r.status === 'present').length
+  // Holidays aren't school days the student could attend or miss, so
+  // they're excluded from the attendance-rate denominator entirely --
+  // marking a day 'holiday' never affects this percentage.
+  const schoolDays = all.filter((r) => r.status !== 'holiday')
+  const total = schoolDays.length
+  const presentCount = schoolDays.filter((r) => r.status === 'present').length
   const overallPctLabel = total > 0 ? `${((presentCount / total) * 100).toFixed(1)}%` : '—'
 
   return (

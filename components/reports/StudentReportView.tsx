@@ -25,13 +25,23 @@ const SCORE_EXPORT_COLUMNS = [
   { header: 'Feedback', key: 'feedback' },
 ]
 
+// Confirmed as a real bug: the previous version was a fallthrough
+// ternary ('present' -> primary, 'absent' -> terracotta, else -> gold)
+// that silently mis-colored 'excused' the same gold as 'late', and
+// would have done the same to any new status added later (e.g.
+// 'holiday') instead of falling back to a neutral color. Explicit
+// per-status map instead, with a neutral default for anything
+// unrecognized.
+const STATUS_BADGE_TONE: Record<string, string> = {
+  present: 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300',
+  absent: 'bg-terracotta-100 text-terracotta-700 dark:bg-terracotta-900/40 dark:text-terracotta-300',
+  late: 'bg-gold-100 text-gold-700 dark:bg-gold-900/40 dark:text-gold-300',
+  excused: 'bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300',
+  holiday: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+}
+
 function statusBadge(status: string) {
-  const tone =
-    status === 'present'
-      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
-      : status === 'absent'
-        ? 'bg-terracotta-100 text-terracotta-700 dark:bg-terracotta-900/40 dark:text-terracotta-300'
-        : 'bg-gold-100 text-gold-700 dark:bg-gold-900/40 dark:text-gold-300'
+  const tone = STATUS_BADGE_TONE[status] ?? 'bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300'
   return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${tone}`}>{status}</span>
 }
 
