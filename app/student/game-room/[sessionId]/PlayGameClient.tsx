@@ -273,8 +273,14 @@ export function PlayGameClient({ sessionId }: { sessionId: string }) {
             640px breakpoint switched to 3 columns before there was
             enough room, clipping longer option text like "எதிர்காலம்");
             5 wraps into 2 columns (uneven last row) rather than
-            shrinking to fit one row. Text wraps and buttons grow to fit
-            rather than truncating, so a long option is never cut off. */}
+            shrinking to fit one row. Options are single Tamil words with
+            no natural break point, so whitespace-nowrap (not
+            break-words) is used -- confirmed as a real bug: break-words
+            was force-splitting mid-syllable ("முன்னிலை" -> "முன்னி" +
+            "லை") whenever a word was slightly too wide for the button,
+            since there's no space to break at; giving the button real
+            width (the md: breakpoint above) is what actually fixes
+            overflow, not wrapping a single word onto two lines. */}
         <div
           className={`grid gap-3 mt-6 ${
             state.question.options.length === 3 ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-2'
@@ -285,7 +291,7 @@ export function PlayGameClient({ sessionId }: { sessionId: string }) {
               key={opt}
               onClick={() => handleAnswer(opt)}
               disabled={submitting}
-              className={`py-6 px-4 rounded-2xl border-2 text-xl sm:text-2xl font-bold transition-colors disabled:opacity-50 break-words ${
+              className={`py-6 px-4 rounded-2xl border-2 text-xl sm:text-2xl font-bold transition-colors disabled:opacity-50 whitespace-nowrap ${
                 selectedAnswer === opt
                   ? 'border-primary-700 bg-primary-50 dark:bg-primary-950 text-primary-800 dark:text-primary-300'
                   : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100 active:scale-95'
