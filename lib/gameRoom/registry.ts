@@ -2,6 +2,7 @@ import type { GameModule } from './gameModule'
 import type { InteractiveGameModule } from './interactiveModule'
 import { tamilGrammarModule } from './modules/tamilGrammar'
 import { mayangoliModule } from './modules/mayangoli'
+import { tamilGrammarClassificationModule } from './modules/tamilGrammarClassification'
 import { uyirOrderModule, uyirMemoryModule } from './modules/uyirEzhuthukkal'
 import { meiOrderModule, meiMemoryModule } from './modules/meiEzhuthukkal'
 import { uyirKurilNedilSortModule, uyirKurilNedilMemoryModule } from './modules/uyirKurilNedil'
@@ -14,7 +15,7 @@ import { uyirMissingLetterModule, meiMissingLetterModule } from './modules/missi
 // dropdown (GET /api/game-room/games) with zero changes to the session/
 // scoring/leaderboard/student-play engine, which only ever deals in
 // GameModule/GameQuestion shapes.
-export const GAME_MODULES: GameModule[] = [tamilGrammarModule, mayangoliModule]
+export const GAME_MODULES: GameModule[] = [tamilGrammarModule, mayangoliModule, tamilGrammarClassificationModule]
 
 export function getGameModule(id: string): GameModule | undefined {
   return GAME_MODULES.find((m) => m.id === id)

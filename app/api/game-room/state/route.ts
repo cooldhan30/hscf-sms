@@ -59,6 +59,12 @@ export async function POST(request: Request) {
   const remainingSeconds = Math.max(0, session.question_time_limit_seconds - Math.floor(elapsedMs / 1000))
 
   const rank = await computeRank(supabase, session.id, player.id)
+  // Only surface the badge label for a genuinely mixed session (quiz_mode
+  // !== 'category') -- a single-category drill session already tells the
+  // student what they're practicing via the game's own name/setup, so a
+  // badge repeating that on every question would just be visual noise.
+  const categoryLabel =
+    session.quiz_mode !== 'category' ? gameModule.categories?.find((c) => c.id === question.category)?.label ?? null : null
 
   return NextResponse.json({
     ...base,
@@ -76,6 +82,14 @@ export async function POST(request: Request) {
       // question to question -- no shared "always the same layout" for
       // an unrelated exploit either.
       options: shuffledOptionsFor(question.options, `${player.id}:${question.id}`),
+      // category/categoryLabel: only meaningful for modules with a
+      // category concept (e.g. the grammar-classification game's 5
+      // concepts in Mixed mode, where a student otherwise has no way to
+      // know what a question is even testing) -- null for modules that
+      // don't set GameQuestion.category, or that only ever run in a
+      // single-category session where a badge would be redundant noise.
+      category: question.category ?? null,
+      categoryLabel,
     },
   })
 }

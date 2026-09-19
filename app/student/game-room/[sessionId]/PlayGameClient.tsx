@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Badge } from '@/components/ui/Badge'
 
 const POLL_INTERVAL_MS = 2000
 // Auto-advance delay after showing correct/incorrect feedback -- per
@@ -12,6 +13,14 @@ interface QuestionPayload {
   id: string
   prompt: string
   options: string[]
+  // Optional -- only modules with a category concept populate this
+  // (see lib/gameRoom/gameModule.ts's GameQuestion.category). Rendered
+  // as a small badge above the prompt when present, e.g. so a Mixed-
+  // mode grammar question tells the student which concept ("திணை",
+  // "பால், etc) they're being asked about -- without this, a student
+  // has no way to know what a Mixed-mode question is even testing.
+  category?: string | null
+  categoryLabel?: string | null
 }
 
 interface StatePayload {
@@ -225,19 +234,36 @@ export function PlayGameClient({ sessionId }: { sessionId: string }) {
           <div className="h-full bg-primary-600 dark:bg-primary-500 transition-all" style={{ width: `${progressPct}%` }} />
         </div>
 
-        <div className="flex-1 flex items-center justify-center py-8">
+        <div className="flex-1 flex flex-col items-center justify-center py-8 gap-3">
+          {state.question.categoryLabel && (
+            <Badge variant="secondary" size="sm">
+              {state.question.categoryLabel}
+            </Badge>
+          )}
           <p className="text-4xl font-black text-center text-stone-800 dark:text-stone-100 tracking-wide">
             {state.question.prompt}
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mt-6">
+        {/* Different game modules have different option counts (2-5) --
+            a fixed 2-column grid left an odd option alone on its own row
+            for a 3-option question and cramped 5 options awkwardly, so
+            the column count adapts to how many options this question
+            actually has. 2 or 4 options fit a clean 2-column grid; 3
+            fits its own row on wider screens (stacked on phones, so
+            buttons stay large/touch-friendly); 5 wraps into 2 columns
+            (uneven last row) rather than shrinking to fit one row. */}
+        <div
+          className={`grid gap-3 mt-6 ${
+            state.question.options.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'
+          }`}
+        >
           {state.question.options.map((opt) => (
             <button
               key={opt}
               onClick={() => handleAnswer(opt)}
               disabled={submitting}
-              className={`py-6 rounded-2xl border-2 text-2xl font-bold transition-colors disabled:opacity-50 ${
+              className={`py-6 px-4 rounded-2xl border-2 text-2xl font-bold transition-colors disabled:opacity-50 ${
                 selectedAnswer === opt
                   ? 'border-primary-700 bg-primary-50 dark:bg-primary-950 text-primary-800 dark:text-primary-300'
                   : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100 active:scale-95'
