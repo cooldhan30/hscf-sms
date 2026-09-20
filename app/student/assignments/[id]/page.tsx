@@ -4,7 +4,9 @@ import { FiArrowLeft, FiCalendar, FiExternalLink } from 'react-icons/fi'
 import { createClient } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
 import { getSubmissionSignedUrl } from '@/lib/storage/submissionUrl'
+import { getGradeFeedbackSignedUrl } from '@/lib/storage/gradeFeedbackUrl'
 import { formatDateOnly } from '@/lib/dates'
+import { AudioPlayer } from '@/components/submissions/AudioPlayer'
 import { SubmissionForm } from './SubmissionForm'
 
 export const dynamic = 'force-dynamic'
@@ -30,10 +32,14 @@ export default async function StudentAssignmentDetailPage({ params }: { params: 
 
   const { data: grade } = await supabase
     .from('sms_grades')
-    .select('score, feedback')
+    .select('score, feedback, audio_feedback_url')
     .eq('assignment_id', assignment.id)
     .eq('student_id', student.id)
     .maybeSingle()
+
+  const gradeAudioSignedUrl = grade?.audio_feedback_url
+    ? await getGradeFeedbackSignedUrl(supabase, grade.audio_feedback_url, SIGNED_URL_TTL_SECONDS)
+    : null
 
   const { data: submission } = await supabase
     .from('sms_submissions')
@@ -117,11 +123,17 @@ export default async function StudentAssignmentDetailPage({ params }: { params: 
       </div>
 
       {grade && grade.score !== null && grade.score !== undefined && (
-        <div className="p-4 rounded-xl border border-primary-200 dark:border-primary-900 bg-primary-50 dark:bg-primary-950/40">
+        <div className="p-4 rounded-xl border border-primary-200 dark:border-primary-900 bg-primary-50 dark:bg-primary-950/40 space-y-2">
           <p className="font-bold text-primary-800 dark:text-primary-300">
             Graded: {grade.score}/{assignment.max_score}
           </p>
-          {grade.feedback && <p className="text-sm text-primary-700 dark:text-primary-400 mt-1">{grade.feedback}</p>}
+          {grade.feedback && <p className="text-sm text-primary-700 dark:text-primary-400">{grade.feedback}</p>}
+          {gradeAudioSignedUrl && (
+            <div>
+              <p className="text-xs font-semibold text-primary-700 dark:text-primary-400 mb-1">Voice feedback</p>
+              <AudioPlayer src={gradeAudioSignedUrl} />
+            </div>
+          )}
         </div>
       )}
 

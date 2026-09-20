@@ -2,7 +2,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-export type UploadBucket = 'profile-pictures' | 'assignment-images' | 'submissions' | 'resources'
+export type UploadBucket = 'profile-pictures' | 'assignment-images' | 'submissions' | 'resources' | 'grade-feedback'
 
 export interface UploadResult {
   path: string

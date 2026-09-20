@@ -206,6 +206,8 @@ export interface SmsGrade {
   student_id: string
   score: number | null
   feedback: string | null
+  audio_feedback_url: string | null
+  audio_feedback_size: number | null
   graded_by: string | null
   graded_at: string | null
   created_at: string

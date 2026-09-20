@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireTeacher } from '@/lib/require-teacher'
 import { getSubmissionSignedUrl } from '@/lib/storage/submissionUrl'
+import { getGradeFeedbackSignedUrl } from '@/lib/storage/gradeFeedbackUrl'
 
 // GET /api/teacher/grades?classId=&assignmentId= -- the class roster
 // LEFT JOINed with any existing grade for that assignment, so every
@@ -56,15 +57,38 @@ export async function GET(request: Request) {
     })
   )
 
+  // Same idea for any previously-recorded audio feedback on a grade --
+  // 'grade-feedback' is also a private bucket.
+  const gradesWithUrls = await Promise.all(
+    (grades ?? []).map(async (g) => ({
+      ...g,
+      audioFeedbackSignedUrl: g.audio_feedback_url ? await getGradeFeedbackSignedUrl(supabase, g.audio_feedback_url, 3600) : null,
+    }))
+  )
+
   return NextResponse.json({
     roster: (enrollments ?? []).map((e) => e.student),
-    grades: grades ?? [],
+    grades: gradesWithUrls,
     submissions: submissionsWithUrls,
   })
 }
 
 // POST /api/teacher/grades -- bulk enter/edit grades for an assignment.
-// Body: { assignmentId, records: [{ studentId, score, feedback }] }
+// Body: { assignmentId, records: [{ studentId, score, feedback,
+// audioFeedbackPath?, audioFeedbackSize? }] }
+//
+// audioFeedbackPath/audioFeedbackSize round-trip the CURRENT state for
+// each student (existing path if untouched, a new path if the teacher
+// just recorded, or null/undefined if removed) -- this is a real
+// upsert (replaces every column on conflict, not a partial merge), and
+// "Save Grades" always submits the whole visible roster at once, so if
+// the client only sent audio fields for students whose recording
+// actually changed this save, every OTHER student's existing audio
+// feedback would be silently wiped out by this same request. The
+// client is responsible for initializing each row's audio state from
+// the grade it loaded and only clearing it via an explicit remove
+// action -- this route just trusts and persists whatever it's sent,
+// same as it already does for score/feedback.
 export async function POST(request: Request) {
   const guard = await requireTeacher()
   if (!guard.ok) {
@@ -83,19 +107,26 @@ export async function POST(request: Request) {
   }
 
   const errors: string[] = []
-  const rows = records.map((r: { studentId?: string; score?: unknown; feedback?: string }, i: number) => {
-    if (!r.studentId) errors.push(`records[${i}].studentId is required`)
-    const score = r.score === '' || r.score === null || r.score === undefined ? null : Number(r.score)
-    if (score !== null && Number.isNaN(score)) errors.push(`records[${i}].score must be a number`)
-    return {
-      assignment_id: assignmentId,
-      student_id: r.studentId,
-      score,
-      feedback: r.feedback?.trim() || null,
-      graded_by: profile.id,
-      graded_at: new Date().toISOString(),
+  const rows = records.map(
+    (
+      r: { studentId?: string; score?: unknown; feedback?: string; audioFeedbackPath?: string | null; audioFeedbackSize?: number | null },
+      i: number
+    ) => {
+      if (!r.studentId) errors.push(`records[${i}].studentId is required`)
+      const score = r.score === '' || r.score === null || r.score === undefined ? null : Number(r.score)
+      if (score !== null && Number.isNaN(score)) errors.push(`records[${i}].score must be a number`)
+      return {
+        assignment_id: assignmentId,
+        student_id: r.studentId,
+        score,
+        feedback: r.feedback?.trim() || null,
+        audio_feedback_url: r.audioFeedbackPath || null,
+        audio_feedback_size: typeof r.audioFeedbackSize === 'number' ? r.audioFeedbackSize : null,
+        graded_by: profile.id,
+        graded_at: new Date().toISOString(),
+      }
     }
-  })
+  )
 
   if (errors.length > 0) {
     return NextResponse.json({ error: errors.join('; ') }, { status: 400 })

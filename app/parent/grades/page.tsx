@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { DataTable, type DataTableColumn } from '@/components/dashboard/DataTable'
+import { AudioPlayer } from '@/components/submissions/AudioPlayer'
+import { getGradeFeedbackSignedUrl } from '@/lib/storage/gradeFeedbackUrl'
 import { ChildSelector } from '../ChildSelector'
 import { resolveSelectedChildId, type ChildOption } from '../child-utils'
 import type { SmsAssignment, SmsClass, SmsGrade } from '@/types/database'
@@ -46,6 +48,15 @@ export default async function ParentGradesPage({ searchParams }: { searchParams:
   // means the parent just doesn't see that one row yet, instead of the
   // page dying entirely.
   const all = (grades ?? []).filter((g) => g.assignment && g.assignment.class)
+
+  const audioSignedUrlByGradeId = new Map(
+    await Promise.all(
+      all
+        .filter((g) => g.audio_feedback_url)
+        .map(async (g) => [g.id, await getGradeFeedbackSignedUrl(supabase, g.audio_feedback_url!, 3600)] as const)
+    )
+  )
+
   const average =
     all.length > 0
       ? (
@@ -62,6 +73,19 @@ export default async function ParentGradesPage({ searchParams }: { searchParams:
       accessor: (g) => `${(((g.score ?? 0) / g.assignment.max_score) * 100).toFixed(1)}%`,
     },
     { header: 'Feedback', accessor: (g) => g.feedback || '—' },
+    {
+      header: 'Voice Feedback',
+      accessor: (g) => {
+        const signedUrl = audioSignedUrlByGradeId.get(g.id)
+        return signedUrl ? (
+          <div className="max-w-[200px]">
+            <AudioPlayer src={signedUrl} />
+          </div>
+        ) : (
+          '—'
+        )
+      },
+    },
   ]
 
   return (

@@ -2,13 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { FiSave, FiSearch, FiFileText, FiPaperclip, FiImage, FiMic, FiType } from 'react-icons/fi'
+import { FiSave, FiSearch, FiFileText, FiPaperclip, FiImage, FiMic, FiType, FiTrash2 } from 'react-icons/fi'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { SkeletonTable } from '@/components/ui/Skeleton'
 import { Modal } from '@/components/dashboard/Modal'
 import { AudioPlayer } from '@/components/submissions/AudioPlayer'
+import { AudioRecorder } from '@/components/submissions/AudioRecorder'
 import { previewMaxPoints } from '@/lib/points'
+import { useSupabaseBrowserClient } from '@/lib/supabase/client'
+import { uploadFile } from '@/lib/storage/uploadFile'
+import { toast } from '@/lib/toast'
 
 interface ClassOption {
   id: string
@@ -34,6 +38,21 @@ interface GradeRecord {
   student_id: string
   score: number | null
   feedback: string | null
+  audio_feedback_url: string | null
+  audioFeedbackSignedUrl: string | null
+}
+
+// Per-student audio feedback state, tracked alongside `entries`
+// (score/feedback text). `path` round-trips on every save (see
+// app/api/teacher/grades/route.ts's POST comment) so an untouched
+// student's existing audio survives a bulk "Save Grades" that only
+// changed OTHER students. `signedUrl` is only for local playback in
+// this session (never persisted) -- refreshed after a new recording
+// upload, or cleared to null immediately for "removed" without waiting
+// on a reload.
+interface AudioFeedbackState {
+  path: string | null
+  signedUrl: string | null
 }
 
 interface SubmissionRecord {
@@ -73,12 +92,17 @@ export function GradebookClient({
   const [assignmentId, setAssignmentId] = useState(classAssignments[0]?.id ?? '')
   const [studentSearch, setStudentSearch] = useState('')
 
+  const supabase = useSupabaseBrowserClient()
+
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [roster, setRoster] = useState<RosterStudent[]>([])
   const [entries, setEntries] = useState<Record<string, { score: string; feedback: string }>>({})
+  const [audioFeedback, setAudioFeedback] = useState<Record<string, AudioFeedbackState>>({})
   const [submissions, setSubmissions] = useState<Record<string, SubmissionRecord>>({})
   const [viewingStudentId, setViewingStudentId] = useState<string | null>(null)
+  const [recordingForStudentId, setRecordingForStudentId] = useState<string | null>(null)
+  const [uploadingAudioFor, setUploadingAudioFor] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [savedMessage, setSavedMessage] = useState<string | null>(null)
 
@@ -121,6 +145,16 @@ export function GradebookClient({
       }
       setEntries(initial)
 
+      const initialAudio: Record<string, AudioFeedbackState> = {}
+      for (const s of data.roster ?? []) {
+        const existing = (data.grades ?? []).find((g: GradeRecord) => g.student_id === s.id)
+        initialAudio[s.id] = {
+          path: existing?.audio_feedback_url ?? null,
+          signedUrl: existing?.audioFeedbackSignedUrl ?? null,
+        }
+      }
+      setAudioFeedback(initialAudio)
+
       const submissionMap: Record<string, SubmissionRecord> = {}
       for (const sub of data.submissions ?? []) {
         submissionMap[sub.student_id] = sub
@@ -158,6 +192,7 @@ export function GradebookClient({
       studentId: s.id,
       score: entries[s.id]?.score ?? '',
       feedback: entries[s.id]?.feedback ?? '',
+      audioFeedbackPath: audioFeedback[s.id]?.path ?? null,
     }))
 
     const res = await fetch('/api/teacher/grades', {
@@ -174,6 +209,33 @@ export function GradebookClient({
     }
 
     setSavedMessage('Grades saved.')
+  }
+
+  // Uploads the moment recording stops (same "attach immediately, no
+  // separate confirm step" behavior as the student's own submission
+  // recorder -- see AudioRecorder.tsx's comment on the bug that caused:
+  // a teacher who records feedback and then clicks Save Grades right
+  // away, without a round trip through some other "attach" button
+  // first, must not have the recording silently dropped). Persisted to
+  // the grade only once "Save Grades" is clicked, same as score/text
+  // feedback -- this just gets the file into Storage and the row's
+  // local state updated so the save has a path to send.
+  async function handleAudioRecorded(studentId: string, blob: Blob | null) {
+    if (!blob || !assignmentId) return
+    setUploadingAudioFor(studentId)
+    try {
+      const { path } = await uploadFile({ supabase, bucket: 'grade-feedback', file: blob, assignmentId })
+      setAudioFeedback((prev) => ({ ...prev, [studentId]: { path, signedUrl: URL.createObjectURL(blob) } }))
+      setRecordingForStudentId(null)
+    } catch {
+      toast.error('Failed to upload audio feedback')
+    } finally {
+      setUploadingAudioFor(null)
+    }
+  }
+
+  function removeAudioFeedback(studentId: string) {
+    setAudioFeedback((prev) => ({ ...prev, [studentId]: { path: null, signedUrl: null } }))
   }
 
   if (classes.length === 0) {
@@ -300,6 +362,33 @@ export function GradebookClient({
                         }
                         className="w-full min-w-[180px] px-2 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
                       />
+                      <div className="mt-1.5">
+                        {audioFeedback[s.id]?.signedUrl ? (
+                          <div className="flex items-center gap-2">
+                            <div className="max-w-[200px]">
+                              <AudioPlayer src={audioFeedback[s.id]!.signedUrl!} />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeAudioFeedback(s.id)}
+                              className="p-1 rounded text-terracotta-600 hover:bg-terracotta-50 dark:hover:bg-terracotta-950/40"
+                              aria-label="Remove audio feedback"
+                            >
+                              <FiTrash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setRecordingForStudentId(s.id)}
+                            disabled={uploadingAudioFor === s.id}
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-700 dark:text-primary-400 hover:underline disabled:opacity-50"
+                          >
+                            <FiMic className="w-3.5 h-3.5" />
+                            {uploadingAudioFor === s.id ? 'Uploading...' : 'Record voice feedback'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       {submission ? (
@@ -391,6 +480,20 @@ export function GradebookClient({
               <AudioPlayer src={submissions[viewingStudentId].audioSignedUrl!} />
             )}
           </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={recordingForStudentId !== null}
+        title={
+          recordingForStudentId
+            ? `Record feedback for ${roster.find((s) => s.id === recordingForStudentId)?.first_name ?? ''}`
+            : 'Record feedback'
+        }
+        onClose={() => setRecordingForStudentId(null)}
+      >
+        {recordingForStudentId && (
+          <AudioRecorder onRecorded={(blob) => handleAudioRecorded(recordingForStudentId, blob)} />
         )}
       </Modal>
     </div>

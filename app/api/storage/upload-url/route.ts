@@ -6,7 +6,7 @@ import { requireStudent } from '@/lib/require-student'
 import { getB2UploadUrl } from '@/lib/storage/b2'
 import { optionalString } from '@/lib/validation'
 
-type Bucket = 'profile-pictures' | 'assignment-images' | 'submissions' | 'resources'
+type Bucket = 'profile-pictures' | 'assignment-images' | 'submissions' | 'resources' | 'grade-feedback'
 
 const BUCKET_RULES: Record<Bucket, { maxBytes: number; typePrefix: string | null }> = {
   'profile-pictures': { maxBytes: 5 * 1024 * 1024, typePrefix: 'image/' },
@@ -17,6 +17,10 @@ const BUCKET_RULES: Record<Bucket, { maxBytes: number; typePrefix: string | null
   // Resources can be video/audio/pdf/anything -- no type restriction,
   // just a generous size cap.
   resources: { maxBytes: 200 * 1024 * 1024, typePrefix: null },
+  // Teacher-recorded audio feedback on a grade -- same cap as student
+  // submissions' audio, no type restriction beyond what the recorder
+  // itself produces (audio/webm).
+  'grade-feedback': { maxBytes: 50 * 1024 * 1024, typePrefix: 'audio/' },
 }
 
 // POST /api/storage/upload-url -- the single chokepoint for every upload
@@ -87,6 +91,21 @@ export async function POST(request: Request) {
     if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
     supabase = guard.supabase
     ownerId = guard.profile.id
+  } else if (bucket === 'grade-feedback') {
+    if (!assignmentId) {
+      return NextResponse.json({ error: 'assignmentId is required for grade-feedback' }, { status: 400 })
+    }
+    const guard = await requireTeacher()
+    if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
+    // Same ownership boundary as sms_grades' own RLS ("grades: teacher
+    // manage own assignment") -- checked explicitly here too since a
+    // presigned upload URL, once minted, isn't itself subject to RLS.
+    const { data: owns } = await guard.supabase.rpc('sms_teacher_owns_assignment', { p_assignment_id: assignmentId })
+    if (!owns) {
+      return NextResponse.json({ error: 'Assignment not found or not assigned to you' }, { status: 403 })
+    }
+    supabase = guard.supabase
+    ownerId = guard.profile.id
   } else {
     // resources: teacher or admin only.
     const { userId } = await auth()
@@ -101,7 +120,7 @@ export async function POST(request: Request) {
 
   const ext = fileName.includes('.') ? fileName.split('.').pop() : null
   const path =
-    bucket === 'submissions'
+    bucket === 'submissions' || bucket === 'grade-feedback'
       ? `${ownerId}/${assignmentId}/${Date.now()}-${fileName}`
       : `${ownerId}/${Date.now()}${ext ? `.${ext}` : ''}`
 
