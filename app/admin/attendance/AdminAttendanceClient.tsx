@@ -28,7 +28,7 @@ interface AttendanceRecord {
 const STATUS_LABEL: Record<AttendanceRecord['status'], string> = {
   present: 'Present',
   absent: 'Absent',
-  late: 'Late',
+  late: 'Tardy',
   excused: 'Excused',
   holiday: 'Holiday',
 }

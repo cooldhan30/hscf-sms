@@ -40,9 +40,24 @@ const STATUS_BADGE_TONE: Record<string, string> = {
   holiday: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
 }
 
+// 'late' is displayed as "Tardy" everywhere else in the app (Attendance
+// pages/calendar) -- this table previously showed the raw DB value
+// capitalized via CSS ("Late"), which drifted from that renamed label
+// the moment it changed. Explicit label map instead, so a future rename
+// only needs one place per component, not a `capitalize` CSS trick that
+// silently goes stale.
+const STATUS_BADGE_LABEL: Record<string, string> = {
+  present: 'Present',
+  absent: 'Absent',
+  late: 'Tardy',
+  excused: 'Excused',
+  holiday: 'Holiday',
+}
+
 function statusBadge(status: string) {
   const tone = STATUS_BADGE_TONE[status] ?? 'bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300'
-  return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${tone}`}>{status}</span>
+  const label = STATUS_BADGE_LABEL[status] ?? status
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${tone}`}>{label}</span>
 }
 
 // Summary-then-detail view for one student's full-year report -- used by
@@ -138,7 +153,7 @@ export function StudentReportView({ report, academicYear }: { report: StudentRep
           <p className="font-semibold text-stone-700 dark:text-stone-300 mb-2">Attendance Breakdown</p>
           <div className="space-y-1 text-stone-600 dark:text-stone-300">
             <p>Present: {report.attendance.present}</p>
-            <p>Late: {report.attendance.late}</p>
+            <p>Tardy: {report.attendance.late}</p>
             <p>Absent: {report.attendance.absent}</p>
             <p>Excused: {report.attendance.excused}</p>
             <p className="text-stone-400 dark:text-stone-500">Total days recorded: {report.attendance.total}</p>

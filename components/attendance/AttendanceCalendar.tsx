@@ -17,7 +17,7 @@ const CELL_STYLES: Record<AttendanceCellStatus, string> = {
 const LEGEND: { status: AttendanceCellStatus; label: string }[] = [
   { status: 'present', label: 'Present' },
   { status: 'absent', label: 'Absent' },
-  { status: 'late', label: 'Late' },
+  { status: 'late', label: 'Tardy' },
   { status: 'excused', label: 'Excused' },
   { status: 'holiday', label: 'Holiday' },
 ]

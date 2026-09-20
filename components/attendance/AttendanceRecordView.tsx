@@ -13,7 +13,7 @@ export interface AttendanceRecordRow {
 const STATUS_LABEL: Record<string, string> = {
   present: 'Present',
   absent: 'Absent',
-  late: 'Late',
+  late: 'Tardy',
   excused: 'Excused',
   holiday: 'Holiday',
 }
