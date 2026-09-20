@@ -44,7 +44,9 @@ export default async function ParentDashboardPage() {
         // entirely -- marking a day 'holiday' never affects this rate.
         const schoolDayAttendance = (attendance ?? []).filter((r) => r.status !== 'holiday')
         const attTotal = schoolDayAttendance.length
-        const attPresent = schoolDayAttendance.filter((r) => r.status === 'present').length
+        // Attending remotely counts as full attendance credit, same as
+        // being physically present.
+        const attPresent = schoolDayAttendance.filter((r) => r.status === 'present' || r.status === 'online').length
         const attendancePct = attTotal > 0 ? Math.round((attPresent / attTotal) * 100) : null
 
         const gradeList = grades ?? []

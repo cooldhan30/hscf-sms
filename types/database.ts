@@ -140,7 +140,7 @@ export interface SmsAttendance {
   class_id: string
   student_id: string
   date: string
-  status: 'present' | 'absent' | 'late' | 'excused' | 'holiday'
+  status: 'present' | 'absent' | 'late' | 'excused' | 'holiday' | 'online'
   notes: string | null
   marked_by: string | null
   created_at: string

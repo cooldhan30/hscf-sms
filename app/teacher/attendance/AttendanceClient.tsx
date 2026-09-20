@@ -22,7 +22,7 @@ interface RosterStudent {
 
 interface AttendanceRecord {
   student_id: string
-  status: 'present' | 'absent' | 'late' | 'excused' | 'holiday'
+  status: 'present' | 'absent' | 'late' | 'excused' | 'holiday' | 'online'
   notes: string | null
 }
 
@@ -32,6 +32,7 @@ const STATUS_OPTIONS: { value: AttendanceRecord['status']; label: string; color:
   { value: 'late', label: 'Tardy', color: 'bg-gold-100 text-gold-800 dark:bg-gold-950 dark:text-gold-300' },
   { value: 'excused', label: 'Excused', color: 'bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300' },
   { value: 'holiday', label: 'Holiday', color: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300' },
+  { value: 'online', label: 'Online', color: 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300' },
 ]
 
 function todayISO() {

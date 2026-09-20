@@ -38,6 +38,7 @@ const STATUS_BADGE_TONE: Record<string, string> = {
   late: 'bg-gold-100 text-gold-700 dark:bg-gold-900/40 dark:text-gold-300',
   excused: 'bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300',
   holiday: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+  online: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
 }
 
 // 'late' is displayed as "Tardy" everywhere else in the app (Attendance
@@ -52,6 +53,7 @@ const STATUS_BADGE_LABEL: Record<string, string> = {
   late: 'Tardy',
   excused: 'Excused',
   holiday: 'Holiday',
+  online: 'Online',
 }
 
 function statusBadge(status: string) {
@@ -153,6 +155,7 @@ export function StudentReportView({ report, academicYear }: { report: StudentRep
           <p className="font-semibold text-stone-700 dark:text-stone-300 mb-2">Attendance Breakdown</p>
           <div className="space-y-1 text-stone-600 dark:text-stone-300">
             <p>Present: {report.attendance.present}</p>
+            <p>Online: {report.attendance.online}</p>
             <p>Tardy: {report.attendance.late}</p>
             <p>Absent: {report.attendance.absent}</p>
             <p>Excused: {report.attendance.excused}</p>

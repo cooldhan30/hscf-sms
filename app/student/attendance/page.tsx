@@ -27,7 +27,9 @@ export default async function StudentAttendancePage() {
   // marking a day 'holiday' never affects this percentage.
   const schoolDays = all.filter((r) => r.status !== 'holiday')
   const total = schoolDays.length
-  const presentCount = schoolDays.filter((r) => r.status === 'present').length
+  // Attending remotely counts as full attendance credit, same as being
+  // physically present.
+  const presentCount = schoolDays.filter((r) => r.status === 'present' || r.status === 'online').length
   const overallPctLabel = total > 0 ? `${((presentCount / total) * 100).toFixed(1)}%` : '—'
 
   return (

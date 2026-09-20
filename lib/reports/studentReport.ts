@@ -8,6 +8,7 @@ export interface AttendanceSummary {
   late: number
   excused: number
   holiday: number
+  online: number
   attendancePct: number | null
 }
 
@@ -60,6 +61,7 @@ function summarizeAttendance(rows: { status: string }[]): AttendanceSummary {
   const absent = schoolDayRows.filter((r) => r.status === 'absent').length
   const late = schoolDayRows.filter((r) => r.status === 'late').length
   const excused = schoolDayRows.filter((r) => r.status === 'excused').length
+  const online = schoolDayRows.filter((r) => r.status === 'online').length
   return {
     total,
     present,
@@ -67,7 +69,11 @@ function summarizeAttendance(rows: { status: string }[]): AttendanceSummary {
     late,
     excused,
     holiday,
-    attendancePct: total > 0 ? Math.round(((present + late) / total) * 1000) / 10 : null,
+    online,
+    // Attending remotely is still attending -- 'online' gets the same
+    // full attendance-rate credit as 'present', unlike 'holiday' which
+    // is excluded from the calculation entirely (see above).
+    attendancePct: total > 0 ? Math.round(((present + late + online) / total) * 1000) / 10 : null,
   }
 }
 

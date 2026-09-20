@@ -54,9 +54,15 @@ export default async function StudentDashboardPage() {
   // they're excluded from the attendance-rate denominator entirely --
   // marking a day 'holiday' never affects this rate.
   const attendanceRecords = (attendance ?? []).filter((r) => r.status !== 'holiday')
+  // Attending remotely counts as full attendance credit, same as being
+  // physically present.
   const attendancePct =
     attendanceRecords.length > 0
-      ? ((attendanceRecords.filter((r) => r.status === 'present').length / attendanceRecords.length) * 100).toFixed(1)
+      ? (
+          (attendanceRecords.filter((r) => r.status === 'present' || r.status === 'online').length /
+            attendanceRecords.length) *
+          100
+        ).toFixed(1)
       : null
 
   const stats = [
