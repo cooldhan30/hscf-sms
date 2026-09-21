@@ -51,6 +51,7 @@ export async function POST(request: Request) {
   const resourceId = optionalString(body.resourceId)
   const storyImageKey = optionalString(body.storyImageKey)
   const assignmentType = body.assignmentType === 'exam' ? 'exam' : 'assignment'
+  const shareAsResource = Boolean(body.shareAsResource)
 
   if (errors.length > 0) {
     return NextResponse.json({ error: errors.join('; ') }, { status: 400 })
@@ -145,6 +146,42 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+
+  // Also share this generated story in the shared Resources library, so
+  // any other teacher can discover and reuse it for their own class
+  // instead of spending tokens regenerating something similar. Separate
+  // from the assignment itself (class_id: null -- visible to everyone,
+  // not just this one class) and best-effort: a failed share shouldn't
+  // undo or block the assignment that was just successfully created.
+  if (shareAsResource && description) {
+    try {
+      const path = `${profile.id}/${Date.now()}-${assignment.id}.txt`
+      const { error: uploadError } = await supabase.storage
+        .from('resources')
+        .upload(path, description, { contentType: 'text/plain; charset=utf-8' })
+      if (uploadError) throw uploadError
+
+      const { data: publicUrlData } = supabase.storage.from('resources').getPublicUrl(path)
+
+      await supabase.from('sms_resources').insert([
+        {
+          class_id: null,
+          title,
+          description: 'Story generated with the Story Generator.',
+          file_url: publicUrlData.publicUrl,
+          file_type: 'txt',
+          file_size: new TextEncoder().encode(description).length,
+          created_by: profile.id,
+          category: 'stories-fun-learning',
+          subcategory: 'stories',
+          tags: ['Reading'],
+        },
+      ])
+    } catch {
+      // Best-effort, see comment above -- the assignment already
+      // succeeded and is returned below regardless.
+    }
   }
 
   return NextResponse.json({ assignment }, { status: 201 })

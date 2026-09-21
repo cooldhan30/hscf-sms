@@ -242,13 +242,18 @@ export function StoryGeneratorClient({ classes }: { classes: { id: string; name:
         pointsDeductionPerDay: assignPenalty,
         published: true,
         storyImageKey: imageKey || null,
+        // Lets any other teacher discover and reuse this generated story
+        // (and its illustration) from the shared Resources library,
+        // tagged "Reading" -- distinct from the assignment itself, which
+        // stays scoped to this one class.
+        shareAsResource: true,
       }),
     })
     const data = await res.json().catch(() => ({}))
     setAssigning(false)
 
     if (res.ok) {
-      toast.success('Story assigned to your class')
+      toast.success('Story assigned to your class and shared to Resources')
       setAssignOpen(false)
     } else {
       setAssignError(data.error || 'Failed to assign story')
