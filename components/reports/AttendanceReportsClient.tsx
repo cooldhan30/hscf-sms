@@ -24,9 +24,7 @@ const STATUS_LABEL: Record<AttendanceStatus, string> = {
 }
 
 // Displayed in this fixed order everywhere in this component (summary
-// columns, detailed-export cell values) -- Present/Online first since
-// those are the two "attended" statuses per lib/reports/
-// classAttendanceReport.ts's attendancePct rule.
+// columns, detailed-export cell values).
 const STATUS_ORDER: AttendanceStatus[] = ['present', 'online', 'late', 'absent', 'excused', 'holiday']
 
 const SUMMARY_EXPORT_COLUMNS: ExportColumn[] = [

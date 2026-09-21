@@ -50,16 +50,16 @@ export default async function StudentDashboardPage() {
   const submittedIds = new Set((mySubmissions ?? []).map((s) => s.assignment_id))
   const assignments = (allAssignments ?? []).filter((a) => !submittedIds.has(a.id)).slice(0, 5)
 
-  // Holidays aren't school days the student could attend or miss, so
-  // they're excluded from the attendance-rate denominator entirely --
-  // marking a day 'holiday' never affects this rate.
-  const attendanceRecords = (attendance ?? []).filter((r) => r.status !== 'holiday')
-  // Attending remotely counts as full attendance credit, same as being
-  // physically present.
+  // A day marked 'holiday' still counts as a held class day, and counts
+  // toward the student the same as 'present' -- marking a day holiday
+  // never hurts anyone's attendance rate. Attending remotely also
+  // counts as full attendance credit, same as being physically present.
+  const attendanceRecords = attendance ?? []
   const attendancePct =
     attendanceRecords.length > 0
       ? (
-          (attendanceRecords.filter((r) => r.status === 'present' || r.status === 'online').length /
+          (attendanceRecords.filter((r) => r.status === 'present' || r.status === 'online' || r.status === 'holiday')
+            .length /
             attendanceRecords.length) *
           100
         ).toFixed(1)

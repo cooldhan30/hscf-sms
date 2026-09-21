@@ -22,14 +22,12 @@ export default async function StudentAttendancePage() {
     .order('date', { ascending: false })
 
   const all = records ?? []
-  // Holidays aren't school days the student could attend or miss, so
-  // they're excluded from the attendance-rate denominator entirely --
-  // marking a day 'holiday' never affects this percentage.
-  const schoolDays = all.filter((r) => r.status !== 'holiday')
-  const total = schoolDays.length
-  // Attending remotely counts as full attendance credit, same as being
-  // physically present.
-  const presentCount = schoolDays.filter((r) => r.status === 'present' || r.status === 'online').length
+  // A day marked 'holiday' still counts as a held class day, and counts
+  // toward the student the same as 'present' -- marking a day holiday
+  // never hurts this percentage. Attending remotely also counts as full
+  // attendance credit, same as being physically present.
+  const total = all.length
+  const presentCount = all.filter((r) => r.status === 'present' || r.status === 'online' || r.status === 'holiday').length
   const overallPctLabel = total > 0 ? `${((presentCount / total) * 100).toFixed(1)}%` : '—'
 
   return (

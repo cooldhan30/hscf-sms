@@ -51,17 +51,15 @@ export interface StudentReport {
 
 function summarizeAttendance(rows: { status: string }[]): AttendanceSummary {
   const holiday = rows.filter((r) => r.status === 'holiday').length
-  // Holidays aren't school days a student could attend or miss, so
-  // they're excluded from the attendance-rate denominator entirely
-  // (not just from the numerator) -- marking a day 'holiday' never
-  // moves any student's attendance percentage.
-  const schoolDayRows = rows.filter((r) => r.status !== 'holiday')
-  const total = schoolDayRows.length
-  const present = schoolDayRows.filter((r) => r.status === 'present').length
-  const absent = schoolDayRows.filter((r) => r.status === 'absent').length
-  const late = schoolDayRows.filter((r) => r.status === 'late').length
-  const excused = schoolDayRows.filter((r) => r.status === 'excused').length
-  const online = schoolDayRows.filter((r) => r.status === 'online').length
+  // A day marked 'holiday' still counts as a held class day, and counts
+  // toward the student the same as 'present' -- marking a day holiday
+  // never hurts (or helps beyond full credit) anyone's attendance rate.
+  const total = rows.length
+  const present = rows.filter((r) => r.status === 'present').length
+  const absent = rows.filter((r) => r.status === 'absent').length
+  const late = rows.filter((r) => r.status === 'late').length
+  const excused = rows.filter((r) => r.status === 'excused').length
+  const online = rows.filter((r) => r.status === 'online').length
   return {
     total,
     present,
@@ -70,10 +68,10 @@ function summarizeAttendance(rows: { status: string }[]): AttendanceSummary {
     excused,
     holiday,
     online,
-    // Attending remotely is still attending -- 'online' gets the same
-    // full attendance-rate credit as 'present', unlike 'holiday' which
-    // is excluded from the calculation entirely (see above).
-    attendancePct: total > 0 ? Math.round(((present + late + online) / total) * 1000) / 10 : null,
+    // Attending remotely counts as full attendance credit, same as
+    // being physically present -- and so does a day marked 'holiday'
+    // (see above).
+    attendancePct: total > 0 ? Math.round(((present + late + online + holiday) / total) * 1000) / 10 : null,
   }
 }
 

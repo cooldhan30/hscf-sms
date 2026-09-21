@@ -6,10 +6,9 @@ export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused' | 'holi
 export interface StudentAttendanceRow {
   studentId: string
   studentName: string
-  // Per-status counts across every class-held day this student was
-  // enrolled for -- 'holiday' is tracked but excluded from
-  // classesHeld/attendancePct (a holiday isn't a day anyone could
-  // attend or miss, matching lib/reports/studentReport.ts's rule).
+  // Per-status counts across every class-held day this student has a
+  // recorded row for. A day marked 'holiday' counts toward both
+  // classesHeld and attendancePct the same as 'present' (see below).
   counts: Record<AttendanceStatus, number>
   classesHeld: number
   attendancePct: number | null
@@ -84,22 +83,21 @@ export async function buildClassAttendanceReport(
       }
 
       // "Classes held" for the attendance-rate denominator is THIS
-      // student's own recorded (non-holiday) rows -- not
-      // classesHeld (class-wide) minus this student's holiday count,
+      // student's own recorded rows -- not the class-wide classesHeld,
       // which would silently overcount a student missing a row for some
-      // date entirely (e.g. enrolled partway through the term). Same
-      // rule as buildStudentReport: a holiday isn't a day this student
-      // could have attended or missed, so it's excluded from both sides.
+      // date entirely (e.g. enrolled partway through the term). A day
+      // marked 'holiday' still counts as a held class day and counts
+      // toward the student the same as 'present' -- marking a day
+      // holiday never hurts anyone's attendance rate.
       const recordedDays = Object.keys(byDate).length
-      const schoolDaysHeld = recordedDays - counts.holiday
-      const attended = counts.present + counts.late + counts.online
-      const attendancePct = schoolDaysHeld > 0 ? Math.round((attended / schoolDaysHeld) * 1000) / 10 : null
+      const attended = counts.present + counts.late + counts.online + counts.holiday
+      const attendancePct = recordedDays > 0 ? Math.round((attended / recordedDays) * 1000) / 10 : null
 
       return {
         studentId: s.id,
         studentName: `${s.first_name} ${s.last_name}`.trim(),
         counts,
-        classesHeld: schoolDaysHeld,
+        classesHeld: recordedDays,
         attendancePct,
         byDate,
       }
