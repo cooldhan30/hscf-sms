@@ -154,24 +154,51 @@ export async function POST(request: Request) {
   // from the assignment itself (class_id: null -- visible to everyone,
   // not just this one class) and best-effort: a failed share shouldn't
   // undo or block the assignment that was just successfully created.
+  //
+  // When an illustration exists, the resource's file_url IS the image
+  // (imageUrl already holds the durable assignment-images copy made
+  // above, re-uploading it a second time here would be redundant) with
+  // the full story text in `description` -- ResourcesClient already
+  // renders an image file_type as the card thumbnail AND shows
+  // `description` as plain text right below the preview, so this
+  // reproduces the same "illustration above, story below" layout My
+  // Stories uses, with zero UI changes needed. Only when there's no
+  // illustration does this fall back to uploading the story as a .txt
+  // file, so a share still happens either way.
   if (shareAsResource && description) {
     try {
-      const path = `${profile.id}/${Date.now()}-${assignment.id}.txt`
-      const { error: uploadError } = await supabase.storage
-        .from('resources')
-        .upload(path, description, { contentType: 'text/plain; charset=utf-8' })
-      if (uploadError) throw uploadError
+      let resourceFileUrl: string
+      let resourceFileType: string
+      let resourceFileSize: number | null
+      let resourceDescription: string
 
-      const { data: publicUrlData } = supabase.storage.from('resources').getPublicUrl(path)
+      if (imageUrl) {
+        resourceFileUrl = imageUrl
+        resourceFileType = 'png'
+        resourceFileSize = imageSize
+        resourceDescription = description
+      } else {
+        const path = `${profile.id}/${Date.now()}-${assignment.id}.txt`
+        const { error: uploadError } = await supabase.storage
+          .from('resources')
+          .upload(path, description, { contentType: 'text/plain; charset=utf-8' })
+        if (uploadError) throw uploadError
+
+        const { data: publicUrlData } = supabase.storage.from('resources').getPublicUrl(path)
+        resourceFileUrl = publicUrlData.publicUrl
+        resourceFileType = 'txt'
+        resourceFileSize = new TextEncoder().encode(description).length
+        resourceDescription = 'Story generated with the Story Generator.'
+      }
 
       await supabase.from('sms_resources').insert([
         {
           class_id: null,
           title,
-          description: 'Story generated with the Story Generator.',
-          file_url: publicUrlData.publicUrl,
-          file_type: 'txt',
-          file_size: new TextEncoder().encode(description).length,
+          description: resourceDescription,
+          file_url: resourceFileUrl,
+          file_type: resourceFileType,
+          file_size: resourceFileSize,
           created_by: profile.id,
           category: 'stories-fun-learning',
           subcategory: 'stories',
