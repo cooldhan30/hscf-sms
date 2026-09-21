@@ -35,6 +35,7 @@ const SUMMARY_EXPORT_COLUMNS: ExportColumn[] = [
   { header: 'Tardy', key: 'late' },
   { header: 'Absent', key: 'absent' },
   { header: 'Excused', key: 'excused' },
+  { header: 'Holiday', key: 'holiday' },
   { header: 'Not Marked', key: 'notMarked' },
   { header: 'Attendance %', key: 'attendancePct' },
 ]
@@ -84,6 +85,7 @@ export function AttendanceReportsClient({
         late: s.counts.late,
         absent: s.counts.absent,
         excused: s.counts.excused,
+        holiday: s.counts.holiday,
         notMarked: s.notMarked,
         attendancePct: s.attendancePct ?? '',
       })),
@@ -93,7 +95,7 @@ export function AttendanceReportsClient({
   const columns: ReportTableColumn<(typeof students)[number]>[] = [
     { header: 'Student', accessor: (r) => <span className="font-semibold text-stone-800 dark:text-stone-100">{r.studentName}</span> },
     { header: 'Classes Held', accessor: (r) => r.classesHeld, align: 'right' },
-    ...STATUS_ORDER.filter((s) => s !== 'holiday').map(
+    ...STATUS_ORDER.map(
       (status): ReportTableColumn<(typeof students)[number]> => ({
         header: STATUS_LABEL[status],
         accessor: (r) => r.counts[status],
