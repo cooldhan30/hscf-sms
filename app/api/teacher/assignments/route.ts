@@ -202,7 +202,7 @@ export async function POST(request: Request) {
           created_by: profile.id,
           category: 'stories-fun-learning',
           subcategory: 'stories',
-          tags: ['Reading'],
+          tags: ['Reading', 'Reading Exercises'],
         },
       ])
     } catch {
