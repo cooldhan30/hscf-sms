@@ -6,14 +6,24 @@ export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused' | 'holi
 export interface StudentAttendanceRow {
   studentId: string
   studentName: string
-  // Per-status counts across every class-held day this student has a
-  // recorded row for. A day marked 'holiday' counts toward both
-  // classesHeld and attendancePct the same as 'present' (see below).
+  // Per-status counts across every date this student has a recorded
+  // row for. A day marked 'holiday' counts toward attendancePct the
+  // same as 'present' (see below).
   counts: Record<AttendanceStatus, number>
+  // Dates the CLASS took attendance on but this one student has no row
+  // for at all (distinct from 'absent', which is an explicit recorded
+  // status) -- e.g. the teacher's roster submission skipped them that
+  // day. Flagged separately rather than silently shrinking classesHeld,
+  // so a gap in data entry is visible instead of looking like a smaller
+  // (but internally consistent) number of classes held.
+  notMarked: number
+  // Always the class-wide count of distinct dates attendance was taken
+  // for this class -- the same number for every student on the roster.
   classesHeld: number
   attendancePct: number | null
   // date -> status, for this one student -- the source data for the
-  // detailed wide-format export's per-student row.
+  // detailed wide-format export's per-student row. A date in `dates`
+  // with no entry here means this student has no row for that day.
   byDate: Record<string, AttendanceStatus>
 }
 
@@ -82,14 +92,13 @@ export async function buildClassAttendanceReport(
         counts[status] = (counts[status] ?? 0) + 1
       }
 
-      // "Classes held" for the attendance-rate denominator is THIS
-      // student's own recorded rows -- not the class-wide classesHeld,
-      // which would silently overcount a student missing a row for some
-      // date entirely (e.g. enrolled partway through the term). A day
-      // marked 'holiday' still counts as a held class day and counts
-      // toward the student the same as 'present' -- marking a day
-      // holiday never hurts anyone's attendance rate.
       const recordedDays = Object.keys(byDate).length
+      const notMarked = classesHeld - recordedDays
+
+      // The attendance-rate denominator excludes days this student has
+      // no row for at all -- a data-entry gap shouldn't silently count
+      // against them the way an explicit 'absent' does. A day marked
+      // 'holiday' still counts as attended, same as 'present'.
       const attended = counts.present + counts.late + counts.online + counts.holiday
       const attendancePct = recordedDays > 0 ? Math.round((attended / recordedDays) * 1000) / 10 : null
 
@@ -97,7 +106,8 @@ export async function buildClassAttendanceReport(
         studentId: s.id,
         studentName: `${s.first_name} ${s.last_name}`.trim(),
         counts,
-        classesHeld: recordedDays,
+        notMarked,
+        classesHeld,
         attendancePct,
         byDate,
       }

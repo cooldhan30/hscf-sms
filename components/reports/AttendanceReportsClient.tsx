@@ -35,6 +35,7 @@ const SUMMARY_EXPORT_COLUMNS: ExportColumn[] = [
   { header: 'Tardy', key: 'late' },
   { header: 'Absent', key: 'absent' },
   { header: 'Excused', key: 'excused' },
+  { header: 'Not Marked', key: 'notMarked' },
   { header: 'Attendance %', key: 'attendancePct' },
 ]
 
@@ -83,6 +84,7 @@ export function AttendanceReportsClient({
         late: s.counts.late,
         absent: s.counts.absent,
         excused: s.counts.excused,
+        notMarked: s.notMarked,
         attendancePct: s.attendancePct ?? '',
       })),
     [students]
@@ -98,13 +100,23 @@ export function AttendanceReportsClient({
         align: 'right',
       })
     ),
+    {
+      header: 'Not Marked',
+      accessor: (r) =>
+        r.notMarked > 0 ? (
+          <span className="text-terracotta-600 dark:text-terracotta-400 font-semibold">{r.notMarked}</span>
+        ) : (
+          0
+        ),
+      align: 'right',
+    },
     { header: 'Attendance %', accessor: (r) => (r.attendancePct !== null ? `${r.attendancePct}%` : '—'), align: 'right' },
   ]
 
   // Wide format: Student name, then one column per date this class had
-  // attendance recorded, cell = that student's status that day (blank
-  // if the student had no row for that date -- e.g. joined the class
-  // partway through the term).
+  // attendance recorded, cell = that student's status that day, or
+  // "Not Marked" if the teacher's submission for that date skipped this
+  // student entirely (distinct from an explicit 'absent' row).
   function downloadDetailedReport() {
     if (!report || report.dates.length === 0) return
     const detailColumns: ExportColumn[] = [
@@ -113,7 +125,7 @@ export function AttendanceReportsClient({
     ]
     const detailRows = report.students.map((s) => ({
       name: s.studentName,
-      ...Object.fromEntries(report.dates.map((date) => [date, s.byDate[date] ? STATUS_LABEL[s.byDate[date]] : ''])),
+      ...Object.fromEntries(report.dates.map((date) => [date, s.byDate[date] ? STATUS_LABEL[s.byDate[date]] : 'Not Marked'])),
     }))
     downloadCsv('attendance-detailed', detailColumns, detailRows)
   }
