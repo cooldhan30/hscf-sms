@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/Badge'
+import { GameReviewModal } from './GameReviewModal'
 
 const POLL_INTERVAL_MS = 2000
 // Auto-advance delay after showing correct/incorrect feedback -- per
@@ -62,6 +63,7 @@ export function PlayGameClient({ sessionId }: { sessionId: string }) {
   const [feedback, setFeedback] = useState<AnswerFeedback | null>(null)
   const lastSeenIndexRef = useRef<number | null>(null)
   const timeoutHandledRef = useRef(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
 
   async function poll() {
     try {
@@ -177,6 +179,8 @@ export function PlayGameClient({ sessionId }: { sessionId: string }) {
           <p className="text-sm text-stone-500 dark:text-stone-400">Final Score</p>
         </div>
         <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">Final Rank: #{state.rank}</p>
+        <ReviewButton onClick={() => setReviewOpen(true)} />
+        <GameReviewModal sessionId={sessionId} open={reviewOpen} onClose={() => setReviewOpen(false)} />
       </CenteredMessage>
     )
   }
@@ -192,6 +196,8 @@ export function PlayGameClient({ sessionId }: { sessionId: string }) {
         </div>
         <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">Current Rank: #{state.rank}</p>
         <p className="mt-4 text-xs text-stone-400 dark:text-stone-500">Waiting for your classmates to finish...</p>
+        <ReviewButton onClick={() => setReviewOpen(true)} />
+        <GameReviewModal sessionId={sessionId} open={reviewOpen} onClose={() => setReviewOpen(false)} />
       </CenteredMessage>
     )
   }
@@ -311,5 +317,16 @@ function CenteredMessage({ children }: { children: React.ReactNode }) {
     <div className="flex items-center justify-center px-4 py-16">
       <div className="max-w-sm w-full text-center text-stone-700 dark:text-stone-200">{children}</div>
     </div>
+  )
+}
+
+function ReviewButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border border-primary-300 dark:border-primary-800 text-primary-700 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
+    >
+      📝 Review My Answers
+    </button>
   )
 }
