@@ -75,7 +75,12 @@ export function AdminAttendanceClient({ classes }: { classes: ClassOption[] }) {
   }, [classId, calendarMonth])
 
   useEffect(() => {
-    if (!classId || !date) return
+    if (!classId || !date) {
+      setRoster([])
+      setAttendance([])
+      setError(null)
+      return
+    }
     let cancelled = false
 
     async function load() {
@@ -132,8 +137,9 @@ export function AdminAttendanceClient({ classes }: { classes: ClassOption[] }) {
             selectedDate={date}
             onDateClick={(d) => {
               setDate(d)
-              setCalendarMonth(d.slice(0, 7))
+              if (d) setCalendarMonth(d.slice(0, 7))
             }}
+            onMonthChange={(y, m) => setCalendarMonth(`${y}-${String(m + 1).padStart(2, '0')}`)}
             initialYear={Number(calendarMonth.slice(0, 4))}
             initialMonth={Number(calendarMonth.slice(5, 7)) - 1}
             legend={false}
@@ -142,7 +148,9 @@ export function AdminAttendanceClient({ classes }: { classes: ClassOption[] }) {
 
         <div className="space-y-3">
           <p className="font-bold text-stone-800 dark:text-stone-100">
-            {new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            {date
+              ? new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+              : 'No date selected'}
           </p>
 
           {error && (
@@ -153,6 +161,8 @@ export function AdminAttendanceClient({ classes }: { classes: ClassOption[] }) {
 
           {loading ? (
             <SkeletonTable rows={8} columns={4} />
+          ) : !date ? (
+            <EmptyState title="Select a date to view attendance" />
           ) : roster.length === 0 ? (
             <EmptyState title="No students enrolled in this class" />
           ) : (

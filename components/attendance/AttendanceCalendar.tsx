@@ -52,6 +52,7 @@ export function AttendanceCalendar({
   legend = true,
   initialYear,
   initialMonth,
+  onMonthChange,
 }: {
   dateStatus: Record<string, AttendanceCellStatus>
   onDateClick?: (date: string) => void
@@ -59,27 +60,30 @@ export function AttendanceCalendar({
   legend?: boolean
   initialYear?: number
   initialMonth?: number
+  // Called whenever the visible month changes via the chevrons, so a
+  // parent tracking "which month is displayed" (e.g. to refetch which
+  // dates are marked) doesn't go stale -- previously only clicking an
+  // actual day told the parent anything, so navigating with the arrows
+  // alone left old data (and its green shading) on screen until the
+  // next click or a manual refresh.
+  onMonthChange?: (year: number, month: number) => void
 }) {
   const now = new Date()
   const [year, setYear] = useState(initialYear ?? now.getFullYear())
   const [month, setMonth] = useState(initialMonth ?? now.getMonth())
 
   function goToPrevMonth() {
-    if (month === 0) {
-      setYear((y) => y - 1)
-      setMonth(11)
-    } else {
-      setMonth((m) => m - 1)
-    }
+    const [y, m] = month === 0 ? [year - 1, 11] : [year, month - 1]
+    setYear(y)
+    setMonth(m)
+    onMonthChange?.(y, m)
   }
 
   function goToNextMonth() {
-    if (month === 11) {
-      setYear((y) => y + 1)
-      setMonth(0)
-    } else {
-      setMonth((m) => m + 1)
-    }
+    const [y, m] = month === 11 ? [year + 1, 0] : [year, month + 1]
+    setYear(y)
+    setMonth(m)
+    onMonthChange?.(y, m)
   }
 
   const firstWeekday = new Date(year, month, 1).getDay()
@@ -130,7 +134,7 @@ export function AttendanceCalendar({
               key={iso}
               type="button"
               disabled={!clickable}
-              onClick={() => onDateClick?.(iso)}
+              onClick={() => onDateClick?.(iso === selectedDate ? '' : iso)}
               className={`aspect-square rounded-lg text-sm font-medium flex items-center justify-center transition-colors ${
                 status
                   ? CELL_STYLES[status]
