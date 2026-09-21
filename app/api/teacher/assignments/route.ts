@@ -200,9 +200,10 @@ export async function POST(request: Request) {
           file_type: resourceFileType,
           file_size: resourceFileSize,
           created_by: profile.id,
-          category: 'stories-fun-learning',
-          subcategory: 'stories',
-          tags: ['Reading', 'Reading Exercises'],
+          category: 'learning-resources',
+          subcategory: 'reading-exercises',
+          skills: ['reading'],
+          tags: ['Reading'],
         },
       ])
     } catch {
