@@ -125,3 +125,34 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ success: true })
 }
+
+// DELETE /api/teacher/attendance?classId=&date= -- removes every
+// attendance record for that class/date (e.g. a day marked by mistake),
+// so the day goes back to "not recorded" instead of just being editable.
+export async function DELETE(request: Request) {
+  const guard = await requireTeacher()
+  if (!guard.ok) {
+    return NextResponse.json({ error: guard.error }, { status: guard.status })
+  }
+  const { supabase } = guard
+
+  const { searchParams } = new URL(request.url)
+  const classId = searchParams.get('classId')
+  const date = searchParams.get('date')
+  if (!classId || !date) {
+    return NextResponse.json({ error: 'classId and date are required' }, { status: 400 })
+  }
+
+  const { data: owns } = await supabase.rpc('sms_teacher_owns_class', { p_class_id: classId })
+  if (!owns) {
+    return NextResponse.json({ error: 'Class not found or not assigned to you' }, { status: 403 })
+  }
+
+  const { error } = await supabase.from('sms_attendance').delete().eq('class_id', classId).eq('date', date)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+
+  return NextResponse.json({ success: true })
+}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { FiCheck, FiSave } from 'react-icons/fi'
+import { FiCheck, FiSave, FiTrash2 } from 'react-icons/fi'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { SkeletonTable } from '@/components/ui/Skeleton'
@@ -49,8 +49,14 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
   const [date, setDate] = useState(todayISO())
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [roster, setRoster] = useState<RosterStudent[]>([])
   const [marks, setMarks] = useState<Record<string, { status: AttendanceRecord['status']; notes: string }>>({})
+  // Whether the currently-selected date already has saved attendance
+  // for this class -- drives whether "Delete Attendance for this Day"
+  // shows, so a teacher can remove a day marked by mistake instead of
+  // only being able to edit it.
+  const [hasExistingRecords, setHasExistingRecords] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedMessage, setSavedMessage] = useState<string | null>(null)
   const [markedDates, setMarkedDates] = useState<string[]>([])
@@ -81,6 +87,7 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
       // stale roster/marks on screen.
       setRoster([])
       setMarks({})
+      setHasExistingRecords(false)
       setError(null)
       setSavedMessage(null)
       return
@@ -108,6 +115,7 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
         initial[s.id] = { status: existing?.status ?? 'present', notes: existing?.notes ?? '' }
       }
       setMarks(initial)
+      setHasExistingRecords((data.attendance ?? []).length > 0)
     }
 
     load()
@@ -149,6 +157,28 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
     }
 
     setSavedMessage('Attendance saved.')
+    setHasExistingRecords(true)
+  }
+
+  async function deleteAttendance() {
+    if (!confirm('Delete all attendance records for this class on this day? This cannot be undone.')) return
+
+    setDeleting(true)
+    setError(null)
+    setSavedMessage(null)
+
+    const res = await fetch(`/api/teacher/attendance?classId=${classId}&date=${date}`, { method: 'DELETE' })
+    const data = await res.json().catch(() => ({}))
+    setDeleting(false)
+
+    if (!res.ok) {
+      setError(data.error || 'Failed to delete attendance')
+      return
+    }
+
+    setHasExistingRecords(false)
+    setMarks(Object.fromEntries(roster.map((s) => [s.id, { status: 'present' as const, notes: '' }])))
+    setSavedMessage('Attendance deleted for this day.')
   }
 
   if (classes.length === 0) {
@@ -250,9 +280,22 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
           )}
 
           {roster.length > 0 && (
-            <Button variant="primary" icon={<FiSave />} disabled={saving} onClick={submit}>
-              {saving ? 'Saving...' : 'Save Attendance'}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="primary" icon={<FiSave />} disabled={saving} onClick={submit}>
+                {saving ? 'Saving...' : 'Save Attendance'}
+              </Button>
+              {hasExistingRecords && (
+                <Button
+                  variant="outline"
+                  icon={<FiTrash2 />}
+                  disabled={deleting}
+                  onClick={deleteAttendance}
+                  className="!text-terracotta-700 !border-terracotta-300 hover:!bg-terracotta-50 dark:!text-terracotta-300 dark:!border-terracotta-900 dark:hover:!bg-terracotta-950/40"
+                >
+                  {deleting ? 'Deleting...' : 'Delete Attendance for this Day'}
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </div>
