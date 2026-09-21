@@ -51,7 +51,11 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [roster, setRoster] = useState<RosterStudent[]>([])
-  const [marks, setMarks] = useState<Record<string, { status: AttendanceRecord['status']; notes: string }>>({})
+  // status is null until the teacher explicitly picks one (or it was
+  // already saved) -- previously this defaulted to 'present' for every
+  // unmarked student, which pre-highlighted them green and made it
+  // impossible to tell "confirmed present" apart from "not marked yet."
+  const [marks, setMarks] = useState<Record<string, { status: AttendanceRecord['status'] | null; notes: string }>>({})
   // Whether the currently-selected date already has saved attendance
   // for this class -- drives whether "Delete Attendance for this Day"
   // shows, so a teacher can remove a day marked by mistake instead of
@@ -109,10 +113,10 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
       }
 
       setRoster(data.roster ?? [])
-      const initial: Record<string, { status: AttendanceRecord['status']; notes: string }> = {}
+      const initial: Record<string, { status: AttendanceRecord['status'] | null; notes: string }> = {}
       for (const s of data.roster ?? []) {
         const existing = (data.attendance ?? []).find((a: AttendanceRecord) => a.student_id === s.id)
-        initial[s.id] = { status: existing?.status ?? 'present', notes: existing?.notes ?? '' }
+        initial[s.id] = { status: existing?.status ?? null, notes: existing?.notes ?? '' }
       }
       setMarks(initial)
       setHasExistingRecords((data.attendance ?? []).length > 0)
@@ -133,13 +137,24 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
   }
 
   async function submit() {
-    setSaving(true)
     setError(null)
     setSavedMessage(null)
 
+    const unmarked = roster.filter((s) => !marks[s.id]?.status)
+    if (unmarked.length > 0) {
+      setError(
+        `Please select a status for every student before saving. Missing: ${unmarked
+          .map((s) => `${s.first_name} ${s.last_name}`)
+          .join(', ')}`
+      )
+      return
+    }
+
+    setSaving(true)
+
     const records = roster.map((s) => ({
       studentId: s.id,
-      status: marks[s.id]?.status ?? 'present',
+      status: marks[s.id]!.status,
       notes: marks[s.id]?.notes ?? '',
     }))
 
@@ -177,7 +192,7 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
     }
 
     setHasExistingRecords(false)
-    setMarks(Object.fromEntries(roster.map((s) => [s.id, { status: 'present' as const, notes: '' }])))
+    setMarks(Object.fromEntries(roster.map((s) => [s.id, { status: null, notes: '' }])))
     setSavedMessage('Attendance deleted for this day.')
   }
 
@@ -248,8 +263,15 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 divide-y divide-stone-100 dark:divide-stone-800">
               {roster.map((s) => (
                 <div key={s.id} className="p-4 flex flex-col gap-3">
-                  <div className="font-semibold text-stone-800 dark:text-stone-100">
-                    {s.first_name} {s.last_name}
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-stone-800 dark:text-stone-100">
+                      {s.first_name} {s.last_name}
+                    </span>
+                    {!marks[s.id]?.status && (
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-terracotta-100 text-terracotta-700 dark:bg-terracotta-950/60 dark:text-terracotta-300">
+                        Not marked
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {STATUS_OPTIONS.map((opt) => {
