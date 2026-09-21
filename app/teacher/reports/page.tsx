@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { currentAcademicYear } from '@/lib/academic-year'
-import { ClassReportsClient } from '@/components/reports/ClassReportsClient'
+import { ReportTypeSwitcher } from '@/components/reports/ReportTypeSwitcher'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +24,7 @@ export default async function TeacherReportsPage() {
         </p>
       </div>
 
-      <ClassReportsClient classes={classes ?? []} academicYear={academicYear} apiEndpoint="/api/teacher/reports/class" />
+      <ReportTypeSwitcher classes={classes ?? []} academicYear={academicYear} apiEndpoint="/api/teacher/reports/class" />
     </div>
   )
 }

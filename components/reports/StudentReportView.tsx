@@ -65,7 +65,23 @@ function statusBadge(status: string) {
 // Summary-then-detail view for one student's full-year report -- used by
 // the teacher, admin, and student Reports pages alike so the shape stays
 // identical regardless of who's looking at it.
-export function StudentReportView({ report, academicYear }: { report: StudentReport; academicYear: string }) {
+//
+// `mode` narrows which sections render, for the teacher Reports page's
+// report-type filter -- Attendance now has its own dedicated whole-class
+// view (AttendanceReportsClient), so a student's drill-down from the
+// Assignments or Exams tab shouldn't repeat attendance data there.
+// Defaults to 'all' (every section) for every other caller (student's
+// own full-year report, admin reports) where there's no separate
+// per-type filter to defer to.
+export function StudentReportView({
+  report,
+  academicYear,
+  mode = 'all',
+}: {
+  report: StudentReport
+  academicYear: string
+  mode?: 'all' | 'assignments' | 'exams'
+}) {
   const attendanceExportRows = useMemo(
     () =>
       report.attendanceRecords.map((r: AttendanceRecord) => ({
@@ -77,9 +93,18 @@ export function StudentReportView({ report, academicYear }: { report: StudentRep
     [report.attendanceRecords]
   )
 
+  // mode narrows scoreRecords to just one type when the teacher Reports
+  // page's Assignments/Exams filter drove this drill-down -- 'all'
+  // (every other caller) keeps both types together as before.
+  const scopedScoreRecords = useMemo(() => {
+    if (mode === 'assignments') return report.scoreRecords.filter((r) => r.type === 'assignment')
+    if (mode === 'exams') return report.scoreRecords.filter((r) => r.type === 'exam')
+    return report.scoreRecords
+  }, [report.scoreRecords, mode])
+
   const scoreExportRows = useMemo(
     () =>
-      report.scoreRecords.map((r: ScoreRecord) => ({
+      scopedScoreRecords.map((r: ScoreRecord) => ({
         dueDate: r.dueDate ? formatDateOnly(r.dueDate) : '',
         type: r.type === 'exam' ? 'Exam' : 'Assignment',
         title: r.title,
@@ -88,7 +113,7 @@ export function StudentReportView({ report, academicYear }: { report: StudentRep
         maxScore: r.maxScore,
         feedback: r.feedback ?? '',
       })),
-    [report.scoreRecords]
+    [scopedScoreRecords]
   )
 
   const attendanceColumns: ReportTableColumn<AttendanceRecord>[] = [
@@ -130,74 +155,86 @@ export function StudentReportView({ report, academicYear }: { report: StudentRep
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <StatCard
-          label="Attendance"
-          value={report.attendance.attendancePct !== null ? `${report.attendance.attendancePct}%` : '—'}
-          icon={FiCheckSquare}
-          tone="primary"
-        />
-        <StatCard
-          label="Assignment Avg."
-          value={report.assignmentScores.averagePct !== null ? `${report.assignmentScores.averagePct}%` : '—'}
-          icon={FiBookOpen}
-          tone="terracotta"
-        />
-        <StatCard
-          label="Exam Avg."
-          value={report.examScores.averagePct !== null ? `${report.examScores.averagePct}%` : '—'}
-          icon={FiAward}
-          tone="gold"
-        />
+        {mode === 'all' && (
+          <StatCard
+            label="Attendance"
+            value={report.attendance.attendancePct !== null ? `${report.attendance.attendancePct}%` : '—'}
+            icon={FiCheckSquare}
+            tone="primary"
+          />
+        )}
+        {mode !== 'exams' && (
+          <StatCard
+            label="Assignment Avg."
+            value={report.assignmentScores.averagePct !== null ? `${report.assignmentScores.averagePct}%` : '—'}
+            icon={FiBookOpen}
+            tone="terracotta"
+          />
+        )}
+        {mode !== 'assignments' && (
+          <StatCard
+            label="Exam Avg."
+            value={report.examScores.averagePct !== null ? `${report.examScores.averagePct}%` : '—'}
+            icon={FiAward}
+            tone="gold"
+          />
+        )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-        <div className="p-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
-          <p className="font-semibold text-stone-700 dark:text-stone-300 mb-2">Attendance Breakdown</p>
-          <div className="space-y-1 text-stone-600 dark:text-stone-300">
-            <p>Present: {report.attendance.present}</p>
-            <p>Online: {report.attendance.online}</p>
-            <p>Tardy: {report.attendance.late}</p>
-            <p>Absent: {report.attendance.absent}</p>
-            <p>Excused: {report.attendance.excused}</p>
-            <p className="text-stone-400 dark:text-stone-500">Total days recorded: {report.attendance.total}</p>
+      {mode === 'all' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div className="p-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
+            <p className="font-semibold text-stone-700 dark:text-stone-300 mb-2">Attendance Breakdown</p>
+            <div className="space-y-1 text-stone-600 dark:text-stone-300">
+              <p>Present: {report.attendance.present}</p>
+              <p>Online: {report.attendance.online}</p>
+              <p>Tardy: {report.attendance.late}</p>
+              <p>Absent: {report.attendance.absent}</p>
+              <p>Excused: {report.attendance.excused}</p>
+              <p className="text-stone-400 dark:text-stone-500">Total days recorded: {report.attendance.total}</p>
+            </div>
+          </div>
+          <div className="p-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
+            <p className="font-semibold text-stone-700 dark:text-stone-300 mb-2">Score Totals</p>
+            <div className="space-y-1 text-stone-600 dark:text-stone-300">
+              <p>
+                Assignments: {report.assignmentScores.totalScore} / {report.assignmentScores.totalMaxScore} (
+                {report.assignmentScores.count} graded)
+              </p>
+              <p>
+                Exams: {report.examScores.totalScore} / {report.examScores.totalMaxScore} ({report.examScores.count}{' '}
+                graded)
+              </p>
+            </div>
           </div>
         </div>
-        <div className="p-4 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
-          <p className="font-semibold text-stone-700 dark:text-stone-300 mb-2">Score Totals</p>
-          <div className="space-y-1 text-stone-600 dark:text-stone-300">
-            <p>
-              Assignments: {report.assignmentScores.totalScore} / {report.assignmentScores.totalMaxScore} (
-              {report.assignmentScores.count} graded)
-            </p>
-            <p>
-              Exams: {report.examScores.totalScore} / {report.examScores.totalMaxScore} ({report.examScores.count}{' '}
-              graded)
-            </p>
-          </div>
-        </div>
-      </div>
+      )}
 
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-stone-700 dark:text-stone-300">Attendance Detail</p>
-          <ExportButtons
-            filename={`${report.studentName}-attendance`}
-            title={`${report.studentName} — Attendance`}
-            columns={ATTENDANCE_EXPORT_COLUMNS}
-            rows={attendanceExportRows}
+      {mode === 'all' && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold text-stone-700 dark:text-stone-300">Attendance Detail</p>
+            <ExportButtons
+              filename={`${report.studentName}-attendance`}
+              title={`${report.studentName} — Attendance`}
+              columns={ATTENDANCE_EXPORT_COLUMNS}
+              rows={attendanceExportRows}
+            />
+          </div>
+          <ReportTable
+            columns={attendanceColumns}
+            rows={report.attendanceRecords}
+            keyFor={(r) => `${r.date}-${r.className}`}
+            emptyTitle="No attendance recorded for this year"
           />
         </div>
-        <ReportTable
-          columns={attendanceColumns}
-          rows={report.attendanceRecords}
-          keyFor={(r) => `${r.date}-${r.className}`}
-          emptyTitle="No attendance recorded for this year"
-        />
-      </div>
+      )}
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-stone-700 dark:text-stone-300">Assignments &amp; Exams Detail</p>
+          <p className="text-sm font-semibold text-stone-700 dark:text-stone-300">
+            {mode === 'assignments' ? 'Assignments Detail' : mode === 'exams' ? 'Exams Detail' : 'Assignments & Exams Detail'}
+          </p>
           <ExportButtons
             filename={`${report.studentName}-scores`}
             title={`${report.studentName} — Scores`}
@@ -207,9 +244,9 @@ export function StudentReportView({ report, academicYear }: { report: StudentRep
         </div>
         <ReportTable
           columns={scoreColumns}
-          rows={report.scoreRecords}
+          rows={scopedScoreRecords}
           keyFor={(r) => r.assignmentId}
-          emptyTitle="No assignments or exams found for this year"
+          emptyTitle={mode === 'assignments' ? 'No assignments found for this year' : mode === 'exams' ? 'No exams found for this year' : 'No assignments or exams found for this year'}
         />
       </div>
     </div>

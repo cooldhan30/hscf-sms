@@ -14,26 +14,45 @@ interface ClassOption {
   name: string
 }
 
-const EXPORT_COLUMNS = [
-  { header: 'Student', key: 'name' },
-  { header: 'Attendance %', key: 'attendancePct' },
-  { header: 'Assignment Avg %', key: 'assignmentAvg' },
-  { header: 'Exam Avg %', key: 'examAvg' },
-]
+type ClassReportMode = 'all' | 'assignments' | 'exams'
+
+function exportColumnsFor(mode: ClassReportMode) {
+  const base = [{ header: 'Student', key: 'name' }]
+  if (mode === 'all') {
+    return [
+      ...base,
+      { header: 'Attendance %', key: 'attendancePct' },
+      { header: 'Assignment Avg %', key: 'assignmentAvg' },
+      { header: 'Exam Avg %', key: 'examAvg' },
+    ]
+  }
+  if (mode === 'assignments') {
+    return [...base, { header: 'Assignment Avg %', key: 'assignmentAvg' }]
+  }
+  return [...base, { header: 'Exam Avg %', key: 'examAvg' }]
+}
 
 // Class-picker + per-student summary table, with drill-down into one
 // student's full StudentReportView. Shared by the teacher and admin
 // Reports pages -- apiEndpoint is the only thing that differs between
 // them (teacher's is RLS-scoped to their own classes; admin's covers
 // every class via the service-role client).
+//
+// `mode` narrows the summary table/export/drill-down to just one score
+// type -- used by the teacher Reports page's Assignments/Exams filter
+// tabs (Attendance now has its own dedicated ClassAttendanceReport view
+// instead). Defaults to 'all' for the admin Reports page, which has no
+// such filter and still wants the combined view.
 export function ClassReportsClient({
   classes,
   academicYear,
   apiEndpoint,
+  mode = 'all',
 }: {
   classes: ClassOption[]
   academicYear: string
   apiEndpoint: string
+  mode?: ClassReportMode
 }) {
   const [classId, setClassId] = useState(classes[0]?.id ?? '')
   const [search, setSearch] = useState('')
@@ -83,9 +102,33 @@ export function ClassReportsClient({
         </button>
       ),
     },
-    { header: 'Attendance', accessor: (r) => (r.attendance.attendancePct !== null ? `${r.attendance.attendancePct}%` : '—'), align: 'right' },
-    { header: 'Assignment Avg.', accessor: (r) => (r.assignmentScores.averagePct !== null ? `${r.assignmentScores.averagePct}%` : '—'), align: 'right' },
-    { header: 'Exam Avg.', accessor: (r) => (r.examScores.averagePct !== null ? `${r.examScores.averagePct}%` : '—'), align: 'right' },
+    ...(mode === 'all'
+      ? [
+          {
+            header: 'Attendance',
+            accessor: (r: StudentReport) => (r.attendance.attendancePct !== null ? `${r.attendance.attendancePct}%` : '—'),
+            align: 'right' as const,
+          },
+        ]
+      : []),
+    ...(mode !== 'exams'
+      ? [
+          {
+            header: 'Assignment Avg.',
+            accessor: (r: StudentReport) => (r.assignmentScores.averagePct !== null ? `${r.assignmentScores.averagePct}%` : '—'),
+            align: 'right' as const,
+          },
+        ]
+      : []),
+    ...(mode !== 'assignments'
+      ? [
+          {
+            header: 'Exam Avg.',
+            accessor: (r: StudentReport) => (r.examScores.averagePct !== null ? `${r.examScores.averagePct}%` : '—'),
+            align: 'right' as const,
+          },
+        ]
+      : []),
   ]
 
   if (classes.length === 0) {
@@ -101,7 +144,7 @@ export function ClassReportsClient({
         >
           <FiArrowLeft className="w-4 h-4" /> Back to class report
         </button>
-        <StudentReportView report={selected} academicYear={academicYear} />
+        <StudentReportView report={selected} academicYear={academicYear} mode={mode} />
       </div>
     )
   }
@@ -131,7 +174,7 @@ export function ClassReportsClient({
             />
           </div>
         </div>
-        <ExportButtons filename="class-report" title="Class Report" columns={EXPORT_COLUMNS} rows={exportRows} />
+        <ExportButtons filename="class-report" title="Class Report" columns={exportColumnsFor(mode)} rows={exportRows} />
       </div>
 
       {loading || rows === null ? (
