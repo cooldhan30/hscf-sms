@@ -23,3 +23,34 @@ export function isPastDueDate(dateStr: string, now: Date = new Date()): boolean 
   due.setHours(23, 59, 59, 999)
   return now > due
 }
+
+function toISODate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Every Sunday from August 1st of the academic year's starting
+// calendar year (parsed from a "YYYY-YYYY" label like "2026-2027")
+// through today, most recent first -- this school's classes run on
+// Sundays, and sms_academic_years.start_date isn't populated today, so
+// August 1st is used as a fixed stand-in for "before the first Sunday
+// of the school year" rather than depending on an unset column.
+export function getSundaysInAcademicYear(academicYear: string, now: Date = new Date()): string[] {
+  const startYear = Number(academicYear.split('-')[0])
+  if (!Number.isFinite(startYear)) return []
+
+  // Truncated to local midnight so today itself is included when it's a
+  // Sunday -- comparing against a `now` that still carries a
+  // time-of-day would otherwise exclude today depending on the hour.
+  const todayLocalMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  const sundays: string[] = []
+  const cursor = new Date(startYear, 7, 1)
+  cursor.setDate(cursor.getDate() + ((7 - cursor.getDay()) % 7))
+
+  while (cursor <= todayLocalMidnight) {
+    sundays.push(toISODate(cursor))
+    cursor.setDate(cursor.getDate() + 7)
+  }
+
+  return sundays.reverse()
+}

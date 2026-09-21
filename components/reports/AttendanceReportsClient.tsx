@@ -6,7 +6,7 @@ import { ReportTable, type ReportTableColumn } from '@/components/reports/Report
 import { ExportButtons } from '@/components/reports/ExportButtons'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { downloadCsv, type ExportColumn } from '@/lib/reports/csv'
-import { formatDateOnly } from '@/lib/dates'
+import { formatDateOnly, getSundaysInAcademicYear } from '@/lib/dates'
 import type { AttendanceStatus, ClassAttendanceReport } from '@/lib/reports/classAttendanceReport'
 
 interface ClassOption {
@@ -58,6 +58,11 @@ export function AttendanceReportsClient({
   const [classId, setClassId] = useState(classes[0]?.id ?? '')
   const [report, setReport] = useState<ClassAttendanceReport | null>(null)
   const [loading, setLoading] = useState(false)
+  // '' = the default summary view; a picked Sunday switches to a
+  // single-day view (Student | that date's status) using the same
+  // report data's byDate lookup -- no separate fetch needed.
+  const [selectedDate, setSelectedDate] = useState('')
+  const sundays = useMemo(() => getSundaysInAcademicYear(academicYear), [academicYear])
 
   useEffect(() => {
     if (!classId) {
@@ -115,6 +120,17 @@ export function AttendanceReportsClient({
     { header: 'Attendance %', accessor: (r) => (r.attendancePct !== null ? `${r.attendancePct}%` : '—'), align: 'right' },
   ]
 
+  const singleDateColumns: ReportTableColumn<(typeof students)[number]>[] = [
+    { header: 'Student', accessor: (r) => <span className="font-semibold text-stone-800 dark:text-stone-100">{r.studentName}</span> },
+    {
+      header: selectedDate ? formatDateOnly(selectedDate) : '',
+      accessor: (r) => {
+        const status = r.byDate[selectedDate]
+        return status ? STATUS_LABEL[status] : <span className="text-stone-400 dark:text-stone-500">Not Marked</span>
+      },
+    },
+  ]
+
   // Wide format: Student name, then one column per date this class had
   // attendance recorded, cell = that student's status that day, or
   // "Not Marked" if the teacher's submission for that date skipped this
@@ -139,17 +155,31 @@ export function AttendanceReportsClient({
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-        <select
-          value={classId}
-          onChange={(e) => setClassId(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-600 focus:border-transparent"
-        >
-          {classes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-wrap gap-3">
+          <select
+            value={classId}
+            onChange={(e) => setClassId(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+          >
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+          >
+            <option value="">All dates (summary)</option>
+            {sundays.map((d) => (
+              <option key={d} value={d}>
+                {formatDateOnly(d)}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExportButtons filename="attendance-summary" title="Attendance Summary" columns={SUMMARY_EXPORT_COLUMNS} rows={summaryExportRows} />
           <button
@@ -164,6 +194,16 @@ export function AttendanceReportsClient({
 
       {loading || report === null ? (
         <p className="text-sm text-stone-400 dark:text-stone-500">Loading report...</p>
+      ) : selectedDate ? (
+        <>
+          <p className="text-sm text-stone-500 dark:text-stone-400">Attendance for {formatDateOnly(selectedDate)}.</p>
+          <ReportTable
+            columns={singleDateColumns}
+            rows={students}
+            keyFor={(r) => r.studentId}
+            emptyTitle="No students enrolled in this class"
+          />
+        </>
       ) : (
         <>
           <p className="text-sm text-stone-500 dark:text-stone-400">
