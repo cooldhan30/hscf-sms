@@ -28,12 +28,14 @@ function toISODate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Every Sunday from August 1st of the academic year's starting
-// calendar year (parsed from a "YYYY-YYYY" label like "2026-2027")
-// through today, most recent first -- this school's classes run on
-// Sundays, and sms_academic_years.start_date isn't populated today, so
-// August 1st is used as a fixed stand-in for "before the first Sunday
-// of the school year" rather than depending on an unset column.
+// The school's first-ever class day. sms_academic_years.start_date
+// isn't populated today, so this is a fixed stand-in rather than
+// depending on an unset column.
+const FIRST_SCHOOL_DAY = new Date(2026, 7, 9)
+
+// Every Sunday from the school's first day (or the academic year's
+// starting calendar year, if that year started later) through today,
+// most recent first -- this school's classes run on Sundays only.
 export function getSundaysInAcademicYear(academicYear: string, now: Date = new Date()): string[] {
   const startYear = Number(academicYear.split('-')[0])
   if (!Number.isFinite(startYear)) return []
@@ -43,10 +45,11 @@ export function getSundaysInAcademicYear(academicYear: string, now: Date = new D
   // time-of-day would otherwise exclude today depending on the hour.
   const todayLocalMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
-  const sundays: string[] = []
-  const cursor = new Date(startYear, 7, 1)
-  cursor.setDate(cursor.getDate() + ((7 - cursor.getDay()) % 7))
+  const yearStart = new Date(startYear, 7, 1)
+  yearStart.setDate(yearStart.getDate() + ((7 - yearStart.getDay()) % 7))
+  const cursor = yearStart > FIRST_SCHOOL_DAY ? yearStart : new Date(FIRST_SCHOOL_DAY)
 
+  const sundays: string[] = []
   while (cursor <= todayLocalMidnight) {
     sundays.push(toISODate(cursor))
     cursor.setDate(cursor.getDate() + 7)
