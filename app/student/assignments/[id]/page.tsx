@@ -8,6 +8,7 @@ import { getGradeFeedbackSignedUrl } from '@/lib/storage/gradeFeedbackUrl'
 import { formatDateOnly } from '@/lib/dates'
 import { AudioPlayer } from '@/components/submissions/AudioPlayer'
 import { SubmissionForm } from './SubmissionForm'
+import { extractYouTubeId, youTubeEmbedUrl } from '@/lib/youtube'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,18 +98,30 @@ export default async function StudentAssignmentDetailPage({ params }: { params: 
                 className="max-w-full max-h-[32rem] rounded-lg border border-stone-200 dark:border-stone-800 mb-3"
               />
             )}
+            {resource.file_type === 'youtube' && extractYouTubeId(resource.file_url) && (
+              <iframe
+                src={youTubeEmbedUrl(extractYouTubeId(resource.file_url)!)}
+                className="w-full aspect-video rounded-lg border border-stone-200 dark:border-stone-800 mb-3"
+                title={resource.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            )}
             <p className="font-semibold text-stone-800 dark:text-stone-100">{resource.title}</p>
             {resource.description && (
               <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">{resource.description}</p>
             )}
-            <a
-              href={resource.file_url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 dark:text-primary-400 hover:underline mt-2"
-            >
-              <FiExternalLink className="w-3.5 h-3.5" /> Open {resource.file_type ? `.${resource.file_type}` : 'file'}
-            </a>
+            {resource.file_type !== 'youtube' && (
+              <a
+                href={resource.file_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 dark:text-primary-400 hover:underline mt-2"
+              >
+                <FiExternalLink className="w-3.5 h-3.5" />{' '}
+                {resource.file_type === 'link' ? 'Open link' : `Open ${resource.file_type ? `.${resource.file_type}` : 'file'}`}
+              </a>
+            )}
           </div>
         )}
 

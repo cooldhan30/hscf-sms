@@ -19,6 +19,9 @@ import {
   FiSearch,
   FiEdit2,
   FiFeather,
+  FiLink,
+  FiExternalLink,
+  FiPlayCircle,
 } from 'react-icons/fi'
 import { Modal } from '@/components/dashboard/Modal'
 import { Button } from '@/components/ui/Button'
@@ -34,6 +37,7 @@ import { ResourceFilterPanel, EMPTY_FILTERS, type ResourceFilterState } from '@/
 import { WorksheetGeneratorPanel } from '@/components/resources/WorksheetGeneratorPanel'
 import { categoryLabel, subcategoryLabel, RESOURCE_DIFFICULTIES, RESOURCE_FORMATS, RESOURCE_SKILLS } from '@/lib/resourceTaxonomy'
 import { GRADE_LEVEL_OPTIONS } from '@/lib/constants'
+import { extractYouTubeId, youTubeThumbnailUrl, youTubeEmbedUrl } from '@/lib/youtube'
 
 export interface ResourceRow {
   id: string
@@ -63,11 +67,13 @@ const PDF_TYPES = ['pdf']
 const OFFICE_TYPES = ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx']
 const TEXT_TYPES = ['txt', 'csv', 'md', 'json', 'log']
 
-type Kind = 'image' | 'video' | 'audio' | 'pdf' | 'office' | 'text' | 'other'
+type Kind = 'image' | 'video' | 'audio' | 'pdf' | 'office' | 'text' | 'youtube' | 'link' | 'other'
 
 function kindOf(fileType: string | null): Kind {
   if (!fileType) return 'other'
   const t = fileType.toLowerCase()
+  if (t === 'youtube') return 'youtube'
+  if (t === 'link') return 'link'
   if (IMAGE_TYPES.includes(t)) return 'image'
   if (VIDEO_TYPES.includes(t)) return 'video'
   if (AUDIO_TYPES.includes(t)) return 'audio'
@@ -81,9 +87,10 @@ function ThumbIcon({ fileType }: { fileType: string | null }) {
   const kind = kindOf(fileType)
   const cls = 'w-8 h-8'
   if (kind === 'image') return <FiImage className={cls} />
-  if (kind === 'video') return <FiVideo className={cls} />
+  if (kind === 'video' || kind === 'youtube') return <FiVideo className={cls} />
   if (kind === 'audio') return <FiMusic className={cls} />
   if (kind === 'pdf' || kind === 'office' || kind === 'text') return <FiFileText className={cls} />
+  if (kind === 'link') return <FiLink className={cls} />
   return <FiFile className={cls} />
 }
 
@@ -174,9 +181,11 @@ export function ResourcesClient({
   const debouncedSearch = useDebouncedValue(search, 200)
   const [filters, setFilters] = useState<ResourceFilterState>(EMPTY_FILTERS)
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [uploadMode, setUploadMode] = useState<'file' | 'link'>('file')
   const [worksheetGeneratorOpen, setWorksheetGeneratorOpen] = useState(false)
   const [preview, setPreview] = useState<ResourceRow | null>(null)
   const [file, setFile] = useState<File | null>(null)
+  const [linkUrl, setLinkUrl] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [uploadClassId, setUploadClassId] = useState<string>(teacherClassIds[0] ?? classes[0]?.id ?? '')
@@ -244,6 +253,8 @@ export function ResourcesClient({
 
   function openUpload() {
     setFile(null)
+    setLinkUrl('')
+    setUploadMode('file')
     setTitle('')
     setDescription('')
     setUploadTaxonomy(EMPTY_TAXONOMY)
@@ -254,6 +265,50 @@ export function ResourcesClient({
 
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault()
+
+    if (uploadMode === 'link') {
+      if (!linkUrl.trim()) {
+        setError('Enter a link')
+        return
+      }
+      setSaving(true)
+      setError(null)
+
+      try {
+        const fileType = extractYouTubeId(linkUrl.trim()) ? 'youtube' : 'link'
+
+        const res = await fetch('/api/resources', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            description: description || null,
+            fileUrl: linkUrl.trim(),
+            fileType,
+            classId: uploadClassId || null,
+            category: uploadTaxonomy.category || null,
+            subcategory: uploadTaxonomy.subcategory || null,
+            difficulty: uploadTaxonomy.difficulty || null,
+            format: uploadTaxonomy.format || null,
+            levels: uploadTaxonomy.levels,
+            skills: uploadTaxonomy.skills,
+            tags: uploadTaxonomy.tags,
+          }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'Failed to save resource')
+
+        setUploadOpen(false)
+        toast.success('Link added')
+        router.refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to add link')
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
+
     if (!file) {
       setError('Choose a file to upload')
       return
@@ -529,11 +584,21 @@ export function ResourcesClient({
               <button
                 type="button"
                 onClick={() => setPreview(r)}
-                className="aspect-square flex items-center justify-center bg-stone-50 dark:bg-stone-950/40 text-stone-400 dark:text-stone-600 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                className="relative aspect-square flex items-center justify-center bg-stone-50 dark:bg-stone-950/40 text-stone-400 dark:text-stone-600 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
               >
                 {kindOf(r.file_type) === 'image' ? (
                   // eslint-disable-next-line @next/next/no-img-element -- resource thumbnail, arbitrary Storage URL
                   <img src={r.file_url} alt="" className="w-full h-full object-cover" />
+                ) : kindOf(r.file_type) === 'youtube' && extractYouTubeId(r.file_url) ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- YouTube thumbnail, no next/image domain config needed */}
+                    <img
+                      src={youTubeThumbnailUrl(extractYouTubeId(r.file_url)!)}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                    <FiPlayCircle className="absolute inset-0 m-auto w-10 h-10 text-white drop-shadow-lg" />
+                  </>
                 ) : (
                   <ThumbIcon fileType={r.file_type} />
                 )}
@@ -575,13 +640,25 @@ export function ResourcesClient({
                     >
                       <FiEye className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => handleDownload(r)}
-                      className="p-1.5 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors inline-flex"
-                      aria-label="Download"
-                    >
-                      <FiDownload className="w-4 h-4" />
-                    </button>
+                    {kindOf(r.file_type) === 'youtube' || kindOf(r.file_type) === 'link' ? (
+                      <a
+                        href={r.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors inline-flex"
+                        aria-label="Open link"
+                      >
+                        <FiExternalLink className="w-4 h-4" />
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => handleDownload(r)}
+                        className="p-1.5 rounded-lg text-stone-500 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors inline-flex"
+                        aria-label="Download"
+                      >
+                        <FiDownload className="w-4 h-4" />
+                      </button>
+                    )}
                     {canAssign && (
                       <button
                         onClick={() => openAssign(r)}
@@ -633,7 +710,7 @@ export function ResourcesClient({
         </div>
       )}
 
-      <Modal open={uploadOpen} title="Upload Resource" onClose={() => setUploadOpen(false)}>
+      <Modal open={uploadOpen} title="Add Resource" onClose={() => setUploadOpen(false)}>
         <form onSubmit={handleUpload} className="space-y-4">
           {error && (
             <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">
@@ -641,15 +718,59 @@ export function ResourcesClient({
             </p>
           )}
 
-          <div>
-            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">File</label>
-            <input
-              type="file"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="block w-full text-sm text-stone-600 dark:text-stone-300"
-              required
-            />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setUploadMode('file')}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                uploadMode === 'file'
+                  ? 'border-primary-700 bg-primary-50 text-primary-800 dark:border-primary-400 dark:bg-primary-950 dark:text-primary-300'
+                  : 'border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300'
+              }`}
+            >
+              <FiUpload className="w-4 h-4 inline mr-1.5" /> Upload File
+            </button>
+            <button
+              type="button"
+              onClick={() => setUploadMode('link')}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                uploadMode === 'link'
+                  ? 'border-primary-700 bg-primary-50 text-primary-800 dark:border-primary-400 dark:bg-primary-950 dark:text-primary-300'
+                  : 'border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300'
+              }`}
+            >
+              <FiLink className="w-4 h-4 inline mr-1.5" /> Add Link
+            </button>
           </div>
+
+          {uploadMode === 'file' ? (
+            <div>
+              <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">File</label>
+              <input
+                type="file"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="block w-full text-sm text-stone-600 dark:text-stone-300"
+                required
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
+                Link (YouTube or any URL)
+              </label>
+              <input
+                type="url"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                required
+                className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+              />
+              <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+                A YouTube link shows a video thumbnail; any other link opens in a new tab when clicked.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Name</label>
@@ -786,6 +907,28 @@ export function ResourcesClient({
                 <iframe src={officeViewerUrl(preview.file_url)} className="w-full h-[70vh]" title={preview.title} />
               )}
               {kindOf(preview.file_type) === 'text' && <TextFilePreview fileUrl={preview.file_url} />}
+              {kindOf(preview.file_type) === 'youtube' && extractYouTubeId(preview.file_url) && (
+                <iframe
+                  src={youTubeEmbedUrl(extractYouTubeId(preview.file_url)!)}
+                  className="w-full aspect-video"
+                  title={preview.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              )}
+              {kindOf(preview.file_type) === 'link' && (
+                <div className="py-10 text-stone-400 dark:text-stone-600 flex flex-col items-center gap-2">
+                  <FiLink className="w-8 h-8" />
+                  <a
+                    href={preview.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-semibold text-primary-700 dark:text-primary-400 hover:underline inline-flex items-center gap-1"
+                  >
+                    Open link <FiExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              )}
               {kindOf(preview.file_type) === 'other' && (
                 <div className="py-10 text-stone-400 dark:text-stone-600 flex flex-col items-center gap-2">
                   <ThumbIcon fileType={preview.file_type} />

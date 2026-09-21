@@ -66,6 +66,21 @@ export async function POST(request: Request) {
   const fileSize = typeof body.fileSize === 'number' ? body.fileSize : null
   const taxonomy = validateResourceTaxonomy(body, errors)
 
+  // A link resource (fileType 'youtube'/'link') has no upload step to
+  // validate the URL for -- the teacher typed it directly, so it's
+  // checked here instead of trusting an arbitrary string as a clickable
+  // link shown to every student.
+  if ((fileType === 'youtube' || fileType === 'link') && fileUrl) {
+    try {
+      const parsed = new URL(fileUrl)
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        errors.push('Link must be a valid http(s) URL')
+      }
+    } catch {
+      errors.push('Link must be a valid URL')
+    }
+  }
+
   if (errors.length > 0) {
     return NextResponse.json({ error: errors.join('; ') }, { status: 400 })
   }
