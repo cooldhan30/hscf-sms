@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FiBookOpen, FiFileText, FiAward, FiCheckSquare, FiSpeaker } from 'react-icons/fi'
+import { FiBookOpen, FiFileText, FiAward, FiCheckSquare, FiSpeaker, FiUsers } from 'react-icons/fi'
 import { createClient } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
 import { EmptyState } from '@/components/dashboard/EmptyState'
@@ -144,6 +144,20 @@ export default async function StudentDashboardPage() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-primary-900 dark:text-white flex items-center gap-2">
+            <FiUsers className="w-5 h-5" /> Class Progress
+          </h2>
+          <Link href="/student/class-progress" className="text-sm font-medium text-primary-700 dark:text-primary-400 hover:underline">
+            View all
+          </Link>
+        </div>
+        <p className="text-sm text-stone-500 dark:text-stone-400">
+          See who in your class has submitted each assignment so far -- no scores, just who&apos;s turned it in.
+        </p>
       </div>
 
       <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-6">

@@ -1,4 +1,4 @@
-import { FiHome, FiBookOpen, FiFileText, FiAward, FiCheckSquare, FiSpeaker, FiUserCheck, FiMessageCircle, FiVideo, FiFolder, FiBarChart2, FiPlayCircle } from 'react-icons/fi'
+import { FiHome, FiBookOpen, FiFileText, FiAward, FiCheckSquare, FiSpeaker, FiUserCheck, FiMessageCircle, FiVideo, FiFolder, FiBarChart2, FiPlayCircle, FiUsers } from 'react-icons/fi'
 import { auth } from '@clerk/nextjs/server'
 import { RoleGuard, DashboardLayout, type SidebarItem } from '@/components/dashboard'
 import { createClient } from '@/lib/supabase/server'
@@ -9,6 +9,7 @@ const baseNavItems: SidebarItem[] = [
   { label: 'Dashboard', href: '/student', icon: <FiHome className={iconClass} /> },
   { label: 'Classes', href: '/student/classes', icon: <FiBookOpen className={iconClass} /> },
   { label: 'Assignments', href: '/student/assignments', icon: <FiFileText className={iconClass} /> },
+  { label: 'Class Progress', href: '/student/class-progress', icon: <FiUsers className={iconClass} /> },
   { label: 'Grades', href: '/student/grades', icon: <FiAward className={iconClass} /> },
   { label: 'Attendance', href: '/student/attendance', icon: <FiCheckSquare className={iconClass} /> },
   { label: 'Reports', href: '/student/reports', icon: <FiBarChart2 className={iconClass} /> },
