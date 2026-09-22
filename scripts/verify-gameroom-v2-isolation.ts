@@ -205,6 +205,17 @@ const EXPECTED_V2_FILES = [
   'components/gameRoomV2/racing/RacingGame.tsx',
   'components/gameRoomV2/racing/index.ts',
   'scripts/verify-gameroom-v2-racing.ts',
+  'lib/gameRoomV2/bossBattle/bosses.ts',
+  'lib/gameRoomV2/bossBattle/abilities.ts',
+  'lib/gameRoomV2/bossBattle/difficulty.ts',
+  'lib/gameRoomV2/bossBattle/battle.ts',
+  'lib/gameRoomV2/bossBattle/index.ts',
+  'components/gameRoomV2/bossBattle/BossSetupPicker.tsx',
+  'components/gameRoomV2/bossBattle/BossArena.tsx',
+  'components/gameRoomV2/bossBattle/VictorySequence.tsx',
+  'components/gameRoomV2/bossBattle/BossBattleGame.tsx',
+  'components/gameRoomV2/bossBattle/index.ts',
+  'scripts/verify-gameroom-v2-boss-battle.ts',
 ]
 for (const file of EXPECTED_V2_FILES) {
   const full = join(ROOT, file)

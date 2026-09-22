@@ -79,22 +79,33 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     id: 'boss-battle',
     name: 'Boss Battle',
     tamilName: null,
-    description: 'Chip away at a boss\'s health bar by answering correctly under time pressure.',
+    description: 'Chip away at a multi-phase boss\'s health with correct answers and abilities.',
     icon: null,
     thumbnail: null,
     compatibility: {
       supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'TEXT_INPUT'],
       soloSupport: true,
+      // Ships solo today (one student vs. a phased boss) with the
+      // battle simulation already shaped for multiple attackers sharing
+      // one boss's health pool (see lib/gameRoomV2/bossBattle/battle.ts's
+      // AttackerState/applyCorrectAnswerDamage) -- multiplayerSupport
+      // stays declared as a real target capability ("architecture ready
+      // for classroom co-op"), but no live multi-session sync/join
+      // flow exists yet. This is architecture, not a shipped co-op mode.
       multiplayerSupport: true,
       liveClassroomSupport: true,
-      homeworkSupport: false,
+      homeworkSupport: true,
       minPlayers: 1,
       maxPlayers: 4,
     },
     recommendedLevel: null,
     estimatedDurationMinutes: 8,
-    status: 'COMING_SOON',
-    version: '0.0.0',
+    // The fourth real, playable engine (after Classic Quiz, Tower
+    // Defense, and Racing) -- built around QuestionOverlay/the shared
+    // session routes the same way. See
+    // components/gameRoomV2/bossBattle/BossBattleGame.tsx.
+    status: 'ACTIVE',
+    version: '0.1.0',
   },
   {
     id: 'racing',
