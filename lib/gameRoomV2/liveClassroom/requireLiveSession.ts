@@ -1,0 +1,103 @@
+import 'server-only'
+import { requireStudent } from '@/lib/require-student'
+import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
+import type { createClient } from '@/lib/supabase/server'
+
+export interface LiveSessionRow {
+  id: string
+  join_code: string
+  host_teacher_id: string
+  class_id: string
+  question_set_id: string
+  engine_id: string
+  status: 'LOBBY' | 'ACTIVE' | 'PAUSED' | 'ENDED'
+  question_time_limit_seconds: number
+  question_order: string[]
+  paused_at: string | null
+  pause_duration_seconds: number
+  created_at: string
+  started_at: string | null
+  ended_at: string | null
+}
+
+// Every HOST route (start/pause/resume/end, the teacher's own lobby
+// view) authenticates through this -- mirrors requireGameV2Session's
+// "wrap the role guard, then load/validate the row, scoped to the
+// caller" shape. RLS ("gamev2_live_sessions: host teacher manage own")
+// is the real enforcement boundary; this guard just gives a clean
+// 404 instead of a raw RLS-empty-result.
+export async function requireLiveSessionHost(
+  liveSessionId: unknown
+): Promise<
+  | { ok: true; supabase: ReturnType<typeof createClient>; teacherId: string; liveSession: LiveSessionRow }
+  | { ok: false; status: number; error: string }
+> {
+  if (typeof liveSessionId !== 'string' || !liveSessionId) {
+    return { ok: false, status: 400, error: 'liveSessionId is required' }
+  }
+
+  const guard = await requireGameV2Teacher()
+  if (!guard.ok) {
+    return { ok: false, status: guard.status, error: guard.error }
+  }
+  const { supabase, teacher, isAdmin } = guard
+
+  if (!teacher && !isAdmin) {
+    return { ok: false, status: 403, error: 'No teacher record found for this account' }
+  }
+
+  const { data: liveSession } = await supabase.from('sms_gamev2_live_sessions').select('*').eq('id', liveSessionId).single()
+
+  if (!liveSession) {
+    return { ok: false, status: 404, error: 'Live session not found' }
+  }
+
+  return { ok: true, supabase, teacherId: liveSession.host_teacher_id, liveSession: liveSession as LiveSessionRow }
+}
+
+// Every PARTICIPANT route (heartbeat, leave, the student's own lobby
+// view) authenticates through this -- requires the caller to already
+// HAVE a sms_gamev2_live_participants row for this live session (i.e.
+// they've already joined via /join, which is the only route that
+// creates that row). RLS ("gamev2_live_participants: student manage
+// own") scopes the participant lookup to the caller's own row.
+export async function requireLiveSessionParticipant(
+  liveSessionId: unknown
+): Promise<
+  | {
+      ok: true
+      supabase: ReturnType<typeof createClient>
+      studentId: string
+      liveSession: LiveSessionRow
+      participant: { id: string; connected: boolean; last_seen_at: string; session_id: string | null }
+    }
+  | { ok: false; status: number; error: string }
+> {
+  if (typeof liveSessionId !== 'string' || !liveSessionId) {
+    return { ok: false, status: 400, error: 'liveSessionId is required' }
+  }
+
+  const guard = await requireStudent()
+  if (!guard.ok) {
+    return { ok: false, status: guard.status, error: guard.error }
+  }
+  const { supabase, student } = guard
+
+  const { data: liveSession } = await supabase.from('sms_gamev2_live_sessions').select('*').eq('id', liveSessionId).single()
+  if (!liveSession) {
+    return { ok: false, status: 404, error: 'Live session not found' }
+  }
+
+  const { data: participant } = await supabase
+    .from('sms_gamev2_live_participants')
+    .select('id, connected, last_seen_at, session_id')
+    .eq('live_session_id', liveSessionId)
+    .eq('student_id', student.id)
+    .maybeSingle()
+
+  if (!participant) {
+    return { ok: false, status: 403, error: 'You have not joined this live session' }
+  }
+
+  return { ok: true, supabase, studentId: student.id, liveSession: liveSession as LiveSessionRow, participant }
+}

@@ -6,6 +6,7 @@ import { GameV2Modal, GameV2Empty, GameV2StatusPill } from '@/components/gameRoo
 import { checkEngineCompatibility, type GameRoomQuestionType } from '@/lib/gameRoomV2/domain'
 import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
 import { toast } from '@/lib/toast'
+import { HostLiveModal } from '@/components/gameRoomV2/liveClassroom/HostLiveModal'
 
 const ENGINE_ICON: Record<string, string> = {
   'classic-quiz': '❓',
@@ -48,6 +49,7 @@ export function ChooseGameModal({
 }) {
   const router = useRouter()
   const [starting, setStarting] = useState<string | null>(null)
+  const [hostingEngineId, setHostingEngineId] = useState<string | null>(null)
   const compatible = checkEngineCompatibility(GAME_ENGINES_V2, questionTypes).filter((r) => r.compatible)
 
   async function handlePlay(engineId: string) {
@@ -79,26 +81,47 @@ export function ChooseGameModal({
           {compatible.map(({ engine }) => {
             const isPlayable = engine.status === 'ACTIVE' || engine.status === 'BETA'
             return (
-              <button
+              <div
                 key={engine.id}
-                type="button"
-                disabled={!isPlayable || starting !== null}
-                onClick={() => handlePlay(engine.id)}
-                className={`rounded-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 p-4 text-center transition-colors ${
-                  isPlayable ? 'hover:border-gamev2spark-400 cursor-pointer' : 'opacity-70 cursor-not-allowed'
-                }`}
+                className={`rounded-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 p-4 text-center ${!isPlayable ? 'opacity-70' : ''}`}
               >
-                <p className="text-3xl mb-2" aria-hidden>
-                  {ENGINE_ICON[engine.id] ?? '🎮'}
-                </p>
-                <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100 text-sm">{engine.name}</p>
-                <div className="mt-2 flex justify-center">
-                  <GameV2StatusPill status={starting === engine.id ? 'ACTIVE' : engine.status} />
-                </div>
-              </button>
+                <button
+                  type="button"
+                  disabled={!isPlayable || starting !== null}
+                  onClick={() => handlePlay(engine.id)}
+                  className={`w-full ${isPlayable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                >
+                  <p className="text-3xl mb-2" aria-hidden>
+                    {ENGINE_ICON[engine.id] ?? '🎮'}
+                  </p>
+                  <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100 text-sm">{engine.name}</p>
+                  <div className="mt-2 flex justify-center">
+                    <GameV2StatusPill status={starting === engine.id ? 'ACTIVE' : engine.status} />
+                  </div>
+                </button>
+                {isPlayable && engine.compatibility.liveClassroomSupport && (
+                  <button
+                    type="button"
+                    onClick={() => setHostingEngineId(engine.id)}
+                    className="mt-3 w-full text-xs font-bold text-gamev2spark-600 dark:text-gamev2spark-400 hover:underline"
+                  >
+                    Host Live &rarr;
+                  </button>
+                )}
+              </div>
             )
           })}
         </div>
+      )}
+
+      {hostingEngineId && (
+        <HostLiveModal
+          open={Boolean(hostingEngineId)}
+          onClose={() => setHostingEngineId(null)}
+          questionSetId={questionSetId}
+          engineId={hostingEngineId}
+          setTitle={setTitle}
+        />
       )}
     </GameV2Modal>
   )
