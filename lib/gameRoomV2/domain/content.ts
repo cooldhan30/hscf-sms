@@ -1,5 +1,11 @@
 import type { GameRoomQuestionType, QuestionPayloadFor } from './questionTypes'
 
+export const QUESTION_SET_VISIBILITIES = ['PRIVATE', 'SCHOOL', 'PUBLIC'] as const
+export type QuestionSetVisibility = (typeof QUESTION_SET_VISIBILITIES)[number]
+
+export const QUESTION_SET_DIFFICULTIES = ['easy', 'medium', 'hard'] as const
+export type QuestionSetDifficulty = (typeof QUESTION_SET_DIFFICULTIES)[number]
+
 // The CONTENT half of GameRoom V2's content/gameplay split. A teacher
 // authors a GameRoomQuestionSet once; it carries no reference to any
 // game engine at all -- which engines can play it is determined later,
@@ -14,6 +20,22 @@ export interface GameRoomQuestionSet {
   id: string
   title: string
   description: string | null
+  // Optional Tamil/English-specific display titles (migration 074) --
+  // separate from `title` (the internal/administrative name) so a
+  // teacher can show students "திணை சவால்" while the set is still
+  // titled "Grammar Set 3 - Thinai" in their own list. Either or both
+  // may be null; `title` is always the fallback for display.
+  tamilTitle: string | null
+  englishTitle: string | null
+  // நிலை -- reuses the same GRADE_LEVEL_OPTIONS values as the rest of
+  // the app (lib/constants.ts), not a separate scale.
+  level: string | null
+  subject: string | null
+  topic: string | null
+  difficulty: QuestionSetDifficulty | null
+  estimatedDurationMinutes: number | null
+  tags: string[]
+  visibility: QuestionSetVisibility
   // null = a shared/library set usable by any class, same convention
   // as sms_resources.class_id.
   classId: string | null

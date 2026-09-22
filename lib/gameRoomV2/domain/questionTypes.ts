@@ -120,6 +120,10 @@ export interface ReadingFluencyPayload {
   expectedWordsPerMinute?: number
 }
 
+export function isImplementedQuestionType(type: string): type is GameRoomQuestionType {
+  return (IMPLEMENTED_QUESTION_TYPES as readonly string[]).includes(type)
+}
+
 export type QuestionPayloadFor<T extends GameRoomQuestionType> = T extends 'MULTIPLE_CHOICE'
   ? MultipleChoicePayload
   : T extends 'TRUE_FALSE'
