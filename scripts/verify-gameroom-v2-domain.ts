@@ -10,6 +10,7 @@
 
 import { GAME_ROOM_V2_QUESTION_TYPES, IMPLEMENTED_QUESTION_TYPES } from '../lib/gameRoomV2/domain/questionTypes'
 import { GAME_ENGINES_V2, getGameEngineV2, compatibleEnginesForQuestionTypes } from '../lib/gameRoomV2/registry'
+import { LEARNING_WORLDS, getLearningWorld } from '../lib/gameRoomV2/domain/learningWorld'
 
 let failures = 0
 
@@ -37,7 +38,7 @@ assert(
 assert(GAME_ROOM_V2_QUESTION_TYPES.length === 12, `exactly 12 question types declared (found ${GAME_ROOM_V2_QUESTION_TYPES.length})`)
 
 console.log('\n== Engine registry ==')
-assert(GAME_ENGINES_V2.length === 5, `5 engines registered as scaffolding (found ${GAME_ENGINES_V2.length})`)
+assert(GAME_ENGINES_V2.length === 12, `12 engines registered as scaffolding (found ${GAME_ENGINES_V2.length})`)
 assert(
   GAME_ENGINES_V2.every((e) => e.status === 'COMING_SOON'),
   'every registered engine is COMING_SOON -- none implemented yet, per explicit scope'
@@ -45,6 +46,26 @@ assert(
 assert(getGameEngineV2('classic-quiz') !== undefined, "getGameEngineV2('classic-quiz') resolves")
 assert(getGameEngineV2('tower-defense') !== undefined, "getGameEngineV2('tower-defense') resolves (metadata only, not built)")
 assert(getGameEngineV2('does-not-exist') === undefined, 'getGameEngineV2 returns undefined for an unknown id')
+for (const id of ['word-ninja', 'space-mission', 'kingdom-builder', 'mystery-mansion', 'crossword', 'matching', 'memory']) {
+  assert(getGameEngineV2(id) !== undefined, `getGameEngineV2('${id}') resolves (home-screen roster engine)`)
+}
+
+console.log('\n== Learning Worlds ==')
+assert(LEARNING_WORLDS.length === 6, `6 learning worlds declared (found ${LEARNING_WORLDS.length})`)
+for (const id of [
+  'letters-world',
+  'sounds-world',
+  'words-world',
+  'sentence-world',
+  'story-world',
+  'tamil-challenge-world',
+]) {
+  assert(getLearningWorld(id) !== undefined, `getLearningWorld('${id}') resolves`)
+}
+assert(
+  LEARNING_WORLDS.every((w) => w.engineIds.every((id) => getGameEngineV2(id) !== undefined)),
+  'every world only references engine ids that actually exist in the registry'
+)
 
 console.log('\n== Content/gameplay separation: compatibility matching ==')
 const mcqOnly = compatibleEnginesForQuestionTypes(['MULTIPLE_CHOICE'])
@@ -54,8 +75,8 @@ assert(mcqOnly.some((e) => e.id === 'racing'), 'a MULTIPLE_CHOICE-only set is co
 
 const matchOnly = compatibleEnginesForQuestionTypes(['MATCH'])
 assert(
-  matchOnly.length === 1 && matchOnly[0].id === 'treasure-quest',
-  'a MATCH-only set is compatible with exactly Treasure Quest'
+  matchOnly.some((e) => e.id === 'treasure-quest') && matchOnly.some((e) => e.id === 'matching'),
+  'a MATCH-only set is compatible with Treasure Quest and the lightweight Matching activity'
 )
 
 const mixedUnsupported = compatibleEnginesForQuestionTypes(['MULTIPLE_CHOICE', 'PRONUNCIATION'])

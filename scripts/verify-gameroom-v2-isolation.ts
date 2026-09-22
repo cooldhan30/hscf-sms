@@ -124,6 +124,11 @@ const EXPECTED_V2_FILES = [
   'app/gameroom-v2/page.tsx',
   'app/api/gameroom-v2/engines/route.ts',
   'supabase/migrations/073_gameroom_v2_foundation.sql',
+  'lib/gameRoomV2/domain/learningWorld.ts',
+  'app/gameroom-v2/home/page.tsx',
+  'app/gameroom-v2/home/HomeScreenClient.tsx',
+  'components/gameRoomV2/WorldCard.tsx',
+  'components/gameRoomV2/StudentStatusBar.tsx',
 ]
 for (const file of EXPECTED_V2_FILES) {
   const full = join(ROOT, file)
