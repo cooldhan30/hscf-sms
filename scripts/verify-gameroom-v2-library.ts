@@ -59,13 +59,13 @@ const nothingPlayable = playableEngineIds(['PRONUNCIATION'])
 assert(nothingPlayable.length === 0, 'a set with only an unimplemented question type has zero playable games -- never a fabricated launch target')
 
 // Classic Quiz, Tower Defense, Racing, Boss Battle, Treasure Quest,
-// Word Ninja, Space Mission, Kingdom Builder, and Mystery Mansion are
-// the real, playable (ACTIVE) engines so far -- every other engine is
-// still COMING_SOON. Confirming this here (alongside
-// verify-gameroom-v2-domain.ts) because it's the exact guarantee
-// ChooseGameModal relies on: only ACTIVE/BETA engines are clickable,
-// everything else shows an inert "Coming Soon" badge.
-const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'treasure-quest', 'word-ninja', 'space-mission', 'kingdom-builder', 'mystery-mansion']
+// Word Ninja, Space Mission, Kingdom Builder, Mystery Mansion,
+// Matching, and Memory are the real, playable (ACTIVE) engines so far
+// -- every other engine is still COMING_SOON. Confirming this here
+// (alongside verify-gameroom-v2-domain.ts) because it's the exact
+// guarantee ChooseGameModal relies on: only ACTIVE/BETA engines are
+// clickable, everything else shows an inert "Coming Soon" badge.
+const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'treasure-quest', 'word-ninja', 'space-mission', 'kingdom-builder', 'mystery-mansion', 'matching', 'memory']
 assert(
   GAME_ENGINES_V2.filter((e) => e.status !== 'COMING_SOON').every((e) => ACTIVE_ENGINE_IDS.includes(e.id)),
   `the only non-COMING_SOON engines are {${ACTIVE_ENGINE_IDS.join(', ')}} -- every other engine stays unimplemented`

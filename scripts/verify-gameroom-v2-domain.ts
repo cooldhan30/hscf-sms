@@ -45,12 +45,16 @@ assert(GAME_ENGINES_V2.length === 12, `12 engines registered as scaffolding (fou
 // own lane-slashing UI submitting the same CATEGORIZE answer shape
 // directly), Space Mission (a mission-path flight visual, also built
 // around QuestionOverlay/GameHUD), Kingdom Builder (a CSS/SVG
-// settlement scene, same pattern), and Mystery Mansion (a
-// per-session-seeded room-by-room investigation, same pattern) -- see
-// components/gameRoomV2/{towerDefense,racing,bossBattle,treasureQuest,wordNinja,spaceMission,kingdomBuilder,mysteryMansion}/
+// settlement scene, same pattern), Mystery Mansion (a
+// per-session-seeded room-by-room investigation, same pattern), and
+// Matching/Memory (built on the shared card/grid layer --
+// lib/gameRoomV2/cardGrid + components/gameRoomV2/cardGrid --
+// submitting the same Record<left,right> MATCH answer shape
+// MatchInput's dropdown form does) -- see
+// components/gameRoomV2/{towerDefense,racing,bossBattle,treasureQuest,wordNinja,spaceMission,kingdomBuilder,mysteryMansion,matching,memory}/
 // -- are the real, playable engines so far; every other engine stays
 // COMING_SOON until it gets the same treatment.
-const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'treasure-quest', 'word-ninja', 'space-mission', 'kingdom-builder', 'mystery-mansion']
+const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'treasure-quest', 'word-ninja', 'space-mission', 'kingdom-builder', 'mystery-mansion', 'matching', 'memory']
 assert(
   GAME_ENGINES_V2.filter((e) => e.status === 'COMING_SOON').length === GAME_ENGINES_V2.length - ACTIVE_ENGINE_IDS.length,
   `every engine except {${ACTIVE_ENGINE_IDS.join(', ')}} is still COMING_SOON`
@@ -64,6 +68,8 @@ assert(getGameEngineV2('word-ninja')?.status === 'ACTIVE', 'Word Ninja is ACTIVE
 assert(getGameEngineV2('space-mission')?.status === 'ACTIVE', 'Space Mission is ACTIVE, genuinely playable')
 assert(getGameEngineV2('kingdom-builder')?.status === 'ACTIVE', 'Kingdom Builder is ACTIVE, genuinely playable')
 assert(getGameEngineV2('mystery-mansion')?.status === 'ACTIVE', 'Mystery Mansion is ACTIVE, genuinely playable')
+assert(getGameEngineV2('matching')?.status === 'ACTIVE', 'Matching is ACTIVE, genuinely playable')
+assert(getGameEngineV2('memory')?.status === 'ACTIVE', 'Memory is ACTIVE, genuinely playable')
 assert(getGameEngineV2('does-not-exist') === undefined, 'getGameEngineV2 returns undefined for an unknown id')
 for (const id of ['word-ninja', 'space-mission', 'kingdom-builder', 'mystery-mansion', 'crossword', 'matching', 'memory']) {
   assert(getGameEngineV2(id) !== undefined, `getGameEngineV2('${id}') resolves (home-screen roster engine)`)

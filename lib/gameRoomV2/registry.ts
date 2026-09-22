@@ -342,8 +342,16 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     },
     recommendedLevel: null,
     estimatedDurationMinutes: 5,
-    status: 'COMING_SOON',
-    version: '0.0.0',
+    // The tenth real, playable engine -- a reusable shared card/grid
+    // layer (lib/gameRoomV2/cardGrid + components/gameRoomV2/cardGrid,
+    // shared with Memory below) with Matching's own tap-to-pair round
+    // logic on top. Promoted from BETA to ACTIVE only after
+    // scripts/verify-gameroom-v2-matching.ts and the full
+    // verify-gameroom-v2-*.ts suite, tsc, lint, and build all passed. See
+    // lib/gameRoomV2/matching/* and
+    // components/gameRoomV2/matching/MatchingGame.tsx.
+    status: 'ACTIVE',
+    version: '0.1.0',
   },
   {
     id: 'memory',
@@ -353,7 +361,14 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     icon: null,
     thumbnail: null,
     compatibility: {
-      supportedQuestionTypes: ['MATCH', 'IMAGE_CHOICE'],
+      // MATCH only, not IMAGE_CHOICE -- a classic memory pairing needs
+      // two items with an actual RELATIONSHIP (pairs.left/right), which
+      // is exactly what MATCH's payload provides and IMAGE_CHOICE (a
+      // single-answer image select, no pair structure) does not. Declaring
+      // IMAGE_CHOICE support here would overstate what the engine
+      // actually does, per this registry's own "shipped, not
+      // aspirational" convention.
+      supportedQuestionTypes: ['MATCH'],
       soloSupport: true,
       multiplayerSupport: false,
       liveClassroomSupport: false,
@@ -363,8 +378,14 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     },
     recommendedLevel: null,
     estimatedDurationMinutes: 5,
-    status: 'COMING_SOON',
-    version: '0.0.0',
+    // The eleventh real, playable engine -- built on the same shared
+    // card/grid layer as Matching, with Memory's own flip-and-remember
+    // round logic on top. Promoted from BETA to ACTIVE only after
+    // scripts/verify-gameroom-v2-memory.ts and the full
+    // verify-gameroom-v2-*.ts suite, tsc, lint, and build all passed. See
+    // lib/gameRoomV2/memory/* and components/gameRoomV2/memory/MemoryGame.tsx.
+    status: 'ACTIVE',
+    version: '0.1.0',
   },
 ]
 

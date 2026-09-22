@@ -11,6 +11,8 @@ import { WordNinjaGame } from '@/components/gameRoomV2/wordNinja'
 import { SpaceMissionGame } from '@/components/gameRoomV2/spaceMission'
 import { KingdomBuilderGame } from '@/components/gameRoomV2/kingdomBuilder'
 import { MysteryMansionGame } from '@/components/gameRoomV2/mysteryMansion'
+import { MatchingGame } from '@/components/gameRoomV2/matching'
+import { MemoryGame } from '@/components/gameRoomV2/memory'
 import { GameV2Loading } from '@/components/gameRoomV2'
 
 // Most engines have no visual layer of their own and mount
@@ -116,6 +118,26 @@ export function PlaySessionClient({ sessionId }: { sessionId: string }) {
   if (engineId === 'mystery-mansion') {
     return (
       <MysteryMansionGame
+        sessionId={sessionId}
+        onExit={() => router.push('/gameroom-v2/library')}
+        onPlayAgain={() => router.push('/gameroom-v2/library')}
+      />
+    )
+  }
+
+  if (engineId === 'matching') {
+    return (
+      <MatchingGame
+        sessionId={sessionId}
+        onExit={() => router.push('/gameroom-v2/library')}
+        onPlayAgain={() => router.push('/gameroom-v2/library')}
+      />
+    )
+  }
+
+  if (engineId === 'memory') {
+    return (
+      <MemoryGame
         sessionId={sessionId}
         onExit={() => router.push('/gameroom-v2/library')}
         onPlayAgain={() => router.push('/gameroom-v2/library')}
