@@ -1,11 +1,14 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
-import { FiLock } from 'react-icons/fi'
+import Link from 'next/link'
+import { FiLock, FiCompass } from 'react-icons/fi'
 import { requireGameV2Access } from '@/lib/gameRoomV2/requireAccess'
 import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
-import { EngineStatusBadge } from './EngineStatusBadge'
+import { GameTile, type GameTileAccent } from '@/components/gameRoomV2'
 
 export const dynamic = 'force-dynamic'
+
+const TILE_ACCENTS: GameTileAccent[] = ['ink', 'coral', 'mint', 'cyan', 'magenta']
 
 // Deliberately a top-level route, NOT nested under /student or
 // /teacher -- middleware's role-gating (lib/supabase/middleware.ts's
@@ -41,46 +44,37 @@ export default async function GameRoomV2Page() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 px-4 py-10">
+    <div className="min-h-screen bg-stone-50 dark:bg-gamev2ink-950 px-4 sm:px-6 py-10">
       <div className="max-w-3xl mx-auto space-y-6">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-terracotta-600 dark:text-terracotta-400">
-            Internal preview{access.isAdmin ? ' · Admin' : ' · Tester'}
-          </p>
-          <h1 className="text-2xl font-bold text-primary-900 dark:text-white mt-0.5">Tamizhi GameRoom V2</h1>
-          <p className="text-stone-500 dark:text-stone-400 mt-1">
-            A separate, in-development platform where a teacher builds a Question Set once, then plays it through
-            any compatible game engine below. Nothing here is connected to the current GameRoom.
-          </p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-gamev2spark-600 dark:text-gamev2spark-400">
+              Internal preview{access.isAdmin ? ' · Admin' : ' · Tester'}
+            </p>
+            <h1 className="text-2xl font-black text-gamev2ink-900 dark:text-white mt-0.5">Tamizhi GameRoom V2</h1>
+            <p className="text-gamev2ink-500 dark:text-gamev2ink-400 mt-1 max-w-lg">
+              A teacher builds a Question Set once, then plays it through any compatible game engine below. Nothing
+              here is connected to the current GameRoom.
+            </p>
+          </div>
+          <Link
+            href="/gameroom-v2/design"
+            className="inline-flex items-center gap-1.5 text-sm font-bold text-gamev2ink-600 dark:text-gamev2ink-300 hover:text-gamev2ink-800 dark:hover:text-white whitespace-nowrap"
+          >
+            <FiCompass className="w-4 h-4" /> Design Gallery
+          </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {GAME_ENGINES_V2.map((engine) => (
-            <div
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {GAME_ENGINES_V2.map((engine, i) => (
+            <GameTile
               key={engine.id}
-              className="p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="font-bold text-stone-800 dark:text-stone-100">{engine.name}</h2>
-                  {engine.tamilName && (
-                    <p className="text-sm text-stone-500 dark:text-stone-400">{engine.tamilName}</p>
-                  )}
-                </div>
-                <EngineStatusBadge status={engine.status} />
-              </div>
-              <p className="text-sm text-stone-600 dark:text-stone-300 mt-2">{engine.description}</p>
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {engine.compatibility.supportedQuestionTypes.map((t) => (
-                  <span
-                    key={t}
-                    className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
+              title={engine.name}
+              tamilTitle={engine.tamilName}
+              icon={<span>🎮</span>}
+              accent={TILE_ACCENTS[i % TILE_ACCENTS.length]}
+              status={engine.status}
+            />
           ))}
         </div>
       </div>

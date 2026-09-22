@@ -79,7 +79,9 @@ console.log(`  Checked ${legacyFileCount} legacy files.`)
 
 console.log('\n== 2. No cross-imports between legacy GameRoom and V2 ==')
 function findImportsOf(file: string, needleFragments: string[]): string[] {
-  const content = readFileSync(join(ROOT, file), 'utf8')
+  const full = join(ROOT, file)
+  if (!existsSync(full)) return [] // deleted in the working tree -- handled/reported by check #1 instead
+  const content = readFileSync(full, 'utf8')
   const importLines = content.split('\n').filter((l) => /^\s*import\b/.test(l) || /from\s+['"]/.test(l))
   return importLines.filter((line) => needleFragments.some((f) => line.includes(f)))
 }
@@ -164,6 +166,35 @@ for (const id of [...EXPECTED_LEGACY_QUIZ_IDS, ...EXPECTED_LEGACY_INTERACTIVE_ID
   }
 }
 console.log(`  Checked ${EXPECTED_LEGACY_QUIZ_IDS.length + EXPECTED_LEGACY_INTERACTIVE_IDS.length} legacy module references.`)
+
+console.log('\n== 5. Shared config files touched by V2 work are additive-only ==')
+// tailwind.config.ts is the one file the V2 design system legitimately
+// needs to touch (it's shared, global config -- there's no way to scope
+// Tailwind's color/keyframe tokens to one subtree). Asserted here as
+// zero deletions vs. git HEAD so a future edit that removes or
+// repurposes an EXISTING key (as opposed to adding a new gamev2* one)
+// fails loudly instead of silently changing another portal's theme.
+const SHARED_CONFIG_FILES_MUST_BE_ADDITIVE_ONLY = ['tailwind.config.ts']
+for (const file of SHARED_CONFIG_FILES_MUST_BE_ADDITIVE_ONLY) {
+  const headContent = gitShowHead(file)
+  const workingContent = existsSync(join(ROOT, file)) ? readFileSync(join(ROOT, file), 'utf8') : null
+  if (headContent === null || workingContent === null) {
+    console.log(`  skip: ${file} not found in HEAD or working tree (no baseline to diff against yet)`)
+    continue
+  }
+  if (headContent === workingContent) {
+    console.log(`  ok: ${file} unchanged`)
+    continue
+  }
+  const diffOutput = execSync(`git diff --numstat -- "${file}"`, { cwd: ROOT, encoding: 'utf8' }).trim()
+  const [added, removed] = diffOutput.split(/\s+/).map(Number)
+  if (removed > 0) {
+    console.error(`  FAIL: ${file} has ${removed} removed/modified line(s) -- shared config must only gain new keys, never change existing ones`)
+    failures++
+  } else {
+    console.log(`  ok: ${file} changed additively only (+${added} lines, 0 removed)`)
+  }
+}
 
 console.log(`\n${failures === 0 ? 'PASS' : 'FAIL'}: ${failures} failure(s).`)
 process.exit(failures === 0 ? 0 : 1)
