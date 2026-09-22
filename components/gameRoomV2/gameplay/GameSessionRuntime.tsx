@@ -1,15 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
 import { GameV2Loading, GameV2Error, GameV2Card } from '@/components/gameRoomV2'
 import { GameHUD } from './GameHUD'
 import { QuestionOverlay, type QuestionOverlayQuestion } from './QuestionOverlay'
 import { GameResultsScreen } from './GameResultsScreen'
 import { useSoundPreference } from './useSoundPreference'
-import { playSound } from './playSound'
-import type { GameResult } from '@/lib/gameRoomV2/domain'
-
-const POLL_INTERVAL_MS = 2000
+import { useGameSessionState } from './useGameSessionState'
 
 interface StatePayload {
   status: 'CREATED' | 'READY' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ABANDONED'
@@ -53,85 +49,18 @@ export function GameSessionRuntime({
   onExit: () => void
   onPlayAgain?: () => void
 }) {
-  const [state, setState] = useState<StatePayload | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<GameResult | null>(null)
-  const [pausing, setPausing] = useState(false)
   const { soundEnabled, toggleSound } = useSoundPreference()
-  const lastCompletedSoundRef = useRef(false)
-
-  const poll = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/gameroom-v2/sessions/${sessionId}/state`, { method: 'POST' })
-      const data = await res.json().catch(() => null)
-      if (!res.ok || !data) {
-        setError(data?.error || 'Lost connection to the game')
-        return
-      }
-      setError(null)
-      setState(data)
-    } catch {
-      setError('Lost connection -- retrying...')
-    }
-  }, [sessionId])
-
-  useEffect(() => {
-    poll()
-    const interval = setInterval(poll, POLL_INTERVAL_MS)
-    return () => clearInterval(interval)
-  }, [poll])
-
-  // Once the session reaches COMPLETED, finalize it exactly once (see
-  // complete/route.ts's idempotency guarantee) and fetch the full
-  // Results payload -- this effect only fires the request the FIRST
-  // time it observes COMPLETED, since `result` being set thereafter
-  // prevents it from re-firing on subsequent polls.
-  useEffect(() => {
-    if (state?.status !== 'COMPLETED' || result) return
-
-    if (!lastCompletedSoundRef.current) {
-      lastCompletedSoundRef.current = true
-      playSound('complete', soundEnabled)
-    }
-
-    fetch(`/api/gameroom-v2/sessions/${sessionId}/complete`, { method: 'POST' })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) {
-          setError(data.error)
-          return
-        }
-        setResult({
-          sessionId: data.sessionId,
-          score: data.score,
-          accuracyPct: data.accuracyPct,
-          correctCount: data.correctCount,
-          incorrectCount: data.incorrectCount,
-          totalQuestions: data.totalQuestions,
-          xpEarned: data.xpEarned,
-          coinsEarned: data.coinsEarned,
-          bestStreak: data.bestStreak,
-          skillsPracticed: data.skillsPracticed,
-          responses: [],
-        })
-      })
-      .catch(() => setError('Failed to load your results'))
-  }, [state?.status, result, sessionId, soundEnabled])
+  const { state, error, result, pausing, poll, togglePause, exit } = useGameSessionState<StatePayload>({
+    sessionId,
+    soundEnabled,
+  })
 
   async function handleTogglePause() {
-    if (!state) return
-    setPausing(true)
-    const endpoint = state.status === 'PAUSED' ? 'resume' : 'pause'
-    await fetch(`/api/gameroom-v2/sessions/${sessionId}/${endpoint}`, { method: 'POST' })
-    setPausing(false)
-    poll()
+    await togglePause()
   }
 
   async function handleExit() {
-    if (state && state.status !== 'COMPLETED' && state.status !== 'ABANDONED') {
-      await fetch(`/api/gameroom-v2/sessions/${sessionId}/abandon`, { method: 'POST' })
-    }
-    onExit()
+    await exit(onExit)
   }
 
   // The next /state poll (at most POLL_INTERVAL_MS away) picks up the

@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { GameV2Card, GameV2Button, GameV2Loading, GameV2Error } from '@/components/gameRoomV2'
-import { QuestionOverlay, type QuestionOverlayQuestion, GameResultsScreen, useSoundPreference, playSound } from '@/components/gameRoomV2/gameplay'
+import { QuestionOverlay, type QuestionOverlayQuestion, GameResultsScreen, useSoundPreference, playSound, useGameSessionState } from '@/components/gameRoomV2/gameplay'
 import { BossSetupPicker } from './BossSetupPicker'
 import { BossArena } from './BossArena'
 import { VictorySequence } from './VictorySequence'
@@ -19,9 +19,7 @@ import {
   type BossBattleDifficulty,
   type AbilityId,
 } from '@/lib/gameRoomV2/bossBattle'
-import type { GameResult } from '@/lib/gameRoomV2/domain'
 
-const POLL_INTERVAL_MS = 2000
 const SIM_INTERVAL_MS = 100
 
 interface StatePayload {
@@ -43,36 +41,16 @@ export function BossBattleGame({ sessionId, onExit, onPlayAgain }: { sessionId: 
   const [bossId, setBossId] = useState<BossId | null>(null)
   const [difficulty, setDifficulty] = useState<BossBattleDifficulty | null>(null)
   const [battle, setBattle] = useState<BattleState | null>(null)
-  const [sessionState, setSessionState] = useState<StatePayload | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<GameResult | null>(null)
   const [showQuestion, setShowQuestion] = useState(false)
   const [lastHitBoss, setLastHitBoss] = useState(false)
   const [lastHitPlayer, setLastHitPlayer] = useState(false)
   const [showVictorySequence, setShowVictorySequence] = useState(false)
   const { soundEnabled } = useSoundPreference()
-
-  const poll = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/gameroom-v2/sessions/${sessionId}/state`, { method: 'POST' })
-      const data = await res.json().catch(() => null)
-      if (!res.ok || !data) {
-        setError(data?.error || 'Lost connection to the game')
-        return
-      }
-      setError(null)
-      setSessionState(data)
-    } catch {
-      setError('Lost connection -- retrying...')
-    }
-  }, [sessionId])
-
-  useEffect(() => {
-    if (!difficulty) return
-    poll()
-    const interval = setInterval(poll, POLL_INTERVAL_MS)
-    return () => clearInterval(interval)
-  }, [poll, difficulty])
+  const { state: sessionState, error, result, poll, togglePause, exit } = useGameSessionState<StatePayload>({
+    sessionId,
+    enabled: !!difficulty,
+    soundEnabled,
+  })
 
   // Local battle clock: the boss counterattacks on its own phase-driven
   // interval, entirely independent of the 2s session poll. Frozen while
@@ -113,32 +91,6 @@ export function BossBattleGame({ sessionId, onExit, onPlayAgain }: { sessionId: 
     setShowQuestion(true)
   }, [battle, sessionState, showQuestion])
 
-  useEffect(() => {
-    if (sessionState?.status !== 'COMPLETED' || result) return
-    fetch(`/api/gameroom-v2/sessions/${sessionId}/complete`, { method: 'POST' })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) {
-          setError(data.error)
-          return
-        }
-        setResult({
-          sessionId: data.sessionId,
-          score: data.score,
-          accuracyPct: data.accuracyPct,
-          correctCount: data.correctCount,
-          incorrectCount: data.incorrectCount,
-          totalQuestions: data.totalQuestions,
-          xpEarned: data.xpEarned,
-          coinsEarned: data.coinsEarned,
-          bestStreak: data.bestStreak,
-          skillsPracticed: data.skillsPracticed,
-          responses: [],
-        })
-      })
-      .catch(() => setError('Failed to load your results'))
-  }, [sessionState?.status, result, sessionId])
-
   function handleStart(chosenBossId: BossId, chosenDifficulty: BossBattleDifficulty) {
     setBossId(chosenBossId)
     setDifficulty(chosenDifficulty)
@@ -176,24 +128,17 @@ export function BossBattleGame({ sessionId, onExit, onPlayAgain }: { sessionId: 
   }
 
   async function handleTogglePause() {
-    if (!sessionState) return
-    const endpoint = sessionState.status === 'PAUSED' ? 'resume' : 'pause'
-    await fetch(`/api/gameroom-v2/sessions/${sessionId}/${endpoint}`, { method: 'POST' })
-    poll()
+    await togglePause()
   }
 
   async function handleExit() {
-    if (sessionState && sessionState.status !== 'COMPLETED' && sessionState.status !== 'ABANDONED') {
-      await fetch(`/api/gameroom-v2/sessions/${sessionId}/abandon`, { method: 'POST' })
-    }
-    onExit()
+    await exit(onExit)
   }
 
   function handleRestart() {
     setBossId(null)
     setDifficulty(null)
     setBattle(null)
-    setResult(null)
     setShowVictorySequence(false)
   }
 

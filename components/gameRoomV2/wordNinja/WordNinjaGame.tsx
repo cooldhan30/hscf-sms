@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { GameV2Card, GameV2Loading, GameV2Error } from '@/components/gameRoomV2'
-import { GameResultsScreen, useSoundPreference, playSound } from '@/components/gameRoomV2/gameplay'
+import { GameResultsScreen, useSoundPreference, playSound, useGameSessionState } from '@/components/gameRoomV2/gameplay'
 import { NinjaSetupPicker } from './NinjaSetupPicker'
 import { NinjaBoard } from './NinjaBoard'
 import {
@@ -16,9 +16,7 @@ import {
   type RoundState,
   type WordNinjaDifficulty,
 } from '@/lib/gameRoomV2/wordNinja'
-import type { GameResult } from '@/lib/gameRoomV2/domain'
 
-const POLL_INTERVAL_MS = 2000
 const SIM_INTERVAL_MS = 100
 
 interface CategorizeQuestion {
@@ -51,34 +49,16 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain }: { sessionId: s
   const [difficulty, setDifficulty] = useState<WordNinjaDifficulty | null>(null)
   const [round, setRound] = useState<RoundState | null>(null)
   const [selectedWordId, setSelectedWordId] = useState<string | null>(null)
-  const [sessionState, setSessionState] = useState<StatePayload | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<GameResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const { soundEnabled } = useSoundPreference()
-
-  const poll = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/gameroom-v2/sessions/${sessionId}/state`, { method: 'POST' })
-      const data = await res.json().catch(() => null)
-      if (!res.ok || !data) {
-        setError(data?.error || 'Lost connection to the game')
-        return
-      }
-      setError(null)
-      setSessionState(data)
-    } catch {
-      setError('Lost connection -- retrying...')
-    }
-  }, [sessionId])
-
-  useEffect(() => {
-    if (!difficulty) return
-    poll()
-    const interval = setInterval(poll, POLL_INTERVAL_MS)
-    return () => clearInterval(interval)
-  }, [poll, difficulty])
+  const { state: sessionState, error: pollError, result, poll, togglePause, exit } = useGameSessionState<StatePayload>({
+    sessionId,
+    enabled: !!difficulty,
+    soundEnabled,
+  })
+  const error = pollError || submitError
 
   // Starts a fresh round of flying words the moment a new CATEGORIZE
   // question becomes current -- items/categories come exclusively from
@@ -132,36 +112,10 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain }: { sessionId: s
       })
       .catch(() => {
         setSubmitting(false)
-        setError('Failed to submit your answer')
+        setSubmitError('Failed to submit your answer')
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [round, sessionState, submitting, sessionId, poll, soundEnabled])
-
-  useEffect(() => {
-    if (sessionState?.status !== 'COMPLETED' || result) return
-    fetch(`/api/gameroom-v2/sessions/${sessionId}/complete`, { method: 'POST' })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) {
-          setError(data.error)
-          return
-        }
-        setResult({
-          sessionId: data.sessionId,
-          score: data.score,
-          accuracyPct: data.accuracyPct,
-          correctCount: data.correctCount,
-          incorrectCount: data.incorrectCount,
-          totalQuestions: data.totalQuestions,
-          xpEarned: data.xpEarned,
-          coinsEarned: data.coinsEarned,
-          bestStreak: data.bestStreak,
-          skillsPracticed: data.skillsPracticed,
-          responses: [],
-        })
-      })
-      .catch(() => setError('Failed to load your results'))
-  }, [sessionState?.status, result, sessionId])
 
   function handleSlash(wordId: string, category: string) {
     setRound((prev) => (prev ? slashWord(prev, wordId, category) : prev))
@@ -169,17 +123,11 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain }: { sessionId: s
   }
 
   async function handleTogglePause() {
-    if (!sessionState) return
-    const endpoint = sessionState.status === 'PAUSED' ? 'resume' : 'pause'
-    await fetch(`/api/gameroom-v2/sessions/${sessionId}/${endpoint}`, { method: 'POST' })
-    poll()
+    await togglePause()
   }
 
   async function handleExit() {
-    if (sessionState && sessionState.status !== 'COMPLETED' && sessionState.status !== 'ABANDONED') {
-      await fetch(`/api/gameroom-v2/sessions/${sessionId}/abandon`, { method: 'POST' })
-    }
-    onExit()
+    await exit(onExit)
   }
 
   if (!difficulty) {

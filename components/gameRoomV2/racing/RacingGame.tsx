@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GameV2Card, GameV2Button, GameV2Loading, GameV2Error } from '@/components/gameRoomV2'
-import { QuestionOverlay, type QuestionOverlayQuestion, GameResultsScreen, useSoundPreference, playSound } from '@/components/gameRoomV2/gameplay'
+import { QuestionOverlay, type QuestionOverlayQuestion, GameResultsScreen, useSoundPreference, playSound, useGameSessionState } from '@/components/gameRoomV2/gameplay'
 import { RaceSetupPicker } from './RaceSetupPicker'
 import { Track } from './Track'
 import {
@@ -15,9 +15,7 @@ import {
   type RaceThemeId,
   type RacingDifficulty,
 } from '@/lib/gameRoomV2/racing'
-import type { GameResult } from '@/lib/gameRoomV2/domain'
 
-const POLL_INTERVAL_MS = 2000
 const SIM_INTERVAL_MS = 100
 
 interface StatePayload {
@@ -40,35 +38,14 @@ export function RacingGame({ sessionId, onExit, onPlayAgain }: { sessionId: stri
   const [themeId, setThemeId] = useState<RaceThemeId | null>(null)
   const [difficulty, setDifficulty] = useState<RacingDifficulty | null>(null)
   const [race, setRace] = useState<RaceState | null>(null)
-  const [sessionState, setSessionState] = useState<StatePayload | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<GameResult | null>(null)
   const [showQuestion, setShowQuestion] = useState(false)
   const { soundEnabled } = useSoundPreference()
-  const completedSoundPlayed = useRef(false)
   const raceFinishSoundPlayed = useRef(false)
-
-  const poll = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/gameroom-v2/sessions/${sessionId}/state`, { method: 'POST' })
-      const data = await res.json().catch(() => null)
-      if (!res.ok || !data) {
-        setError(data?.error || 'Lost connection to the game')
-        return
-      }
-      setError(null)
-      setSessionState(data)
-    } catch {
-      setError('Lost connection -- retrying...')
-    }
-  }, [sessionId])
-
-  useEffect(() => {
-    if (!difficulty) return
-    poll()
-    const interval = setInterval(poll, POLL_INTERVAL_MS)
-    return () => clearInterval(interval)
-  }, [poll, difficulty])
+  const { state: sessionState, error, result, poll, togglePause, exit } = useGameSessionState<StatePayload>({
+    sessionId,
+    enabled: !!difficulty,
+    soundEnabled,
+  })
 
   // Local race simulation clock -- runs independently of the 2s session
   // poll for real-time racer movement. Frozen while a question is being
@@ -104,36 +81,6 @@ export function RacingGame({ sessionId, onExit, onPlayAgain }: { sessionId: stri
     setShowQuestion(true)
   }, [race, sessionState, showQuestion])
 
-  useEffect(() => {
-    if (sessionState?.status !== 'COMPLETED' || result) return
-    if (!completedSoundPlayed.current) {
-      completedSoundPlayed.current = true
-      playSound('complete', soundEnabled)
-    }
-    fetch(`/api/gameroom-v2/sessions/${sessionId}/complete`, { method: 'POST' })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) {
-          setError(data.error)
-          return
-        }
-        setResult({
-          sessionId: data.sessionId,
-          score: data.score,
-          accuracyPct: data.accuracyPct,
-          correctCount: data.correctCount,
-          incorrectCount: data.incorrectCount,
-          totalQuestions: data.totalQuestions,
-          xpEarned: data.xpEarned,
-          coinsEarned: data.coinsEarned,
-          bestStreak: data.bestStreak,
-          skillsPracticed: data.skillsPracticed,
-          responses: [],
-        })
-      })
-      .catch(() => setError('Failed to load your results'))
-  }, [sessionState?.status, result, sessionId, soundEnabled])
-
   function handleStart(theme: RaceThemeId, chosenDifficulty: RacingDifficulty) {
     setThemeId(theme)
     setDifficulty(chosenDifficulty)
@@ -150,24 +97,17 @@ export function RacingGame({ sessionId, onExit, onPlayAgain }: { sessionId: stri
   }
 
   async function handleTogglePause() {
-    if (!sessionState) return
-    const endpoint = sessionState.status === 'PAUSED' ? 'resume' : 'pause'
-    await fetch(`/api/gameroom-v2/sessions/${sessionId}/${endpoint}`, { method: 'POST' })
-    poll()
+    await togglePause()
   }
 
   async function handleExit() {
-    if (sessionState && sessionState.status !== 'COMPLETED' && sessionState.status !== 'ABANDONED') {
-      await fetch(`/api/gameroom-v2/sessions/${sessionId}/abandon`, { method: 'POST' })
-    }
-    onExit()
+    await exit(onExit)
   }
 
   function handleRestart() {
     setThemeId(null)
     setDifficulty(null)
     setRace(null)
-    setResult(null)
     raceFinishSoundPlayed.current = false
   }
 
