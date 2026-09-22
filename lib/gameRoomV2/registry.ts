@@ -173,11 +173,20 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     id: 'word-ninja',
     name: 'Word Ninja',
     tamilName: null,
-    description: 'Slice the correct word or letter as it flies past before time runs out.',
+    description: 'Slash flying words into the correct category lane before time runs out.',
     icon: null,
     thumbnail: null,
     compatibility: {
-      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'ORDER_LETTERS', 'ORDER_WORDS'],
+      // CATEGORIZE only -- Word Ninja's mechanic (N lanes, one per
+      // category, words slashed into the lane the player believes fits)
+      // is a reusable renderer for ANY CATEGORIZE question, generic over
+      // category count. This is deliberately the ONLY supported type:
+      // the 5 grammar categories the request names (பெயர்ச்சொல்/
+      // வினைச்சொல், ஒருமை/பன்மை, உயர்திணை/அஃறிணை,
+      // வல்லினம்/மெல்லினம்/இடையினம்) are teacher-authored CATEGORIZE
+      // Question Sets, not anything hardcoded in this engine -- see
+      // lib/gameRoomV2/wordNinja/lanes.ts's header comment.
+      supportedQuestionTypes: ['CATEGORIZE'],
       soloSupport: true,
       multiplayerSupport: false,
       liveClassroomSupport: false,
@@ -187,8 +196,15 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     },
     recommendedLevel: null,
     estimatedDurationMinutes: 6,
-    status: 'COMING_SOON',
-    version: '0.0.0',
+    // The sixth real, playable engine (after Classic Quiz, Tower
+    // Defense, Racing, Boss Battle, and Treasure Quest) -- built around
+    // the shared session routes (not QuestionOverlay/QuestionInput
+    // directly, since the lane-slashing interaction is a genuinely
+    // different UI than CategorizeInput's dropdown form -- both submit
+    // the identical Record<item, category> shape to the same /answer
+    // route). See components/gameRoomV2/wordNinja/WordNinjaGame.tsx.
+    status: 'ACTIVE',
+    version: '0.1.0',
   },
   {
     id: 'space-mission',

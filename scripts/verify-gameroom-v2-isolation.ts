@@ -226,6 +226,15 @@ const EXPECTED_V2_FILES = [
   'components/gameRoomV2/treasureQuest/TreasureQuestGame.tsx',
   'components/gameRoomV2/treasureQuest/index.ts',
   'scripts/verify-gameroom-v2-treasure-quest.ts',
+  'lib/gameRoomV2/wordNinja/lanes.ts',
+  'lib/gameRoomV2/wordNinja/difficulty.ts',
+  'lib/gameRoomV2/wordNinja/round.ts',
+  'lib/gameRoomV2/wordNinja/index.ts',
+  'components/gameRoomV2/wordNinja/NinjaSetupPicker.tsx',
+  'components/gameRoomV2/wordNinja/NinjaBoard.tsx',
+  'components/gameRoomV2/wordNinja/WordNinjaGame.tsx',
+  'components/gameRoomV2/wordNinja/index.ts',
+  'scripts/verify-gameroom-v2-word-ninja.ts',
 ]
 for (const file of EXPECTED_V2_FILES) {
   const full = join(ROOT, file)

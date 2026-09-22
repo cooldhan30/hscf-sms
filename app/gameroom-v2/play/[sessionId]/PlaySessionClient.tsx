@@ -7,17 +7,18 @@ import { TowerDefenseGame } from '@/components/gameRoomV2/towerDefense'
 import { RacingGame } from '@/components/gameRoomV2/racing'
 import { BossBattleGame } from '@/components/gameRoomV2/bossBattle'
 import { TreasureQuestGame } from '@/components/gameRoomV2/treasureQuest'
+import { WordNinjaGame } from '@/components/gameRoomV2/wordNinja'
 import { GameV2Loading } from '@/components/gameRoomV2'
 
 // Most engines have no visual layer of their own and mount
 // GameSessionRuntime directly (the "thin reference engine" path). Tower
-// Defense, Racing, Boss Battle, and Treasure Quest each want a
-// different visual frame around the question -- a battlefield, race
-// track, arena, or room map instead of a plain centered card -- so this
-// is the one branch point: a single lightweight /state call reveals
-// which engine owns the session, then the right top-level component
-// takes over. Every future engine that needs its own board gets a case
-// here the same way.
+// Defense, Racing, Boss Battle, Treasure Quest, and Word Ninja each want
+// a different visual frame around the question -- a battlefield, race
+// track, arena, room map, or flight board instead of a plain centered
+// card -- so this is the one branch point: a single lightweight /state
+// call reveals which engine owns the session, then the right top-level
+// component takes over. Every future engine that needs its own board
+// gets a case here the same way.
 export function PlaySessionClient({ sessionId }: { sessionId: string }) {
   const router = useRouter()
   const [engineId, setEngineId] = useState<string | null>(null)
@@ -72,6 +73,16 @@ export function PlaySessionClient({ sessionId }: { sessionId: string }) {
   if (engineId === 'treasure-quest') {
     return (
       <TreasureQuestGame
+        sessionId={sessionId}
+        onExit={() => router.push('/gameroom-v2/library')}
+        onPlayAgain={() => router.push('/gameroom-v2/library')}
+      />
+    )
+  }
+
+  if (engineId === 'word-ninja') {
+    return (
+      <WordNinjaGame
         sessionId={sessionId}
         onExit={() => router.push('/gameroom-v2/library')}
         onPlayAgain={() => router.push('/gameroom-v2/library')}
