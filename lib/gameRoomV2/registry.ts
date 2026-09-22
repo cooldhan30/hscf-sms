@@ -142,11 +142,17 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     id: 'treasure-quest',
     name: 'Treasure Quest',
     tamilName: null,
-    description: 'Explore a map, unlocking chests by answering questions correctly along the way.',
+    description: 'Explore rooms, earn keys from correct answers, and unlock your way to the treasure.',
     icon: null,
     thumbnail: null,
     compatibility: {
-      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'MATCH', 'FILL_BLANK', 'CATEGORIZE'],
+      // TEXT_INPUT and TRUE_FALSE added alongside MULTIPLE_CHOICE/
+      // FILL_BLANK/MATCH/CATEGORIZE specifically for reading-
+      // comprehension-style content (a passage prompt with a
+      // free-response or true/false check) -- the room/key/clue
+      // exploration layer itself has no opinion on question type, this
+      // only widens which Question Sets are compatible.
+      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'TEXT_INPUT', 'MATCH', 'FILL_BLANK', 'CATEGORIZE'],
       soloSupport: true,
       multiplayerSupport: false,
       liveClassroomSupport: false,
@@ -156,8 +162,12 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     },
     recommendedLevel: null,
     estimatedDurationMinutes: 12,
-    status: 'COMING_SOON',
-    version: '0.0.0',
+    // The fifth real, playable engine (after Classic Quiz, Tower
+    // Defense, Racing, and Boss Battle) -- built around QuestionOverlay/
+    // the shared session routes the same way. See
+    // components/gameRoomV2/treasureQuest/TreasureQuestGame.tsx.
+    status: 'ACTIVE',
+    version: '0.1.0',
   },
   {
     id: 'word-ninja',

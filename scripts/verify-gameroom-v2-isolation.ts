@@ -216,6 +216,16 @@ const EXPECTED_V2_FILES = [
   'components/gameRoomV2/bossBattle/BossBattleGame.tsx',
   'components/gameRoomV2/bossBattle/index.ts',
   'scripts/verify-gameroom-v2-boss-battle.ts',
+  'lib/gameRoomV2/treasureQuest/rooms.ts',
+  'lib/gameRoomV2/treasureQuest/difficulty.ts',
+  'lib/gameRoomV2/treasureQuest/exploration.ts',
+  'lib/gameRoomV2/treasureQuest/index.ts',
+  'components/gameRoomV2/treasureQuest/TreasureSetupPicker.tsx',
+  'components/gameRoomV2/treasureQuest/RoomView.tsx',
+  'components/gameRoomV2/treasureQuest/TreasureFoundScreen.tsx',
+  'components/gameRoomV2/treasureQuest/TreasureQuestGame.tsx',
+  'components/gameRoomV2/treasureQuest/index.ts',
+  'scripts/verify-gameroom-v2-treasure-quest.ts',
 ]
 for (const file of EXPECTED_V2_FILES) {
   const full = join(ROOT, file)
