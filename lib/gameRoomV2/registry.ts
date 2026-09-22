@@ -36,8 +36,17 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     },
     recommendedLevel: null,
     estimatedDurationMinutes: 10,
-    status: 'COMING_SOON',
-    version: '0.0.0',
+    // The one engine with real gameplay today -- a thin reference
+    // implementation that mounts components/gameRoomV2/gameplay's
+    // GameSessionRuntime directly with no extra visual layer of its
+    // own, since a plain question-by-question quiz IS exactly what the
+    // shared runtime already provides. Exists specifically to prove
+    // the gameplay framework end-to-end (session lifecycle, scoring,
+    // XP/coins, results) with a real, playable engine, while every
+    // other engine (Tower Defense included) stays COMING_SOON
+    // untouched per this phase's explicit scope.
+    status: 'ACTIVE',
+    version: '0.1.0',
   },
   {
     id: 'tower-defense',

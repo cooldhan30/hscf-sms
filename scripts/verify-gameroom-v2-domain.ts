@@ -39,11 +39,16 @@ assert(GAME_ROOM_V2_QUESTION_TYPES.length === 12, `exactly 12 question types dec
 
 console.log('\n== Engine registry ==')
 assert(GAME_ENGINES_V2.length === 12, `12 engines registered as scaffolding (found ${GAME_ENGINES_V2.length})`)
+// Classic Quiz is the framework's thin reference engine (real gameplay,
+// via components/gameRoomV2/gameplay's GameSessionRuntime) -- every
+// OTHER engine (Tower Defense included) stays COMING_SOON, per the
+// explicit "do not implement Tower Defense yet" scope.
 assert(
-  GAME_ENGINES_V2.every((e) => e.status === 'COMING_SOON'),
-  'every registered engine is COMING_SOON -- none implemented yet, per explicit scope'
+  GAME_ENGINES_V2.filter((e) => e.status === 'COMING_SOON').length === GAME_ENGINES_V2.length - 1,
+  'every engine except the one thin reference engine (Classic Quiz) is still COMING_SOON'
 )
-assert(getGameEngineV2('classic-quiz') !== undefined, "getGameEngineV2('classic-quiz') resolves")
+assert(getGameEngineV2('classic-quiz')?.status === 'ACTIVE', 'Classic Quiz is the one ACTIVE, genuinely playable engine')
+assert(getGameEngineV2('tower-defense')?.status === 'COMING_SOON', 'Tower Defense specifically is NOT implemented, per the explicit instruction')
 assert(getGameEngineV2('tower-defense') !== undefined, "getGameEngineV2('tower-defense') resolves (metadata only, not built)")
 assert(getGameEngineV2('does-not-exist') === undefined, 'getGameEngineV2 returns undefined for an unknown id')
 for (const id of ['word-ninja', 'space-mission', 'kingdom-builder', 'mystery-mansion', 'crossword', 'matching', 'memory']) {

@@ -58,14 +58,15 @@ assert(!matchOnly.includes('classic-quiz'), 'a MATCH-only set does NOT list Clas
 const nothingPlayable = playableEngineIds(['PRONUNCIATION'])
 assert(nothingPlayable.length === 0, 'a set with only an unimplemented question type has zero playable games -- never a fabricated launch target')
 
-// Every engine currently in the registry is COMING_SOON (no real
-// gameplay exists yet, per the foundation phase) -- confirming this
-// here too (alongside verify-gameroom-v2-domain.ts) because it's the
-// exact guarantee ChooseGameModal relies on to always show "Coming
-// Soon" rather than ever attempting to launch a game.
+// Classic Quiz is the one real, playable (ACTIVE) engine -- the
+// gameplay framework's thin reference implementation -- every other
+// engine, including Tower Defense, is still COMING_SOON. Confirming
+// this here (alongside verify-gameroom-v2-domain.ts) because it's the
+// exact guarantee ChooseGameModal relies on: only ACTIVE/BETA engines
+// are clickable, everything else shows an inert "Coming Soon" badge.
 assert(
-  GAME_ENGINES_V2.every((e) => e.status === 'COMING_SOON'),
-  'every engine a "compatible" result could surface is still COMING_SOON -- Choose Your Game can never launch unfinished gameplay'
+  GAME_ENGINES_V2.filter((e) => e.status !== 'COMING_SOON').every((e) => e.id === 'classic-quiz'),
+  'the only non-COMING_SOON engine is Classic Quiz -- every other engine, Tower Defense included, stays unimplemented'
 )
 
 console.log(`\n${failures === 0 ? 'PASS' : 'FAIL'}: ${failures} failure(s).`)

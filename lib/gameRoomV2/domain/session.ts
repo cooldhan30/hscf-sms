@@ -1,54 +1,53 @@
 import type { GameRoomQuestionType } from './questionTypes'
 
-// Domain shapes for a play session. NOTE: no sms_gamev2_sessions/
-// players/answers tables exist yet -- per the foundation's scope (see
-// migration 073's header comment), only the content model
-// (question sets/questions) and the access gate are persisted so far.
-// These interfaces describe the shape a future engine implementation
-// will produce/consume once a specific engine (e.g. Classic Quiz) is
-// actually built end-to-end, so the domain boundary is settled before
-// any single engine's persistence design is locked in.
+// Domain shapes for the gameplay framework -- backed by
+// sms_gamev2_sessions/sms_gamev2_answers/sms_gamev2_player_stats since
+// migration 076. These are the shapes every future engine (Classic
+// Quiz, Tower Defense, Boss Battle, Racing, Treasure Quest, ...) reads/
+// writes through the shared session lifecycle
+// (lib/gameRoomV2/sessionLifecycle.ts) -- no engine invents its own
+// session/scoring persistence.
 
-export const GAME_SESSION_STATUSES = ['waiting', 'active', 'paused', 'ended'] as const
+export const GAME_SESSION_STATUSES = ['CREATED', 'READY', 'ACTIVE', 'PAUSED', 'COMPLETED', 'ABANDONED'] as const
 export type GameSessionStatus = (typeof GAME_SESSION_STATUSES)[number]
 
 export interface GameSession {
   id: string
   questionSetId: string
   engineId: string
-  hostTeacherId: string | null
-  hostStudentId: string | null
-  isSoloPractice: boolean
-  status: GameSessionStatus
-  createdAt: string
-  startedAt: string | null
-  endedAt: string | null
-}
-
-export interface GamePlayer {
-  id: string
-  sessionId: string
   studentId: string
-  nickname: string
+  status: GameSessionStatus
+  questionOrder: string[]
+  currentIndex: number
+  currentQuestionStartedAt: string | null
+  questionTimeLimitSeconds: number
+  lives: number
+  maxLives: number
+  currentStreak: number
+  bestStreak: number
   score: number
   correctCount: number
   answeredCount: number
-  completed: boolean
-  joinedAt: string
+  xpEarned: number
+  coinsEarned: number
+  pauseDurationSeconds: number
+  pausedAt: string | null
+  createdAt: string
+  startedAt: string | null
   completedAt: string | null
+  abandonedAt: string | null
 }
 
 // One player's response to one question. `answer` is intentionally
 // `unknown` here -- its real shape depends on the question's
-// GameRoomQuestionType (a selected option string for MULTIPLE_CHOICE,
-// an ordered array for ORDER_WORDS, a category map for CATEGORIZE,
-// etc), mirroring how QuestionPayloadFor<T> varies per type in
-// questionTypes.ts. A specific engine implementation narrows this to
-// the concrete answer shape(s) it actually accepts.
+// GameRoomQuestionType, mirroring how QuestionPayloadFor<T> varies per
+// type in questionTypes.ts. A specific engine implementation narrows
+// this to the concrete answer shape(s) it actually accepts.
 export interface GameResponse {
   id: string
-  playerId: string
+  sessionId: string
   questionId: string
+  questionIndex: number
   questionType: GameRoomQuestionType
   answer: unknown
   isCorrect: boolean
@@ -57,25 +56,33 @@ export interface GameResponse {
   answeredAt: string
 }
 
-// The outcome of one full play session for one player -- what a
-// results/review screen renders.
+// The outcome of one full play session -- what the Results screen
+// renders. `skillsPracticed` is populated from the question set's own
+// subject/topic/tags (see sms_gamev2_skill_practice) -- the visible
+// half of the mastery-analytics architecture migration 076 prepares;
+// no mastery SCORE/report is computed from it yet, only the raw list
+// of what was practiced this session.
 export interface GameResult {
   sessionId: string
-  playerId: string
-  finalScore: number
+  score: number
+  accuracyPct: number
   correctCount: number
+  incorrectCount: number
   totalQuestions: number
-  rank: number | null
+  xpEarned: number
+  coinsEarned: number
+  bestStreak: number
+  skillsPracticed: string[]
   responses: GameResponse[]
 }
 
 // A reward earned from a session -- deliberately generic (not just
 // points) so an engine can grant something engine-specific (a badge, an
-// unlocked cosmetic, a streak) without the domain model needing to
-// anticipate every engine's reward design up front.
+// unlocked cosmetic) without the domain model needing to anticipate
+// every engine's reward design up front. Not persisted by any table
+// yet -- reserved for a future badges/achievements feature to build on.
 export interface GameReward {
   id: string
-  playerId: string
   sessionId: string
   kind: string
   label: string

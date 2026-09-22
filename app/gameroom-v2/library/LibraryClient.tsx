@@ -158,6 +158,7 @@ export function LibraryClient({
         <ChooseGameModal
           open={playSet !== null}
           onClose={() => setPlaySet(null)}
+          questionSetId={playSet.id}
           questionTypes={playSet.question_types}
           setTitle={playSet.title}
         />

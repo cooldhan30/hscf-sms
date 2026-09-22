@@ -1,8 +1,11 @@
 'use client'
 
-import { GameV2Modal, GameV2Empty } from '@/components/gameRoomV2'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { GameV2Modal, GameV2Empty, GameV2StatusPill } from '@/components/gameRoomV2'
 import { checkEngineCompatibility, type GameRoomQuestionType } from '@/lib/gameRoomV2/domain'
 import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
+import { toast } from '@/lib/toast'
 
 const ENGINE_ICON: Record<string, string> = {
   'classic-quiz': '❓',
@@ -24,22 +27,45 @@ const ENGINE_ICON: Record<string, string> = {
 // (checkEngineCompatibility, the same calculation the Builder's
 // CompatibilityResults panel uses) -- an incompatible engine never
 // appears here at all, since there's nothing useful a teacher could do
-// by picking one. Every listed engine is still status COMING_SOON (no
-// V2 engine has real gameplay yet, per the foundation phase's explicit
-// scope) -- clicking one shows a real "coming soon" state, never a
-// fabricated launch into gameplay that doesn't exist.
+// by picking one. Most engines are still status COMING_SOON (no real
+// gameplay exists -- see lib/gameRoomV2/registry.ts) and stay inert
+// with a "Coming Soon" badge; only an ACTIVE/BETA engine (today: just
+// Classic Quiz, the framework's thin reference engine) is clickable,
+// and clicking it starts a REAL session via
+// /api/gameroom-v2/sessions/start -- never a fabricated launch.
 export function ChooseGameModal({
   open,
   onClose,
+  questionSetId,
   questionTypes,
   setTitle,
 }: {
   open: boolean
   onClose: () => void
+  questionSetId: string
   questionTypes: GameRoomQuestionType[]
   setTitle: string
 }) {
+  const router = useRouter()
+  const [starting, setStarting] = useState<string | null>(null)
   const compatible = checkEngineCompatibility(GAME_ENGINES_V2, questionTypes).filter((r) => r.compatible)
+
+  async function handlePlay(engineId: string) {
+    setStarting(engineId)
+    const res = await fetch('/api/gameroom-v2/sessions/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questionSetId, engineId }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setStarting(null)
+
+    if (!res.ok) {
+      toast.error(data.error || 'Failed to start game')
+      return
+    }
+    router.push(`/gameroom-v2/play/${data.sessionId}`)
+  }
 
   return (
     <GameV2Modal open={open} onClose={onClose} title="Choose Your Game">
@@ -50,20 +76,28 @@ export function ChooseGameModal({
         <GameV2Empty title="No compatible games yet" description="This set's question types aren't supported by any registered game engine." />
       ) : (
         <div className="grid grid-cols-2 gap-3">
-          {compatible.map(({ engine }) => (
-            <div
-              key={engine.id}
-              className="rounded-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 p-4 text-center opacity-90"
-            >
-              <p className="text-3xl mb-2" aria-hidden>
-                {ENGINE_ICON[engine.id] ?? '🎮'}
-              </p>
-              <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100 text-sm">{engine.name}</p>
-              <span className="inline-block mt-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-gamev2ink-100 dark:bg-gamev2ink-800 text-gamev2ink-500 dark:text-gamev2ink-400">
-                Coming Soon
-              </span>
-            </div>
-          ))}
+          {compatible.map(({ engine }) => {
+            const isPlayable = engine.status === 'ACTIVE' || engine.status === 'BETA'
+            return (
+              <button
+                key={engine.id}
+                type="button"
+                disabled={!isPlayable || starting !== null}
+                onClick={() => handlePlay(engine.id)}
+                className={`rounded-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 p-4 text-center transition-colors ${
+                  isPlayable ? 'hover:border-gamev2spark-400 cursor-pointer' : 'opacity-70 cursor-not-allowed'
+                }`}
+              >
+                <p className="text-3xl mb-2" aria-hidden>
+                  {ENGINE_ICON[engine.id] ?? '🎮'}
+                </p>
+                <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100 text-sm">{engine.name}</p>
+                <div className="mt-2 flex justify-center">
+                  <GameV2StatusPill status={starting === engine.id ? 'ACTIVE' : engine.status} />
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
     </GameV2Modal>
