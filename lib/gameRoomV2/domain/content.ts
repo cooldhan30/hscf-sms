@@ -1,4 +1,5 @@
 import type { GameRoomQuestionType, QuestionPayloadFor } from './questionTypes'
+import type { QuestionSetLanguage } from './language'
 
 export const QUESTION_SET_VISIBILITIES = ['PRIVATE', 'SCHOOL', 'PUBLIC'] as const
 export type QuestionSetVisibility = (typeof QUESTION_SET_VISIBILITIES)[number]
@@ -36,6 +37,10 @@ export interface GameRoomQuestionSet {
   estimatedDurationMinutes: number | null
   tags: string[]
   visibility: QuestionSetVisibility
+  // Auto-detected from the set's own text at save time (see
+  // language.ts's detectLanguage()) -- never teacher-entered, so it
+  // can't drift from the actual content.
+  language: QuestionSetLanguage
   // null = a shared/library set usable by any class, same convention
   // as sms_resources.class_id.
   classId: string | null

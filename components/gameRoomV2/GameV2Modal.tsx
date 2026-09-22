@@ -16,16 +16,23 @@ const FOCUSABLE_SELECTOR =
 // logic, which already fixed a real focus-stealing bug -- see that
 // file's comments) rather than inventing new accessibility logic from
 // scratch.
+const MAX_WIDTH = {
+  default: 'max-w-lg',
+  large: 'max-w-2xl',
+} as const
+
 export function GameV2Modal({
   open,
   title,
   onClose,
   children,
+  size = 'default',
 }: {
   open: boolean
   title: string
   onClose: () => void
   children: React.ReactNode
+  size?: 'default' | 'large'
 }) {
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -87,7 +94,7 @@ export function GameV2Modal({
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-gamev2ink-900 shadow-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800"
+            className={`w-full ${MAX_WIDTH[size]} max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-gamev2ink-900 shadow-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800`}
             initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.9, y: 20 }}
             animate={reduced ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
             exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.9, y: 20 }}

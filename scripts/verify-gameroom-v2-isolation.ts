@@ -147,6 +147,20 @@ const EXPECTED_V2_FILES = [
   'components/gameRoomV2/builder/QuestionPreviewCard.tsx',
   'components/gameRoomV2/builder/CompatibilityResults.tsx',
   'components/gameRoomV2/builder/BuilderWizard.tsx',
+  'supabase/migrations/075_gameroom_v2_question_set_library.sql',
+  'lib/gameRoomV2/domain/language.ts',
+  'app/api/gameroom-v2/question-sets/[id]/duplicate/route.ts',
+  'app/api/gameroom-v2/question-sets/[id]/favorite/route.ts',
+  'app/api/gameroom-v2/question-sets/[id]/assign/route.ts',
+  'app/api/gameroom-v2/question-sets/[id]/usage/route.ts',
+  'app/gameroom-v2/library/page.tsx',
+  'app/gameroom-v2/library/LibraryClient.tsx',
+  'app/gameroom-v2/library/LibraryFilterPanel.tsx',
+  'app/gameroom-v2/library/LibrarySetCard.tsx',
+  'app/gameroom-v2/library/AssignModal.tsx',
+  'app/gameroom-v2/library/PreviewModal.tsx',
+  'components/gameRoomV2/builder/ChooseGameModal.tsx',
+  'scripts/verify-gameroom-v2-library.ts',
 ]
 for (const file of EXPECTED_V2_FILES) {
   const full = join(ROOT, file)

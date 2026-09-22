@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import Link from 'next/link'
-import { FiLock, FiCompass, FiEdit3 } from 'react-icons/fi'
+import { FiLock, FiCompass, FiEdit3, FiBookOpen } from 'react-icons/fi'
 import { requireGameV2Access } from '@/lib/gameRoomV2/requireAccess'
 import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
 import { GameTile, type GameTileAccent } from '@/components/gameRoomV2'
@@ -69,6 +69,12 @@ export default async function GameRoomV2Page() {
               className="inline-flex items-center gap-1.5 text-sm font-bold text-gamev2ink-600 dark:text-gamev2ink-300 hover:text-gamev2ink-800 dark:hover:text-white whitespace-nowrap"
             >
               <FiEdit3 className="w-4 h-4" /> Question Set Builder
+            </Link>
+            <Link
+              href="/gameroom-v2/library"
+              className="inline-flex items-center gap-1.5 text-sm font-bold text-gamev2ink-600 dark:text-gamev2ink-300 hover:text-gamev2ink-800 dark:hover:text-white whitespace-nowrap"
+            >
+              <FiBookOpen className="w-4 h-4" /> Question Set Library
             </Link>
             <Link
               href="/gameroom-v2/design"

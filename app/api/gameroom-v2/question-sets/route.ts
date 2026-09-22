@@ -7,28 +7,70 @@ import {
   GAME_ROOM_V2_QUESTION_TYPES,
   isImplementedQuestionType,
   validateQuestionSet,
+  detectLanguage,
   type GameRoomQuestionType,
 } from '@/lib/gameRoomV2/domain'
 
 // GET /api/gameroom-v2/question-sets -- lists question sets visible to
 // the caller: their own (any visibility, via RLS "gamev2_question_sets:
 // teacher manage own") plus any other teacher's SCHOOL/PUBLIC sets (RLS
-// "gamev2_question_sets: teacher read shared", migration 074). RLS is
-// the real scoping here -- this route does no additional filtering.
+// "gamev2_question_sets: teacher read shared", migration 074), enriched
+// with the caller's own favorite/recently-used status and each set's
+// real usage count. RLS is the real visibility scoping -- this route
+// does no additional filtering; the Library's Title/Topic/Level/
+// Difficulty/Type/Language/Creator/Tags search happens client-side over
+// this same list, matching how components/resources/ResourcesClient.tsx
+// already filters its (similarly teacher-scoped, not internet-scale)
+// library client-side.
 export async function GET() {
   const guard = await requireGameV2Teacher()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
   const { supabase, profile } = guard
 
-  const { data: questionSets, error } = await supabase
-    .from('sms_gamev2_question_sets')
-    .select('*, class:sms_classes(id, name), creator:sms_profiles(first_name, last_name)')
-    .order('updated_at', { ascending: false })
+  const [{ data: questionSets, error }, { data: favoriteRows }, { data: recentUsageRows }] = await Promise.all([
+    supabase
+      .from('sms_gamev2_question_sets')
+      .select('*, class:sms_classes(id, name), creator:sms_profiles(first_name, last_name)')
+      .order('updated_at', { ascending: false }),
+    // RLS ("gamev2_favorites: teacher manage own") already scopes this
+    // to the caller's own favorites.
+    supabase.from('sms_gamev2_favorites').select('question_set_id'),
+    // RLS ("gamev2_usage: teacher manage own") scopes this to the
+    // caller's own usage history -- the real data behind "Recently
+    // Used". Capped generously; the client further dedupes to one
+    // entry per set (most recent action) and slices to a short list.
+    supabase
+      .from('sms_gamev2_question_set_usage')
+      .select('question_set_id, action, created_at')
+      .order('created_at', { ascending: false })
+      .limit(200),
+  ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
+  const favoriteIds = new Set((favoriteRows ?? []).map((f) => f.question_set_id))
+
+  // Real usage count per set (DUPLICATE+ASSIGN across every teacher,
+  // via the SECURITY DEFINER RPC so this never has to expose raw
+  // cross-teacher usage rows) -- fetched per distinct set id in
+  // parallel; "if available" per the spec means this is simply omitted
+  // client-side wherever it comes back 0, never fabricated.
+  const setIds = Array.from(new Set((questionSets ?? []).map((s) => s.id)))
+  const usageCounts = await Promise.all(
+    setIds.map(async (id) => {
+      const { data } = await supabase.rpc('sms_gamev2_question_set_usage_count', { p_question_set_id: id })
+      return [id, data ?? 0] as const
+    })
+  )
+  const usageCountById = new Map(usageCounts)
+
   return NextResponse.json({
-    questionSets,
+    questionSets: (questionSets ?? []).map((s) => ({
+      ...s,
+      isFavorite: favoriteIds.has(s.id),
+      usageCount: usageCountById.get(s.id) ?? 0,
+    })),
+    recentUsage: recentUsageRows ?? [],
     currentProfileId: profile.id,
   })
 }
@@ -111,6 +153,7 @@ export async function POST(request: Request) {
   }
 
   const questionTypes = Array.from(new Set(questionsForValidation.map((q) => q.questionType)))
+  const language = detectLanguage([title, tamilTitle ?? '', englishTitle ?? '', ...rawQuestions.map((q) => q.prompt ?? '')])
 
   const { data: questionSet, error: setError } = await supabase
     .from('sms_gamev2_question_sets')
@@ -127,6 +170,7 @@ export async function POST(request: Request) {
         estimated_duration_minutes: estimatedDurationMinutes,
         tags,
         visibility,
+        language,
         published,
         class_id: classId,
         created_by: profile.id,

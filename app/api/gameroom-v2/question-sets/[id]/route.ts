@@ -7,6 +7,7 @@ import {
   GAME_ROOM_V2_QUESTION_TYPES,
   isImplementedQuestionType,
   validateQuestionSet,
+  detectLanguage,
   type GameRoomQuestionType,
 } from '@/lib/gameRoomV2/domain'
 
@@ -124,6 +125,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 
   const questionTypes = Array.from(new Set(questionsForValidation.map((q) => q.questionType)))
+  const language = detectLanguage([title, tamilTitle ?? '', englishTitle ?? '', ...rawQuestions.map((q) => q.prompt ?? '')])
 
   const { data: questionSet, error: setError } = await supabase
     .from('sms_gamev2_question_sets')
@@ -139,6 +141,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       estimated_duration_minutes: estimatedDurationMinutes,
       tags,
       visibility,
+      language,
       published,
       class_id: classId,
       question_types: questionTypes,
