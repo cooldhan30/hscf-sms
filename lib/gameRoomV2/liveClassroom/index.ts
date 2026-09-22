@@ -6,3 +6,4 @@
 export { deriveLiveNickname } from './nickname'
 export { isPresenceStale, isPresentlyConnected } from './presence'
 export { normalizeJoinCode } from './joinCode'
+export { LIVE_CLASSROOM_INTEGRATED_ENGINE_IDS, hasDedicatedLiveClassroomComponent } from './engineBranch'

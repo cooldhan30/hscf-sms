@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireLiveSessionHost } from '@/lib/gameRoomV2/liveClassroom/requireLiveSession'
+import { canResume } from '@/lib/gameRoomV2/liveClassroom/lifecycle'
 
 // POST /api/gameroom-v2/live/[id]/resume -- host only. Resumes the live
 // session AND shifts every participant's own question timer forward by
@@ -10,7 +11,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
   const { supabase, liveSession } = guard
 
-  if (liveSession.status !== 'PAUSED') {
+  if (!canResume(liveSession.status)) {
     return NextResponse.json({ error: `Cannot resume -- live session is "${liveSession.status}"` }, { status: 409 })
   }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireLiveSessionHost } from '@/lib/gameRoomV2/liveClassroom/requireLiveSession'
+import { canPause } from '@/lib/gameRoomV2/liveClassroom/lifecycle'
 
 // POST /api/gameroom-v2/live/[id]/pause -- host only. Pauses the live
 // session AND every participant's own sms_gamev2_sessions row together,
@@ -10,7 +11,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
   const { supabase, liveSession } = guard
 
-  if (liveSession.status !== 'ACTIVE') {
+  if (!canPause(liveSession.status)) {
     return NextResponse.json({ error: `Cannot pause -- live session is "${liveSession.status}"` }, { status: 409 })
   }
 

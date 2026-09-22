@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireLiveSessionParticipant } from '@/lib/gameRoomV2/liveClassroom/requireLiveSession'
 import { isPresentlyConnected } from '@/lib/gameRoomV2/liveClassroom/presence'
+import { isLiveSessionStale } from '@/lib/gameRoomV2/liveClassroom/lifecycle'
 
 // GET /api/gameroom-v2/live/[id]/state -- the student's own lobby/play
 // view: live session status, the roster (nicknames only), and -- once
@@ -25,6 +26,13 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     status: liveSession.status,
     engineId: liveSession.engine_id,
     sessionId: participant.session_id,
+    // HOST DISCONNECT / STALE ROOM: a student stuck in the lobby (or
+    // an ACTIVE session with no bridge row yet) whose host tab closed
+    // and never returned would otherwise poll forever with no signal
+    // anything is wrong -- this flag lets LivePlayClient.tsx show a
+    // clear "this session has gone stale" message instead of an
+    // indefinite spinner. See lifecycle.ts's isLiveSessionStale.
+    stale: isLiveSessionStale(liveSession.status, liveSession.created_at),
     roster: (participants ?? []).map((p) => ({
       nickname: p.nickname,
       connected: isPresentlyConnected({ connected: p.connected, lastSeenAt: p.last_seen_at }),

@@ -18,6 +18,7 @@ interface LobbyState {
   status: 'LOBBY' | 'ACTIVE' | 'PAUSED' | 'ENDED'
   joinCode: string
   engineId: string
+  stale: boolean
   participants: LobbyParticipant[]
 }
 
@@ -101,6 +102,14 @@ export function HostDashboardClient({ liveSessionId }: { liveSessionId: string }
 
   return (
     <div className="space-y-6">
+      {lobby.stale && lobby.status !== 'ENDED' && (
+        <GameV2Card padding="md" className="text-center border-2 border-gamev2coral-300 dark:border-gamev2coral-600">
+          <p className="text-sm font-bold text-gamev2coral-600 dark:text-gamev2coral-300">
+            This session has been open a long time and may be stale. If you&apos;re not actively using it, consider ending it.
+          </p>
+        </GameV2Card>
+      )}
+
       <GameV2Card padding="lg" className="text-center">
         <p className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500 mb-2">Join Code</p>
         <button onClick={copyJoinCode} className="inline-flex items-center gap-3 group">

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireLiveSessionHost } from '@/lib/gameRoomV2/liveClassroom/requireLiveSession'
 import { isPresentlyConnected } from '@/lib/gameRoomV2/liveClassroom/presence'
+import { canStart } from '@/lib/gameRoomV2/liveClassroom/lifecycle'
 import { shuffle } from '@/lib/gameRoomV2/shuffle'
 
 // POST /api/gameroom-v2/live/[id]/start -- "Teacher starts game", host
@@ -19,7 +20,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
   const { supabase, liveSession } = guard
 
-  if (liveSession.status !== 'LOBBY') {
+  if (!canStart(liveSession.status)) {
     return NextResponse.json({ error: `Cannot start -- live session is "${liveSession.status}"` }, { status: 409 })
   }
 

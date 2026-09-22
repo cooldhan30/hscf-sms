@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireLiveSessionHost } from '@/lib/gameRoomV2/liveClassroom/requireLiveSession'
+import { canEnd } from '@/lib/gameRoomV2/liveClassroom/lifecycle'
 
 // POST /api/gameroom-v2/live/[id]/end -- host only, "End" per the
 // requirements list. Callable from LOBBY, ACTIVE, or PAUSED -- a
@@ -12,7 +13,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
   const { supabase, liveSession } = guard
 
-  if (liveSession.status === 'ENDED') {
+  if (!canEnd(liveSession.status)) {
     return NextResponse.json({ error: 'This live session has already ended' }, { status: 409 })
   }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireLiveSessionHost } from '@/lib/gameRoomV2/liveClassroom/requireLiveSession'
 import { isPresentlyConnected } from '@/lib/gameRoomV2/liveClassroom/presence'
+import { isLiveSessionStale } from '@/lib/gameRoomV2/liveClassroom/lifecycle'
 
 // GET /api/gameroom-v2/live/[id]/lobby -- the teacher's own lobby/host
 // view: live session status + the participant roster with presence.
@@ -31,6 +32,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     status: liveSession.status,
     joinCode: liveSession.join_code,
     engineId: liveSession.engine_id,
+    stale: isLiveSessionStale(liveSession.status, liveSession.created_at),
     participants: (participants ?? []).map((p) => ({
       id: p.id,
       nickname: p.nickname,

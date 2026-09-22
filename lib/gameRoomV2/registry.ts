@@ -90,8 +90,18 @@ export const GAME_ENGINES_V2: GameEngine[] = [
       // one boss's health pool (see lib/gameRoomV2/bossBattle/battle.ts's
       // AttackerState/applyCorrectAnswerDamage) -- multiplayerSupport
       // stays declared as a real target capability ("architecture ready
-      // for classroom co-op"), but no live multi-session sync/join
-      // flow exists yet. This is architecture, not a shipped co-op mode.
+      // for classroom co-op"), but no SHARED-boss-health-across-students
+      // real-time sync exists yet -- that's still architecture, not a
+      // shipped co-op mode. liveClassroomSupport is a DIFFERENT,
+      // narrower claim that IS now genuinely shipped: a teacher can host
+      // a Boss Battle live session, and every joined student plays their
+      // own independent boss fight simultaneously, with the host seeing
+      // a real-time leaderboard aggregated server-side from each
+      // student's own sms_gamev2_sessions row (app/gameroom-v2/live/
+      // play/[id]/LivePlayClient.tsx branches to BossBattleGame; see
+      // scripts/verify-gameroom-v2-live-classroom.ts). Multiple students
+      // fighting the SAME shared boss together is the multiplayerSupport
+      // gap above, not this one.
       multiplayerSupport: true,
       liveClassroomSupport: true,
       homeworkSupport: true,
@@ -119,9 +129,19 @@ export const GAME_ENGINES_V2: GameEngine[] = [
       // Ships solo today (a student races a scripted rival) with the
       // simulation layer already shaped for N racers (see
       // lib/gameRoomV2/racing/race.ts's RacerState) -- multiplayerSupport
-      // stays declared as a real target capability, but no live
-      // session/join-code/realtime-opponent sync exists yet. This is
-      // groundwork, not a shipped multiplayer mode.
+      // stays declared as a real target capability, but no REAL-TIME
+      // OPPONENT SYNC (seeing another student's racer move live on the
+      // same track) exists yet. That's still groundwork, not a shipped
+      // multiplayer mode. liveClassroomSupport is a DIFFERENT, narrower
+      // claim that IS now genuinely shipped: a teacher can host a Racing
+      // live session, and every joined student races their own
+      // independent track simultaneously (still vs. the scripted rival,
+      // not vs. each other), with the host seeing a real-time
+      // leaderboard aggregated server-side from each student's own
+      // sms_gamev2_sessions row (LivePlayClient.tsx branches to
+      // RacingGame; see scripts/verify-gameroom-v2-live-classroom.ts).
+      // Students racing each other's actual positions live is the
+      // multiplayerSupport gap above, not this one.
       soloSupport: true,
       multiplayerSupport: true,
       liveClassroomSupport: true,
