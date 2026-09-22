@@ -210,7 +210,7 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     id: 'space-mission',
     name: 'Space Mission',
     tamilName: null,
-    description: 'Pilot a ship between planets, solving questions to refuel and reach the next system.',
+    description: 'Pilot a ship between planets, solving questions to power thrusters and recharge shields on the way to the next system.',
     icon: null,
     thumbnail: null,
     compatibility: {
@@ -224,8 +224,16 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     },
     recommendedLevel: null,
     estimatedDurationMinutes: 10,
-    status: 'COMING_SOON',
-    version: '0.0.0',
+    // The seventh real, playable engine (after Classic Quiz, Tower
+    // Defense, Racing, Boss Battle, Treasure Quest, and Word Ninja) --
+    // built around QuestionOverlay/GameHUD/the shared session routes the
+    // same way. Promoted from BETA to ACTIVE only after
+    // scripts/verify-gameroom-v2-space-mission.ts and the full
+    // verify-gameroom-v2-*.ts suite, tsc, lint, and build all passed. See
+    // lib/gameRoomV2/spaceMission/* and
+    // components/gameRoomV2/spaceMission/SpaceMissionGame.tsx.
+    status: 'ACTIVE',
+    version: '0.1.0',
   },
   {
     id: 'kingdom-builder',

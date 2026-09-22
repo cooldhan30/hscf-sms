@@ -8,6 +8,7 @@ import { RacingGame } from '@/components/gameRoomV2/racing'
 import { BossBattleGame } from '@/components/gameRoomV2/bossBattle'
 import { TreasureQuestGame } from '@/components/gameRoomV2/treasureQuest'
 import { WordNinjaGame } from '@/components/gameRoomV2/wordNinja'
+import { SpaceMissionGame } from '@/components/gameRoomV2/spaceMission'
 import { GameV2Loading } from '@/components/gameRoomV2'
 
 // Most engines have no visual layer of their own and mount
@@ -83,6 +84,16 @@ export function PlaySessionClient({ sessionId }: { sessionId: string }) {
   if (engineId === 'word-ninja') {
     return (
       <WordNinjaGame
+        sessionId={sessionId}
+        onExit={() => router.push('/gameroom-v2/library')}
+        onPlayAgain={() => router.push('/gameroom-v2/library')}
+      />
+    )
+  }
+
+  if (engineId === 'space-mission') {
+    return (
+      <SpaceMissionGame
         sessionId={sessionId}
         onExit={() => router.push('/gameroom-v2/library')}
         onPlayAgain={() => router.push('/gameroom-v2/library')}

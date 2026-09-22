@@ -69,32 +69,32 @@ An architecture audit found that `GameSessionRuntime.tsx` and all 5 custom-visua
 - [x] Added `scripts/verify-gameroom-v2-shared-framework.ts`, testing `buildGameResult`/`shouldAbandonOnExit`/`pauseToggleEndpoint` directly (14/14 assertions passing) — the hook itself is exercised indirectly through the 6 engines it now powers, consistent with this repo's tsx-script verification convention (no Jest/Vitest exists or was added).
 - [x] Re-ran all 13 pre-existing `scripts/verify-gameroom-v2-*.ts` (all still passing, no assertions needed updating — this was a structural refactor with no behavior change), `scripts/verify-gameroom-v2-isolation.ts` (0 cross-imports, unchanged), `tsc --noEmit` (0 errors), `npm run lint` (0 warnings/errors), and `npm run build` (succeeds).
 
-This accelerates Phase 4: every future engine (Space Mission, Kingdom Builder, Mystery Mansion, Crossword, Matching, Memory) now has one proven, tested lifecycle hook to mount instead of a 6th copy of the poll/complete/pause/exit block to hand-write and debug.
+This accelerated Phase 4: every future engine now has one proven, tested lifecycle hook to mount instead of a 6th (now 7th) copy of the poll/complete/pause/exit block to hand-write and debug — Space Mission (below) is the first engine built entirely on top of this hardened base, with zero duplicated lifecycle code.
 
-**Acceptance criteria:** All 6 ACTIVE engines call `useGameSessionState` for session lifecycle instead of reimplementing it; no engine's visual behavior, scoring formula, or reward amount changed; all pre-existing verify scripts plus the new one pass; `tsc`/`lint`/`build`/isolation all clean.
+**Acceptance criteria:** All 6 pre-existing ACTIVE engines call `useGameSessionState` for session lifecycle instead of reimplementing it; no engine's visual behavior, scoring formula, or reward amount changed; all pre-existing verify scripts plus the new one pass; `tsc`/`lint`/`build`/isolation all clean.
 
 ---
 
-## Phase 4: Remaining 6 engines (Space Mission, Kingdom Builder, Mystery Mansion, Crossword, Matching, Memory)
+## Phase 4: Remaining engines (Space Mission ✅, Kingdom Builder, Mystery Mansion, Crossword, Matching, Memory)
 
-Confirmed: zero implementation exists for any of these six — no `components/gameRoomV2/*` directory, no route, registry metadata only (`status: 'COMING_SOON'`, `version: '0.0.0'`).
+Confirmed at audit time: zero implementation existed for any of these six — no `components/gameRoomV2/*` directory, no route, registry metadata only (`status: 'COMING_SOON'`, `version: '0.0.0'`).
 
-- [ ] Space Mission: component, gameplay logic (`lib/gameRoomV2/spaceMission/`), verify script
+- [x] **Space Mission** — shipped. `lib/gameRoomV2/spaceMission/{route,difficulty,flight}.ts` (a linear checkpoint route through 5 planets; Cadet/Pilot/Commander difficulty tiers altering only thrust/shield-damage parameters, never question difficulty; `FlightState` tracking distance/shields/streak with deterministic streak-driven thrust bonus, capped not unbounded) + `components/gameRoomV2/spaceMission/{SpaceMissionGame,MissionSetupPicker,MissionPath,MissionCompleteScreen,RecoveryBanner}.tsx`. Built around the shared `useGameSessionState`/`QuestionOverlay`/`GameHUD`/`GameResultsScreen` framework from Phase 3.5 (no reimplemented poll/complete/pause/exit logic), so session persistence, scoring, XP/coins, streaks, achievements, and mastery tracking all flow through the unmodified, engine-agnostic `/complete` route exactly as they do for the other 6 ACTIVE engines. A wrong answer costs shields and opens a brief, auto-dismissing, non-blocking "recovery" beat (`RecoveryBanner.tsx`) — it never ends the mission, sends the ship backward, or locks the player out, satisfying the "never humiliating or overly punitive" requirement (verified explicitly: shields bottom out at exactly 0, `missionComplete` stays `false` regardless of shield level). Visually distinct from every other engine: a vertical starfield flight path (not Racing's horizontal lanes or Treasure Quest's room grid), full `useGameV2Motion` reduced-motion support throughout. Wired into `PlaySessionClient.tsx`'s engine-branch dispatch. `scripts/verify-gameroom-v2-space-mission.ts` (42 assertions: route ordering/reachability, difficulty economics, streak-bonus determinism, shield recharge/damage bounds, recovery-never-blocks-progress, mission completion) passes; promoted `BETA → ACTIVE` in the registry only after that script plus the full `verify-gameroom-v2-*.ts` suite, `tsc --noEmit`, `npm run lint`, and `npm run build` all passed clean.
 - [ ] Kingdom Builder: component, gameplay logic, verify script
 - [ ] Mystery Mansion: component, gameplay logic, verify script
 - [ ] Crossword: component, grid-fill logic, verify script
 - [ ] Matching: component, pair logic, verify script
 - [ ] Memory: component, flip/recall logic, verify script
 
-Each can ship independently; recommend building in this order (simplest mechanic first): Matching → Memory → Crossword → Space Mission → Mystery Mansion → Kingdom Builder.
+Remaining 5 can ship independently; recommend building in this order (simplest mechanic first): Matching → Memory → Crossword → Mystery Mansion → Kingdom Builder.
 
-**Acceptance criteria (per engine):** `status` flips to `ACTIVE` only once a full play loop (start → render question → submit answer → score → complete/reward) is verified end-to-end by a new `scripts/verify-gameroom-v2-<engine>.ts`, mirroring the existing 6 ACTIVE engines' verify scripts.
+**Acceptance criteria (per engine):** `status` flips to `ACTIVE` only once a full play loop (start → render question → submit answer → score → complete/reward) is verified end-to-end by a new `scripts/verify-gameroom-v2-<engine>.ts`, mirroring the existing ACTIVE engines' verify scripts.
 
 ---
 
 ## Phase 5: Test coverage gaps
 
-Existing scripts: `verify-gameroom-v2-{isolation,domain,gameplay,question-validation,library,progression,learning-analytics,live-classroom,tower-defense,racing,boss-battle,treasure-quest,word-ninja}.ts` — 13 total, all passing.
+Existing scripts: `verify-gameroom-v2-{isolation,domain,gameplay,question-validation,library,progression,learning-analytics,live-classroom,tower-defense,racing,boss-battle,treasure-quest,word-ninja,shared-framework,space-mission}.ts` — 15 total, all passing.
 
 No dedicated verify script exists for:
 - [ ] Question Set **Builder** UI/validation flow specifically (partially covered indirectly by `verify-gameroom-v2-question-validation.ts`, but no script exercises `BuilderWizard.tsx`'s multi-step flow or `TamilTextInput`/`QuestionTypeEditor` behavior)
@@ -165,8 +165,8 @@ This phase is **not** "add nav link" — it is about the feature being ready whe
 - [ ] Phase 0 (P0 security) resolved and verified
 - [ ] Phase 1 (registry reconciliation) resolved — no engine's declared compatibility overstates its real behavior
 - [ ] Phase 6 (RLS/gating hardening) items resolved or explicitly accepted
-- [ ] Phase 7 (mobile) and Phase 8 (accessibility) baseline items resolved for all 6 ACTIVE engines
-- [ ] All `scripts/verify-gameroom-v2-*.ts` passing (currently: 13/13 passing)
+- [ ] Phase 7 (mobile) and Phase 8 (accessibility) baseline items resolved for all ACTIVE engines
+- [ ] All `scripts/verify-gameroom-v2-*.ts` passing (currently: 15/15 passing)
 - [ ] `tsc --noEmit` and `npm run lint` clean (currently: both clean)
 - [ ] Isolation re-confirmed via `scripts/verify-gameroom-v2-isolation.ts` immediately before any rollout decision
 - [ ] Explicit, separate sign-off obtained before adding any production navigation link or removing/loosening the `sms_gamev2_testers` allowlist gate
