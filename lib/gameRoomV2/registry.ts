@@ -66,8 +66,14 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     },
     recommendedLevel: null,
     estimatedDurationMinutes: 15,
-    status: 'COMING_SOON',
-    version: '0.0.0',
+    // The second real, playable engine (after Classic Quiz) -- a full
+    // battlefield built around QuestionOverlay/the shared session
+    // routes rather than GameSessionRuntime directly, per that
+    // component's own documented extension point for engines that want
+    // their own visual frame. See components/gameRoomV2/towerDefense/
+    // TowerDefenseGame.tsx.
+    status: 'ACTIVE',
+    version: '0.1.0',
   },
   {
     id: 'boss-battle',

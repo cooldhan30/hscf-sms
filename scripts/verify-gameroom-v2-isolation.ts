@@ -185,6 +185,17 @@ const EXPECTED_V2_FILES = [
   'app/gameroom-v2/play/[sessionId]/page.tsx',
   'app/gameroom-v2/play/[sessionId]/PlaySessionClient.tsx',
   'scripts/verify-gameroom-v2-gameplay.ts',
+  'lib/gameRoomV2/towerDefense/towers.ts',
+  'lib/gameRoomV2/towerDefense/difficulty.ts',
+  'lib/gameRoomV2/towerDefense/waves.ts',
+  'lib/gameRoomV2/towerDefense/simulation.ts',
+  'lib/gameRoomV2/towerDefense/index.ts',
+  'components/gameRoomV2/towerDefense/DifficultyPicker.tsx',
+  'components/gameRoomV2/towerDefense/Battlefield.tsx',
+  'components/gameRoomV2/towerDefense/TowerShop.tsx',
+  'components/gameRoomV2/towerDefense/TowerDefenseGame.tsx',
+  'components/gameRoomV2/towerDefense/index.ts',
+  'scripts/verify-gameroom-v2-tower-defense.ts',
 ]
 for (const file of EXPECTED_V2_FILES) {
   const full = join(ROOT, file)
