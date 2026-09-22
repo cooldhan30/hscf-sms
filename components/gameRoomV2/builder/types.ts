@@ -1,10 +1,21 @@
 import type { GameRoomQuestionType } from '@/lib/gameRoomV2/domain'
+import type { LearningDimension } from '@/lib/gameRoomV2/analytics'
 
 // A question as the builder edits it client-side, before it's ever
 // saved. `localId` is a stable key for React lists/reordering/dedup --
 // generated client-side, distinct from the real DB `id` a saved
 // question gets back from the server (an unsaved or edited-and-not-
 // yet-saved question has no meaningful DB id to key off of).
+//
+// dimension/conceptTags are OPTIONAL learning-analytics metadata
+// (migration 078) -- entirely separate from questionType/payload
+// (which describe how the question is PLAYED) and separate from the
+// parent set's subject/topic/tags (which describe the set as a whole).
+// Leaving both blank is completely valid: analytics simply falls back
+// to the set's own tags for concepts and excludes the question from
+// dimension-specific rollups (see lib/gameRoomV2/analytics/
+// dimensions.ts's effectiveDimension/effectiveConceptTags) -- there is
+// no requirement to fill these in for a question set to save.
 export interface DraftQuestion {
   localId: string
   id?: string
@@ -14,6 +25,8 @@ export interface DraftQuestion {
   explanation: string
   mediaUrl: string | null
   points: number
+  dimension: LearningDimension | null
+  conceptTags: string[]
 }
 
 export function makeLocalId(): string {
@@ -29,6 +42,8 @@ export function emptyDraftQuestion(questionType: GameRoomQuestionType): DraftQue
     explanation: '',
     mediaUrl: null,
     points: 100,
+    dimension: null,
+    conceptTags: [],
   }
 }
 

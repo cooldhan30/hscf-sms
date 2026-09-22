@@ -80,6 +80,8 @@ export function BuilderWizard({ initial }: { initial?: BuilderInitialData }) {
         explanation: q.explanation || null,
         mediaUrl: q.mediaUrl,
         points: q.points,
+        dimension: q.dimension,
+        conceptTags: q.conceptTags,
       })),
     }
 

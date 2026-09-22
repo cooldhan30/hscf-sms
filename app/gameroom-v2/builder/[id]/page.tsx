@@ -67,6 +67,8 @@ export default async function EditQuestionSetPage({ params }: { params: { id: st
     explanation: q.explanation ?? '',
     mediaUrl: q.media_url,
     points: q.points,
+    dimension: (q.dimension as DraftQuestion['dimension']) ?? null,
+    conceptTags: q.concept_tags ?? [],
   }))
 
   const initial: BuilderInitialData = { id: questionSet.id, metadata, questions }

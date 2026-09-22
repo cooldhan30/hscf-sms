@@ -1,7 +1,6 @@
 import 'server-only'
 import type { createClient } from '@/lib/supabase/server'
 import { calculateCompletionBonus } from '@/lib/gameRoomV2/scoring'
-import { skillsForQuestionSet } from '@/lib/gameRoomV2/skillsForQuestionSet'
 import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
 import { computeEngineMilestone } from '@/lib/gameRoomV2/progression/engineMilestone'
 import { levelForXp } from '@/lib/gameRoomV2/progression/levels'
@@ -81,25 +80,16 @@ export async function finalizeSessionRewards(input: SessionFinalizationInput): P
   })
   const ledgerRow = Array.isArray(ledger) ? ledger[0] : ledger
 
-  const { data: existingAnswers } = await supabase
-    .from('sms_gamev2_answers')
-    .select('id, question_id, submitted_answer, is_correct, points, response_time_ms, question_index')
-    .eq('session_id', session.id)
-    .order('question_index', { ascending: true })
-
-  const { data: questionSet } = await supabase
-    .from('sms_gamev2_question_sets')
-    .select('subject, topic, tags')
-    .eq('id', session.question_set_id)
-    .single()
-
-  if (questionSet) {
-    const skills = skillsForQuestionSet(questionSet)
-    if (skills.length > 0 && existingAnswers && existingAnswers.length > 0) {
-      const skillRows = existingAnswers.flatMap((a) => skills.map((skill) => ({ student_id: studentId, answer_id: a.id, skill, is_correct: a.is_correct })))
-      await supabase.from('sms_gamev2_skill_practice').insert(skillRows)
-    }
-  }
+  // Note: this service used to also write sms_gamev2_skill_practice
+  // here (a blanket, undifferentiated cross-product of every answer x
+  // every set-level tag, with zero readers -- see migration 078's
+  // comment). That write is gone: real per-question learning analytics
+  // (dimension/concept/confusion-pair tracking) is now written
+  // per-answer by sessions/[id]/answer/route.ts directly into
+  // sms_gamev2_learning_events, which has actual per-question
+  // granularity the old blanket table never did. skillsPracticed on the
+  // Results screen is computed independently by complete/route.ts
+  // itself, unrelated to this service.
 
   const totalQuestions = session.question_order.length
   const accuracyPct = session.answered_count > 0 ? Math.round((session.correct_count / session.answered_count) * 1000) / 10 : 0

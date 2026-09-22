@@ -10,6 +10,7 @@ import {
   detectLanguage,
   type GameRoomQuestionType,
 } from '@/lib/gameRoomV2/domain'
+import { isLearningDimension } from '@/lib/gameRoomV2/analytics'
 
 // GET /api/gameroom-v2/question-sets/[id] -- one set with its full
 // ordered question list, for the builder's edit/preview steps. RLS
@@ -50,6 +51,8 @@ interface IncomingQuestion {
   explanation?: string | null
   mediaUrl?: string | null
   points?: number
+  dimension?: string | null
+  conceptTags?: string[]
 }
 
 // PATCH /api/gameroom-v2/question-sets/[id] -- updates metadata AND
@@ -116,6 +119,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       errors.push(`"${q.questionType}" cannot be authored yet`)
     }
   }
+  for (const q of rawQuestions) {
+    if (q.dimension != null && q.dimension !== '' && !isLearningDimension(q.dimension)) {
+      errors.push(`Invalid learning dimension: "${q.dimension}"`)
+    }
+  }
   if (errors.length === 0) {
     errors.push(...validateQuestionSet(questionsForValidation))
   }
@@ -169,6 +177,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     explanation: optionalString(q.explanation ?? null),
     media_url: optionalString(q.mediaUrl ?? null),
     points: typeof q.points === 'number' && q.points > 0 ? q.points : 100,
+    dimension: isLearningDimension(q.dimension) ? q.dimension : null,
+    concept_tags: Array.isArray(q.conceptTags) ? q.conceptTags.filter((t): t is string => typeof t === 'string' && t.trim().length > 0) : [],
   }))
 
   const { error: insertError } = await supabase.from('sms_gamev2_questions').insert(questionRows)

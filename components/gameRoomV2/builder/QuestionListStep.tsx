@@ -14,6 +14,7 @@ import { TamilTextArea } from './TamilTextInput'
 import { QuestionTypeEditor } from './QuestionTypeEditor'
 import { QuestionPreviewCard } from './QuestionPreviewCard'
 import { emptyDraftQuestion, type DraftQuestion } from './types'
+import { LEARNING_DIMENSIONS, DIMENSION_LABELS, CONCEPT_SUGGESTIONS, type LearningDimension } from '@/lib/gameRoomV2/analytics'
 
 const TYPE_LABEL: Record<GameRoomQuestionType, string> = {
   MULTIPLE_CHOICE: 'Multiple Choice',
@@ -259,6 +260,53 @@ function QuestionEditorPanel({ question, onChange }: { question: DraftQuestion; 
                 placeholder="From Resources, or your own hosted URL"
                 className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm"
               />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border-2 border-dashed border-gamev2ink-200 dark:border-gamev2ink-700 p-4 space-y-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500">
+              Learning Analytics (optional)
+            </p>
+            <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500 -mt-2">
+              Tag this question so teacher reports can track student progress by skill, separately from game
+              scores. Leaving this blank is fine -- it just won&apos;t show up in dimension-specific reports.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-gamev2ink-500 dark:text-gamev2ink-400 mb-1.5">
+                  Dimension
+                </label>
+                <select
+                  value={question.dimension ?? ''}
+                  onChange={(e) => onChange({ dimension: (e.target.value || null) as LearningDimension | null })}
+                  className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900"
+                >
+                  <option value="">Not tagged</option>
+                  {LEARNING_DIMENSIONS.map((d) => (
+                    <option key={d} value={d}>
+                      {DIMENSION_LABELS[d].name} ({DIMENSION_LABELS[d].tamilName})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-gamev2ink-500 dark:text-gamev2ink-400 mb-1.5">
+                  Concepts (comma-separated)
+                </label>
+                <input
+                  type="text"
+                  list="gamev2-concept-suggestions"
+                  value={question.conceptTags.join(', ')}
+                  onChange={(e) => onChange({ conceptTags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) })}
+                  placeholder="e.g. திணை, எண்"
+                  className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil"
+                />
+                <datalist id="gamev2-concept-suggestions">
+                  {CONCEPT_SUGGESTIONS.map((c) => (
+                    <option key={c.id} value={c.tamilName} />
+                  ))}
+                </datalist>
+              </div>
             </div>
           </div>
 

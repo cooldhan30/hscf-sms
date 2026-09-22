@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireGameV2Session } from '@/lib/gameRoomV2/requireSession'
 import { gradeAnswer } from '@/lib/gameRoomV2/gradeAnswer'
 import { calculatePoints, calculateRewardsForAnswer } from '@/lib/gameRoomV2/scoring'
+import { effectiveDimension, effectiveConceptTags, extractConfusionPair, confusionPairKey } from '@/lib/gameRoomV2/analytics'
 
 // POST /api/gameroom-v2/sessions/[id]/answer -- the ONLY place scoring
 // happens, entirely server-side. This is the "receive correct/
@@ -25,7 +26,7 @@ import { calculatePoints, calculateRewardsForAnswer } from '@/lib/gameRoomV2/sco
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const guard = await requireGameV2Session(params.id)
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-  const { supabase, session } = guard
+  const { supabase, studentId, session } = guard
 
   if (session.status !== 'ACTIVE') {
     return NextResponse.json({ error: `Cannot answer -- game is "${session.status}"` }, { status: 409 })
@@ -48,7 +49,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const { data: question } = await supabase
     .from('sms_gamev2_questions')
-    .select('id, question_type, payload, points, explanation')
+    .select('id, question_type, payload, points, explanation, dimension, concept_tags')
     .eq('id', questionId)
     .single()
 
@@ -73,24 +74,65 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // UNIQUE(session_id, question_index) turns a duplicate submission
   // (a race between two tabs, a retried request) into a clean insert
   // failure rather than double counting.
-  const { error: insertError } = await supabase.from('sms_gamev2_answers').insert([
-    {
-      session_id: session.id,
-      question_id: questionId,
-      question_index: questionIndex,
-      submitted_answer: submittedAnswer,
-      is_correct: isCorrect,
-      points,
-      response_time_ms: responseTimeMs,
-    },
-  ])
+  const { data: insertedAnswer, error: insertError } = await supabase
+    .from('sms_gamev2_answers')
+    .insert([
+      {
+        session_id: session.id,
+        question_id: questionId,
+        question_index: questionIndex,
+        submitted_answer: submittedAnswer,
+        is_correct: isCorrect,
+        points,
+        response_time_ms: responseTimeMs,
+      },
+    ])
+    .select('id')
+    .single()
 
-  if (insertError) {
-    if (insertError.code === '23505') {
+  if (insertError || !insertedAnswer) {
+    if (insertError?.code === '23505') {
       return NextResponse.json({ error: 'You already answered this question' }, { status: 409 })
     }
-    return NextResponse.json({ error: insertError.message }, { status: 400 })
+    return NextResponse.json({ error: insertError?.message || 'Failed to record answer' }, { status: 400 })
   }
+
+  // Learning analytics event -- tracks EDUCATIONAL performance
+  // independently from game performance (score/XP/coins, handled
+  // above/elsewhere). Written here, per-answer, rather than deferred to
+  // session completion, since every input it needs (the question's own
+  // dimension/concept_tags, the parent set's tags for the concept
+  // fallback, and the already-graded correctness) is already in hand at
+  // this exact moment. Best-effort: a failure here never blocks the
+  // student's actual answer from being recorded or scored -- learning
+  // analytics is a read model for teachers, not gameplay-critical path.
+  const { data: questionSetForAnalytics } = await supabase
+    .from('sms_gamev2_question_sets')
+    .select('tags')
+    .eq('id', session.question_set_id)
+    .single()
+
+  const dimension = effectiveDimension(question)
+  const conceptTags = effectiveConceptTags(
+    { conceptTags: question.concept_tags ?? [] },
+    { tags: questionSetForAnalytics?.tags ?? [] }
+  )
+  const confusionPair = extractConfusionPair(question.question_type, question.payload as Record<string, unknown>, submittedAnswer, isCorrect)
+
+  await supabase.from('sms_gamev2_learning_events').insert([
+    {
+      student_id: studentId,
+      answer_id: insertedAnswer.id,
+      question_set_id: session.question_set_id,
+      engine_id: session.engine_id,
+      question_type: question.question_type,
+      dimension,
+      concept_tags: conceptTags,
+      is_correct: isCorrect,
+      response_time_ms: responseTimeMs,
+      confusion_pair_key: confusionPair ? confusionPairKey(confusionPair.correctValue, confusionPair.submittedValue) : null,
+    },
+  ])
 
   const newIndex = session.current_index + 1
   const isNowCompleted = newIndex >= session.question_order.length

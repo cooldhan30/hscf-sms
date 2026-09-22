@@ -246,6 +246,20 @@ const EXPECTED_V2_FILES = [
   'lib/gameRoomV2/rewards/rewardService.ts',
   'app/api/gameroom-v2/progression/route.ts',
   'scripts/verify-gameroom-v2-progression.ts',
+  'supabase/migrations/078_gameroom_v2_learning_analytics.sql',
+  'lib/gameRoomV2/analytics/dimensions.ts',
+  'lib/gameRoomV2/analytics/concepts.ts',
+  'lib/gameRoomV2/analytics/mastery.ts',
+  'lib/gameRoomV2/analytics/needingPractice.ts',
+  'lib/gameRoomV2/analytics/confusionPairs.ts',
+  'lib/gameRoomV2/analytics/commonMistakes.ts',
+  'lib/gameRoomV2/analytics/studentChallenge.ts',
+  'lib/gameRoomV2/analytics/index.ts',
+  'app/api/gameroom-v2/analytics/teacher/route.ts',
+  'app/api/gameroom-v2/analytics/student-challenge/route.ts',
+  'app/gameroom-v2/analytics/page.tsx',
+  'app/gameroom-v2/analytics/AnalyticsClient.tsx',
+  'scripts/verify-gameroom-v2-learning-analytics.ts',
 ]
 for (const file of EXPECTED_V2_FILES) {
   const full = join(ROOT, file)

@@ -10,6 +10,7 @@ import {
   detectLanguage,
   type GameRoomQuestionType,
 } from '@/lib/gameRoomV2/domain'
+import { isLearningDimension } from '@/lib/gameRoomV2/analytics'
 
 // GET /api/gameroom-v2/question-sets -- lists question sets visible to
 // the caller: their own (any visibility, via RLS "gamev2_question_sets:
@@ -82,6 +83,8 @@ interface IncomingQuestion {
   explanation?: string | null
   mediaUrl?: string | null
   points?: number
+  dimension?: string | null
+  conceptTags?: string[]
 }
 
 // POST /api/gameroom-v2/question-sets -- create a question set AND its
@@ -144,6 +147,15 @@ export async function POST(request: Request) {
       errors.push(`"${q.questionType}" cannot be authored yet`)
     }
   }
+  // Dimension is optional per question but, if present, must be one of
+  // the 7 fixed learning dimensions (mirrors the DB CHECK constraint --
+  // validated here too so a bad value is rejected with a clear message
+  // instead of a raw DB constraint error).
+  for (const q of rawQuestions) {
+    if (q.dimension != null && q.dimension !== '' && !isLearningDimension(q.dimension)) {
+      errors.push(`Invalid learning dimension: "${q.dimension}"`)
+    }
+  }
   if (errors.length === 0) {
     errors.push(...validateQuestionSet(questionsForValidation))
   }
@@ -194,6 +206,8 @@ export async function POST(request: Request) {
     explanation: optionalString(q.explanation ?? null),
     media_url: optionalString(q.mediaUrl ?? null),
     points: typeof q.points === 'number' && q.points > 0 ? q.points : 100,
+    dimension: isLearningDimension(q.dimension) ? q.dimension : null,
+    concept_tags: Array.isArray(q.conceptTags) ? q.conceptTags.filter((t): t is string => typeof t === 'string' && t.trim().length > 0) : [],
   }))
 
   const { error: questionsError } = await supabase.from('sms_gamev2_questions').insert(questionRows)

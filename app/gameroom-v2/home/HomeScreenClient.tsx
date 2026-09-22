@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FiCompass, FiAward, FiChevronRight } from 'react-icons/fi'
 import {
   GameTile,
@@ -88,6 +88,24 @@ export function HomeScreenClient({
   previewLockedAchievements: { id: string; name: string; icon: string }[]
 }) {
   const [infoEngine, setInfoEngine] = useState<GameEngine | null>(null)
+  const [challengeMessage, setChallengeMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/gameroom-v2/analytics/student-challenge')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && typeof data?.message === 'string') setChallengeMessage(data.message)
+      })
+      .catch(() => {
+        // இன்றைய சவால் is a nice-to-have suggestion, not gameplay-
+        // critical -- a fetch failure just leaves the section showing
+        // its existing empty state rather than an error banner.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const featuredEngines = useMemo(
     () => FEATURED_ENGINE_IDS.map((id) => GAME_ENGINES_V2.find((e) => e.id === id)).filter((e): e is GameEngine => Boolean(e)),
@@ -148,10 +166,14 @@ export function HomeScreenClient({
         <section className="space-y-4">
           <SectionHeader title="Today's Challenge" tamilTitle="இன்றைய சவால்" />
           <GameV2Card className="bg-gradient-to-br from-gamev2spark-50 to-white dark:from-gamev2spark-500/10 dark:to-gamev2ink-900">
-            <GameV2Empty
-              title="No challenge published yet"
-              description="Your teacher hasn't set today's challenge. Check back soon!"
-            />
+            {challengeMessage ? (
+              <p className="text-gamev2ink-800 dark:text-gamev2ink-100 font-semibold">{challengeMessage}</p>
+            ) : (
+              <GameV2Empty
+                title="Play a game to get your first challenge"
+                description="Once you've answered a few questions, இன்றைய சவால் will suggest a concept worth practicing."
+              />
+            )}
           </GameV2Card>
         </section>
 
