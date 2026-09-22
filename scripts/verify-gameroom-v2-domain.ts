@@ -40,17 +40,19 @@ assert(GAME_ROOM_V2_QUESTION_TYPES.length === 12, `exactly 12 question types dec
 console.log('\n== Engine registry ==')
 assert(GAME_ENGINES_V2.length === 12, `12 engines registered as scaffolding (found ${GAME_ENGINES_V2.length})`)
 // Classic Quiz (a thin reference engine mounting GameSessionRuntime
-// directly) and Tower Defense (a full battlefield built around
-// QuestionOverlay -- see components/gameRoomV2/towerDefense/) are the
-// two real, playable engines so far; every other engine stays
-// COMING_SOON until it gets the same treatment.
-const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense']
+// directly), Tower Defense (a battlefield built around QuestionOverlay
+// -- see components/gameRoomV2/towerDefense/), and Racing (a race track
+// built the same way -- see components/gameRoomV2/racing/) are the
+// real, playable engines so far; every other engine stays COMING_SOON
+// until it gets the same treatment.
+const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing']
 assert(
   GAME_ENGINES_V2.filter((e) => e.status === 'COMING_SOON').length === GAME_ENGINES_V2.length - ACTIVE_ENGINE_IDS.length,
   `every engine except {${ACTIVE_ENGINE_IDS.join(', ')}} is still COMING_SOON`
 )
 assert(getGameEngineV2('classic-quiz')?.status === 'ACTIVE', 'Classic Quiz is ACTIVE, genuinely playable')
 assert(getGameEngineV2('tower-defense')?.status === 'ACTIVE', 'Tower Defense is ACTIVE, genuinely playable')
+assert(getGameEngineV2('racing')?.status === 'ACTIVE', 'Racing is ACTIVE, genuinely playable')
 assert(getGameEngineV2('does-not-exist') === undefined, 'getGameEngineV2 returns undefined for an unknown id')
 for (const id of ['word-ninja', 'space-mission', 'kingdom-builder', 'mystery-mansion', 'crossword', 'matching', 'memory']) {
   assert(getGameEngineV2(id) !== undefined, `getGameEngineV2('${id}') resolves (home-screen roster engine)`)

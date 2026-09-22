@@ -58,14 +58,16 @@ assert(!matchOnly.includes('classic-quiz'), 'a MATCH-only set does NOT list Clas
 const nothingPlayable = playableEngineIds(['PRONUNCIATION'])
 assert(nothingPlayable.length === 0, 'a set with only an unimplemented question type has zero playable games -- never a fabricated launch target')
 
-// Classic Quiz and Tower Defense are the real, playable (ACTIVE)
-// engines so far -- every other engine is still COMING_SOON. Confirming
-// this here (alongside verify-gameroom-v2-domain.ts) because it's the
-// exact guarantee ChooseGameModal relies on: only ACTIVE/BETA engines
-// are clickable, everything else shows an inert "Coming Soon" badge.
+// Classic Quiz, Tower Defense, and Racing are the real, playable
+// (ACTIVE) engines so far -- every other engine is still COMING_SOON.
+// Confirming this here (alongside verify-gameroom-v2-domain.ts) because
+// it's the exact guarantee ChooseGameModal relies on: only ACTIVE/BETA
+// engines are clickable, everything else shows an inert "Coming Soon"
+// badge.
+const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing']
 assert(
-  GAME_ENGINES_V2.filter((e) => e.status !== 'COMING_SOON').every((e) => e.id === 'classic-quiz' || e.id === 'tower-defense'),
-  'the only non-COMING_SOON engines are Classic Quiz and Tower Defense -- every other engine stays unimplemented'
+  GAME_ENGINES_V2.filter((e) => e.status !== 'COMING_SOON').every((e) => ACTIVE_ENGINE_IDS.includes(e.id)),
+  `the only non-COMING_SOON engines are {${ACTIVE_ENGINE_IDS.join(', ')}} -- every other engine stays unimplemented`
 )
 
 console.log(`\n${failures === 0 ? 'PASS' : 'FAIL'}: ${failures} failure(s).`)

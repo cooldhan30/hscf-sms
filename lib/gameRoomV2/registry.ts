@@ -100,22 +100,32 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     id: 'racing',
     name: 'Racing',
     tamilName: null,
-    description: 'Correct answers move a racer forward -- first to the finish line wins.',
+    description: 'Correct answers boost your racer forward -- accuracy wins the race, not button speed.',
     icon: null,
     thumbnail: null,
     compatibility: {
       supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'ORDER_WORDS', 'ORDER_LETTERS'],
-      soloSupport: false,
+      // Ships solo today (a student races a scripted rival) with the
+      // simulation layer already shaped for N racers (see
+      // lib/gameRoomV2/racing/race.ts's RacerState) -- multiplayerSupport
+      // stays declared as a real target capability, but no live
+      // session/join-code/realtime-opponent sync exists yet. This is
+      // groundwork, not a shipped multiplayer mode.
+      soloSupport: true,
       multiplayerSupport: true,
       liveClassroomSupport: true,
-      homeworkSupport: false,
-      minPlayers: 2,
+      homeworkSupport: true,
+      minPlayers: 1,
       maxPlayers: 8,
     },
     recommendedLevel: null,
     estimatedDurationMinutes: 5,
-    status: 'COMING_SOON',
-    version: '0.0.0',
+    // The third real, playable engine (after Classic Quiz and Tower
+    // Defense) -- built around QuestionOverlay/the shared session
+    // routes the same way Tower Defense is. See
+    // components/gameRoomV2/racing/RacingGame.tsx.
+    status: 'ACTIVE',
+    version: '0.1.0',
   },
   {
     id: 'treasure-quest',

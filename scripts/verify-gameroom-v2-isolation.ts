@@ -196,6 +196,15 @@ const EXPECTED_V2_FILES = [
   'components/gameRoomV2/towerDefense/TowerDefenseGame.tsx',
   'components/gameRoomV2/towerDefense/index.ts',
   'scripts/verify-gameroom-v2-tower-defense.ts',
+  'lib/gameRoomV2/racing/themes.ts',
+  'lib/gameRoomV2/racing/difficulty.ts',
+  'lib/gameRoomV2/racing/race.ts',
+  'lib/gameRoomV2/racing/index.ts',
+  'components/gameRoomV2/racing/RaceSetupPicker.tsx',
+  'components/gameRoomV2/racing/Track.tsx',
+  'components/gameRoomV2/racing/RacingGame.tsx',
+  'components/gameRoomV2/racing/index.ts',
+  'scripts/verify-gameroom-v2-racing.ts',
 ]
 for (const file of EXPECTED_V2_FILES) {
   const full = join(ROOT, file)
