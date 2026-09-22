@@ -253,8 +253,16 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     },
     recommendedLevel: null,
     estimatedDurationMinutes: 15,
-    status: 'COMING_SOON',
-    version: '0.0.0',
+    // The eighth real, playable engine (after Classic Quiz, Tower
+    // Defense, Racing, Boss Battle, Treasure Quest, Word Ninja, and
+    // Space Mission) -- built around QuestionOverlay/GameHUD/the shared
+    // session routes the same way. Promoted from BETA to ACTIVE only
+    // after scripts/verify-gameroom-v2-kingdom-builder.ts and the full
+    // verify-gameroom-v2-*.ts suite, tsc, lint, and build all passed. See
+    // lib/gameRoomV2/kingdomBuilder/* and
+    // components/gameRoomV2/kingdomBuilder/KingdomBuilderGame.tsx.
+    status: 'ACTIVE',
+    version: '0.1.0',
   },
   {
     id: 'mystery-mansion',

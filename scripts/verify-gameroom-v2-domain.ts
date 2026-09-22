@@ -43,12 +43,13 @@ assert(GAME_ENGINES_V2.length === 12, `12 engines registered as scaffolding (fou
 // directly), Tower Defense, Racing, Boss Battle, Treasure Quest (each a
 // custom visual frame built around QuestionOverlay), Word Ninja (its
 // own lane-slashing UI submitting the same CATEGORIZE answer shape
-// directly), and Space Mission (a mission-path flight visual, also
-// built around QuestionOverlay/GameHUD) -- see
-// components/gameRoomV2/{towerDefense,racing,bossBattle,treasureQuest,wordNinja,spaceMission}/
+// directly), Space Mission (a mission-path flight visual, also built
+// around QuestionOverlay/GameHUD), and Kingdom Builder (a CSS/SVG
+// settlement scene, same pattern) -- see
+// components/gameRoomV2/{towerDefense,racing,bossBattle,treasureQuest,wordNinja,spaceMission,kingdomBuilder}/
 // -- are the real, playable engines so far; every other engine stays
 // COMING_SOON until it gets the same treatment.
-const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'treasure-quest', 'word-ninja', 'space-mission']
+const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'treasure-quest', 'word-ninja', 'space-mission', 'kingdom-builder']
 assert(
   GAME_ENGINES_V2.filter((e) => e.status === 'COMING_SOON').length === GAME_ENGINES_V2.length - ACTIVE_ENGINE_IDS.length,
   `every engine except {${ACTIVE_ENGINE_IDS.join(', ')}} is still COMING_SOON`
@@ -60,6 +61,7 @@ assert(getGameEngineV2('boss-battle')?.status === 'ACTIVE', 'Boss Battle is ACTI
 assert(getGameEngineV2('treasure-quest')?.status === 'ACTIVE', 'Treasure Quest is ACTIVE, genuinely playable')
 assert(getGameEngineV2('word-ninja')?.status === 'ACTIVE', 'Word Ninja is ACTIVE, genuinely playable')
 assert(getGameEngineV2('space-mission')?.status === 'ACTIVE', 'Space Mission is ACTIVE, genuinely playable')
+assert(getGameEngineV2('kingdom-builder')?.status === 'ACTIVE', 'Kingdom Builder is ACTIVE, genuinely playable')
 assert(getGameEngineV2('does-not-exist') === undefined, 'getGameEngineV2 returns undefined for an unknown id')
 for (const id of ['word-ninja', 'space-mission', 'kingdom-builder', 'mystery-mansion', 'crossword', 'matching', 'memory']) {
   assert(getGameEngineV2(id) !== undefined, `getGameEngineV2('${id}') resolves (home-screen roster engine)`)

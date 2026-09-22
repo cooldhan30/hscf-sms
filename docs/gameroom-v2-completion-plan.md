@@ -75,18 +75,18 @@ This accelerated Phase 4: every future engine now has one proven, tested lifecyc
 
 ---
 
-## Phase 4: Remaining engines (Space Mission ✅, Kingdom Builder, Mystery Mansion, Crossword, Matching, Memory)
+## Phase 4: Remaining engines (Space Mission ✅, Kingdom Builder ✅, Mystery Mansion, Crossword, Matching, Memory)
 
 Confirmed at audit time: zero implementation existed for any of these six — no `components/gameRoomV2/*` directory, no route, registry metadata only (`status: 'COMING_SOON'`, `version: '0.0.0'`).
 
 - [x] **Space Mission** — shipped. `lib/gameRoomV2/spaceMission/{route,difficulty,flight}.ts` (a linear checkpoint route through 5 planets; Cadet/Pilot/Commander difficulty tiers altering only thrust/shield-damage parameters, never question difficulty; `FlightState` tracking distance/shields/streak with deterministic streak-driven thrust bonus, capped not unbounded) + `components/gameRoomV2/spaceMission/{SpaceMissionGame,MissionSetupPicker,MissionPath,MissionCompleteScreen,RecoveryBanner}.tsx`. Built around the shared `useGameSessionState`/`QuestionOverlay`/`GameHUD`/`GameResultsScreen` framework from Phase 3.5 (no reimplemented poll/complete/pause/exit logic), so session persistence, scoring, XP/coins, streaks, achievements, and mastery tracking all flow through the unmodified, engine-agnostic `/complete` route exactly as they do for the other 6 ACTIVE engines. A wrong answer costs shields and opens a brief, auto-dismissing, non-blocking "recovery" beat (`RecoveryBanner.tsx`) — it never ends the mission, sends the ship backward, or locks the player out, satisfying the "never humiliating or overly punitive" requirement (verified explicitly: shields bottom out at exactly 0, `missionComplete` stays `false` regardless of shield level). Visually distinct from every other engine: a vertical starfield flight path (not Racing's horizontal lanes or Treasure Quest's room grid), full `useGameV2Motion` reduced-motion support throughout. Wired into `PlaySessionClient.tsx`'s engine-branch dispatch. `scripts/verify-gameroom-v2-space-mission.ts` (42 assertions: route ordering/reachability, difficulty economics, streak-bonus determinism, shield recharge/damage bounds, recovery-never-blocks-progress, mission completion) passes; promoted `BETA → ACTIVE` in the registry only after that script plus the full `verify-gameroom-v2-*.ts` suite, `tsc --noEmit`, `npm run lint`, and `npm run build` all passed clean.
-- [ ] Kingdom Builder: component, gameplay logic, verify script
+- [x] **Kingdom Builder** — shipped. `lib/gameRoomV2/kingdomBuilder/{resources,buildings,difficulty,kingdom}.ts` (four generic fantasy resources — coins/wood/stone/stars, deterministically earned, never religious in framing; a fixed 6-building construction sequence — house → garden → farm → tower → an explicitly non-religious "Ornamental Pavilion" (a kolam-arched decorative structure, purely cosmetic, no special power) → castle; Settler/Builder/Architect difficulty tiers altering only resource multiplier/wrong-answer cost, never question difficulty; auto-construction the instant a building becomes affordable, so answering correctly is the entire build mechanic) + `components/gameRoomV2/kingdomBuilder/{KingdomBuilderGame,KingdomSetupPicker,KingdomScene,ResourceBar,SetbackBanner,KingdomCompleteScreen}.tsx`. Built around the shared `useGameSessionState`/`QuestionOverlay`/`GameHUD`/`GameResultsScreen` framework from Phase 3.5 — session persistence, scoring, XP/coins, streaks, achievements, and mastery tracking all flow through the unmodified, engine-agnostic `/complete` route exactly as for every other ACTIVE engine. The scene (`KingdomScene.tsx`) is pure CSS/SVG/emoji with no image assets — a gradient sky/ground, an SVG hill silhouette, and buildings placed at fixed plot coordinates that pop in with a spring animation the moment they're constructed; correct-answer streaks unlock a purely cosmetic glow-intensity tier (`streakUpgradeTier`, capped at tier 3) with zero gameplay-mechanical effect, so breaking a streak never costs progress, only shine. A wrong answer never removes a standing building — verified explicitly: `applyWrongAnswer` can only ever spend resources saved toward the *next* building, and 10 consecutive wrong answers in the verify script leave every already-built structure untouched — and opens a brief, auto-dismissing, non-blocking `SetbackBanner` (same non-punitive pattern as Space Mission's `RecoveryBanner`). Full `useGameV2Motion` reduced-motion support; `ResourceBar` resource counts are individually `aria-label`led for screen readers. Wired into `PlaySessionClient.tsx`'s engine-branch dispatch. `scripts/verify-gameroom-v2-kingdom-builder.ts` (63 assertions: build-order well-formedness plus an explicit scan confirming no building name/description contains any religious term, resource economics, difficulty settings, streak-tier bounds, auto-construction, wrong-answer non-destructiveness, streak-break recovery, and full-kingdom completion) passes; promoted `BETA → ACTIVE` in the registry only after that script plus the full `verify-gameroom-v2-*.ts` suite, `tsc --noEmit`, `npm run lint`, and `npm run build` all passed clean.
 - [ ] Mystery Mansion: component, gameplay logic, verify script
 - [ ] Crossword: component, grid-fill logic, verify script
 - [ ] Matching: component, pair logic, verify script
 - [ ] Memory: component, flip/recall logic, verify script
 
-Remaining 5 can ship independently; recommend building in this order (simplest mechanic first): Matching → Memory → Crossword → Mystery Mansion → Kingdom Builder.
+Remaining 4 can ship independently; recommend building in this order (simplest mechanic first): Matching → Memory → Crossword → Mystery Mansion.
 
 **Acceptance criteria (per engine):** `status` flips to `ACTIVE` only once a full play loop (start → render question → submit answer → score → complete/reward) is verified end-to-end by a new `scripts/verify-gameroom-v2-<engine>.ts`, mirroring the existing ACTIVE engines' verify scripts.
 
@@ -94,7 +94,7 @@ Remaining 5 can ship independently; recommend building in this order (simplest m
 
 ## Phase 5: Test coverage gaps
 
-Existing scripts: `verify-gameroom-v2-{isolation,domain,gameplay,question-validation,library,progression,learning-analytics,live-classroom,tower-defense,racing,boss-battle,treasure-quest,word-ninja,shared-framework,space-mission}.ts` — 15 total, all passing.
+Existing scripts: `verify-gameroom-v2-{isolation,domain,gameplay,question-validation,library,progression,learning-analytics,live-classroom,tower-defense,racing,boss-battle,treasure-quest,word-ninja,shared-framework,space-mission,kingdom-builder}.ts` — 16 total, all passing.
 
 No dedicated verify script exists for:
 - [ ] Question Set **Builder** UI/validation flow specifically (partially covered indirectly by `verify-gameroom-v2-question-validation.ts`, but no script exercises `BuilderWizard.tsx`'s multi-step flow or `TamilTextInput`/`QuestionTypeEditor` behavior)
@@ -166,7 +166,7 @@ This phase is **not** "add nav link" — it is about the feature being ready whe
 - [ ] Phase 1 (registry reconciliation) resolved — no engine's declared compatibility overstates its real behavior
 - [ ] Phase 6 (RLS/gating hardening) items resolved or explicitly accepted
 - [ ] Phase 7 (mobile) and Phase 8 (accessibility) baseline items resolved for all ACTIVE engines
-- [ ] All `scripts/verify-gameroom-v2-*.ts` passing (currently: 15/15 passing)
+- [ ] All `scripts/verify-gameroom-v2-*.ts` passing (currently: 16/16 passing)
 - [ ] `tsc --noEmit` and `npm run lint` clean (currently: both clean)
 - [ ] Isolation re-confirmed via `scripts/verify-gameroom-v2-isolation.ts` immediately before any rollout decision
 - [ ] Explicit, separate sign-off obtained before adding any production navigation link or removing/loosening the `sms_gamev2_testers` allowlist gate
