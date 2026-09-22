@@ -282,8 +282,17 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     },
     recommendedLevel: null,
     estimatedDurationMinutes: 12,
-    status: 'COMING_SOON',
-    version: '0.0.0',
+    // The ninth real, playable engine (after Classic Quiz, Tower
+    // Defense, Racing, Boss Battle, Treasure Quest, Word Ninja, Space
+    // Mission, and Kingdom Builder) -- built around
+    // QuestionOverlay/GameHUD/the shared session routes the same way.
+    // Promoted from BETA to ACTIVE only after
+    // scripts/verify-gameroom-v2-mystery-mansion.ts and the full
+    // verify-gameroom-v2-*.ts suite, tsc, lint, and build all passed. See
+    // lib/gameRoomV2/mysteryMansion/* and
+    // components/gameRoomV2/mysteryMansion/MysteryMansionGame.tsx.
+    status: 'ACTIVE',
+    version: '0.1.0',
   },
   // Lightweight/legacy-style activities -- the same familiar shapes
   // legacy GameRoom already has (crossword: tamilWordFormation;
