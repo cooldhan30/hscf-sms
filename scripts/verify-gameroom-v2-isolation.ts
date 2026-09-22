@@ -235,6 +235,17 @@ const EXPECTED_V2_FILES = [
   'components/gameRoomV2/wordNinja/WordNinjaGame.tsx',
   'components/gameRoomV2/wordNinja/index.ts',
   'scripts/verify-gameroom-v2-word-ninja.ts',
+  'supabase/migrations/077_gameroom_v2_progression.sql',
+  'lib/gameRoomV2/progression/levels.ts',
+  'lib/gameRoomV2/progression/achievements.ts',
+  'lib/gameRoomV2/progression/achievementRules.ts',
+  'lib/gameRoomV2/progression/engineMilestone.ts',
+  'lib/gameRoomV2/progression/streaks.ts',
+  'lib/gameRoomV2/progression/dailyChallenge.ts',
+  'lib/gameRoomV2/progression/index.ts',
+  'lib/gameRoomV2/rewards/rewardService.ts',
+  'app/api/gameroom-v2/progression/route.ts',
+  'scripts/verify-gameroom-v2-progression.ts',
 ]
 for (const file of EXPECTED_V2_FILES) {
   const full = join(ROOT, file)

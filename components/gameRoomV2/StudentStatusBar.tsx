@@ -1,29 +1,31 @@
 import { GameV2XPDisplay, GameV2CoinDisplay } from './HUD'
 import { GameV2ProgressBar } from './ProgressBar'
+import { levelForXp } from '@/lib/gameRoomV2/progression'
 
-// XP required to reach each level -- a simple fixed curve (200 XP/level)
-// good enough for a brand-new student (0 XP, level 1) until a real
-// leveling design/table exists. This is presentational math only, not
-// a persisted rule -- no session/XP tables exist yet (see
-// lib/gameRoomV2/README.md's foundation-phase scope), so every student
-// viewing this page today is at level 1 / 0 XP, honestly.
-const XP_PER_LEVEL = 200
-
-function levelForXP(xp: number) {
-  return Math.floor(xp / XP_PER_LEVEL) + 1
-}
-
+// Level/XP-into-level are derived from the ONE shared curve in
+// lib/gameRoomV2/progression/levels.ts (the same function the server's
+// GET /api/gameroom-v2/progression route and the reward service use) --
+// this component used to compute its own separate, flat 200-XP/level
+// curve, which would have silently drifted from the server's real
+// numbers the moment either one changed. There is now exactly one
+// level curve in the whole codebase.
 export function StudentStatusBar({
   name,
   xp,
   coins,
+  dailyStreak = 0,
 }: {
   name: string
   xp: number
   coins: number
+  // Consecutive-DAYS practice streak (sms_gamev2_player_stats.
+  // current_daily_streak) -- distinct from an in-session answer streak.
+  // Optional/defaulted so every existing caller (e.g. the design
+  // gallery's fabricated-data demo) keeps compiling without needing to
+  // invent a streak number of its own.
+  dailyStreak?: number
 }) {
-  const level = levelForXP(xp)
-  const xpIntoLevel = xp % XP_PER_LEVEL
+  const { level, xpIntoCurrentLevel, xpNeededForNextLevel } = levelForXp(xp)
 
   return (
     <div className="rounded-3xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 bg-white dark:bg-gamev2ink-900 shadow-lg p-4 sm:p-5">
@@ -38,12 +40,17 @@ export function StudentStatusBar({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {dailyStreak > 0 && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-bold bg-gamev2spark-100 dark:bg-gamev2spark-500/20 text-gamev2spark-700 dark:text-gamev2spark-300">
+              {'\u{1F525}'} {dailyStreak}
+            </span>
+          )}
           <GameV2XPDisplay xp={xp} />
           <GameV2CoinDisplay coins={coins} />
         </div>
       </div>
       <div className="mt-4">
-        <GameV2ProgressBar value={xpIntoLevel} max={XP_PER_LEVEL} label={`Level ${level} → ${level + 1}`} tone="spark" />
+        <GameV2ProgressBar value={xpIntoCurrentLevel} max={xpNeededForNextLevel} label={`Level ${level} → ${level + 1}`} tone="spark" />
       </div>
     </div>
   )

@@ -1,19 +1,25 @@
 import { NextResponse } from 'next/server'
 import { requireGameV2Session } from '@/lib/gameRoomV2/requireSession'
-import { calculateCompletionBonus } from '@/lib/gameRoomV2/scoring'
 import { skillsForQuestionSet } from '@/lib/gameRoomV2/skillsForQuestionSet'
+import { finalizeSessionRewards } from '@/lib/gameRoomV2/rewards/rewardService'
+import { levelForXp } from '@/lib/gameRoomV2/progression/levels'
 
 // POST /api/gameroom-v2/sessions/[id]/complete -- finalizes a session
 // that has reached COMPLETED status (set by answer/route.ts on the
-// last question) and returns the full Results payload. This is where
-// the durable XP/coin ledger (sms_gamev2_player_stats) actually
-// changes -- via the SECURITY DEFINER RPC
-// sms_gamev2_apply_session_rewards(), never a direct client-writable
-// UPDATE (see migration 076's RLS comment on that table) -- and where
-// this session's skill-practice rows are logged for future mastery
-// analytics. Calling this twice for the same session is safe: the
-// second call is rejected (see the already-finalized check below)
-// rather than double-granting rewards.
+// last question) and returns the full Results payload. All of the
+// actual reward computation (XP/coin ledger, engine mastery, streaks,
+// achievements, daily challenge) happens in ONE place --
+// lib/gameRoomV2/rewards/rewardService.ts's finalizeSessionRewards(),
+// the centralized "reward service" per the platform's explicit
+// requirement that individual game clients never arbitrarily award
+// currency. This route's own job is just: authenticate the caller,
+// enforce the COMPLETED-status precondition, and guard against calling
+// the reward service more than once for the same session.
+//
+// Calling this route twice for the same session is safe: the second
+// call is rejected by the alreadyFinalized check below (never calls
+// finalizeSessionRewards again) and instead returns the already-
+// persisted results.
 export async function POST(_request: Request, { params }: { params: { id: string } }) {
   const guard = await requireGameV2Session(params.id)
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
@@ -23,12 +29,6 @@ export async function POST(_request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: `Cannot finalize -- game is "${session.status}", not COMPLETED` }, { status: 409 })
   }
 
-  // A session's rewards are applied exactly once -- distinguished by
-  // whether the completion bonus has already been folded into
-  // xp_earned/coins_earned. finalized_at (added below) is the
-  // authoritative marker; re-running this route for an
-  // already-finalized session returns the existing result instead of
-  // granting the bonus a second time.
   const { data: existingAnswers } = await supabase
     .from('sms_gamev2_answers')
     .select('id, question_id, submitted_answer, is_correct, points, response_time_ms, question_index')
@@ -43,45 +43,46 @@ export async function POST(_request: Request, { params }: { params: { id: string
 
   const skills = questionSet ? skillsForQuestionSet(questionSet) : []
 
-  // Idempotency: if this session was already finalized (completed_at
-  // set AND a matching skill-practice batch already logged), don't
-  // re-apply the bonus. Checked via a dedicated column rather than
-  // re-deriving from xp_earned, since a legitimate 0-XP completion
-  // (every answer wrong) must still be distinguishable from
-  // "not finalized yet."
+  // Idempotency: rewards_finalized_at is the authoritative marker,
+  // checked via a dedicated column rather than re-deriving from
+  // xp_earned, since a legitimate 0-XP completion (every answer wrong)
+  // must still be distinguishable from "not finalized yet."
   const alreadyFinalized = Boolean(session.rewards_finalized_at)
 
-  let totalXp = session.xp_earned
-  let totalCoins = session.coins_earned
+  let xpEarned = session.xp_earned
+  let coinsEarned = session.coins_earned
+  let totalXp = 0
+  let totalCoins = 0
+  let level = 1
+  let newlyEarnedAchievementIds: string[] = []
+  let dailyChallengeCompleted = false
+  let currentDailyStreak = 0
 
   if (!alreadyFinalized) {
-    const bonus = calculateCompletionBonus()
-    totalXp = session.xp_earned + bonus.xp
-    totalCoins = session.coins_earned + bonus.coins
-
-    await supabase
-      .from('sms_gamev2_sessions')
-      .update({ xp_earned: totalXp, coins_earned: totalCoins, rewards_finalized_at: new Date().toISOString() })
-      .eq('id', session.id)
-
-    // Best-effort: the ledger RPC is the source of truth for
-    // total_xp/total_coins; a failure here shouldn't block the student
-    // from seeing their Results screen, but should never be silently
-    // retried into a double-grant either (the finalized_at write above
-    // already happened, so a retry of this whole route short-circuits
-    // via alreadyFinalized on the next call).
-    await supabase.rpc('sms_gamev2_apply_session_rewards', {
-      p_student_id: studentId,
-      p_xp_earned: bonus.xp + session.xp_earned,
-      p_coins_earned: bonus.coins + session.coins_earned,
+    const result = await finalizeSessionRewards({
+      supabase,
+      studentId,
+      session,
+      todayIso: new Date().toISOString().slice(0, 10),
     })
-
-    if (skills.length > 0 && existingAnswers && existingAnswers.length > 0) {
-      const skillRows = existingAnswers.flatMap((a) =>
-        skills.map((skill) => ({ student_id: studentId, answer_id: a.id, skill, is_correct: a.is_correct }))
-      )
-      await supabase.from('sms_gamev2_skill_practice').insert(skillRows)
-    }
+    xpEarned = result.xpEarned
+    coinsEarned = result.coinsEarned
+    totalXp = result.totalXp
+    totalCoins = result.totalCoins
+    level = result.level
+    newlyEarnedAchievementIds = result.newlyEarnedAchievementIds
+    dailyChallengeCompleted = result.dailyChallengeCompleted
+    currentDailyStreak = result.currentDailyStreak
+  } else {
+    const { data: stats } = await supabase
+      .from('sms_gamev2_player_stats')
+      .select('total_xp, total_coins, current_daily_streak')
+      .eq('student_id', studentId)
+      .single()
+    totalXp = stats?.total_xp ?? xpEarned
+    totalCoins = stats?.total_coins ?? coinsEarned
+    level = levelForXp(totalXp).level
+    currentDailyStreak = stats?.current_daily_streak ?? 0
   }
 
   const totalQuestions = session.question_order.length
@@ -94,10 +95,21 @@ export async function POST(_request: Request, { params }: { params: { id: string
     correctCount: session.correct_count,
     incorrectCount: session.answered_count - session.correct_count,
     totalQuestions,
-    xpEarned: totalXp,
-    coinsEarned: totalCoins,
+    xpEarned,
+    coinsEarned,
     bestStreak: session.best_streak,
     skillsPracticed: skills,
     answers: existingAnswers ?? [],
+    // Progression system fields -- see lib/gameRoomV2/progression/*.
+    // newlyEarnedAchievementIds is empty on an already-finalized
+    // re-fetch (achievements are granted exactly once, at the moment
+    // they're first earned, never re-reported on a later poll of the
+    // same session).
+    totalXp,
+    totalCoins,
+    level,
+    newlyEarnedAchievementIds,
+    dailyChallengeCompleted,
+    currentDailyStreak,
   })
 }

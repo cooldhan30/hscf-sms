@@ -71,7 +71,22 @@ function SectionHeader({ tamilTitle, title, subtitle }: { tamilTitle?: string; t
   )
 }
 
-export function HomeScreenClient({ studentName }: { studentName: string }) {
+export interface HomeProgressionData {
+  xp: number
+  coins: number
+  currentDailyStreak: number
+  earnedAchievements: { id: string; name: string; icon: string }[]
+}
+
+export function HomeScreenClient({
+  studentName,
+  progression,
+  previewLockedAchievements,
+}: {
+  studentName: string
+  progression: HomeProgressionData
+  previewLockedAchievements: { id: string; name: string; icon: string }[]
+}) {
   const [infoEngine, setInfoEngine] = useState<GameEngine | null>(null)
 
   const featuredEngines = useMemo(
@@ -116,7 +131,7 @@ export function HomeScreenClient({ studentName }: { studentName: string }) {
         </header>
 
         {/* ============ STUDENT XP / LEVEL / COINS ============ */}
-        <StudentStatusBar name={studentName} xp={0} coins={0} />
+        <StudentStatusBar name={studentName} xp={progression.xp} coins={progression.coins} dailyStreak={progression.currentDailyStreak} />
 
         {/* ============ CONTINUE PLAYING ============ */}
         <section className="space-y-4">
@@ -142,7 +157,7 @@ export function HomeScreenClient({ studentName }: { studentName: string }) {
 
         {/* ============ FEATURED GAMES ============ */}
         <section className="space-y-4">
-          <SectionHeader title="Featured Games" subtitle="The big arcade experiences -- coming soon." />
+          <SectionHeader title="Featured Games" subtitle="The big arcade experiences." />
           <GameGrid engines={featuredEngines} onSelect={handleSelectEngine} />
         </section>
 
@@ -160,7 +175,7 @@ export function HomeScreenClient({ studentName }: { studentName: string }) {
         <section className="space-y-4">
           <SectionHeader
             title="Game Library"
-            subtitle={`${GAME_ENGINES_V2.length} games and activities -- every one is COMING_SOON while V2 is in development.`}
+            subtitle={`${GAME_ENGINES_V2.length} games and activities -- ${GAME_ENGINES_V2.filter((e) => e.status === 'ACTIVE').length} playable now, the rest coming soon.`}
           />
           <GameGrid engines={GAME_ENGINES_V2} onSelect={handleSelectEngine} />
         </section>
@@ -170,14 +185,17 @@ export function HomeScreenClient({ studentName }: { studentName: string }) {
           <SectionHeader title="Achievements" />
           <GameV2Card>
             <div className="flex flex-wrap gap-5">
-              <GameV2Badge icon="🔥" label="Streak" locked />
-              <GameV2Badge icon="⭐" label="Perfect Round" locked />
-              <GameV2Badge icon="🏆" label="Top of Class" locked />
-              <GameV2Badge icon="🎯" label="Sharp Shooter" locked />
-              <GameV2Badge icon="🚀" label="Explorer" locked />
+              {progression.earnedAchievements.map((a) => (
+                <GameV2Badge key={a.id} icon={a.icon} label={a.name} />
+              ))}
+              {previewLockedAchievements.map((a) => (
+                <GameV2Badge key={a.id} icon={a.icon} label={a.name} locked />
+              ))}
             </div>
             <p className="text-sm text-gamev2ink-400 dark:text-gamev2ink-500 mt-4">
-              Every badge unlocks once a game is playable and you&apos;ve earned it -- none of these are earned yet.
+              {progression.earnedAchievements.length > 0
+                ? `You've earned ${progression.earnedAchievements.length} achievement${progression.earnedAchievements.length === 1 ? '' : 's'} so far -- keep playing to unlock more.`
+                : 'Play a game to start earning achievements -- every badge unlocks the moment you actually accomplish it.'}
             </p>
           </GameV2Card>
         </section>
