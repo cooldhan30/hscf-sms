@@ -15,6 +15,8 @@ export interface LiveSessionRow {
   question_time_limit_seconds: number
   question_count: number | null
   race_difficulty: 'easy' | 'normal' | 'hard'
+  boss_id: 'suran' | 'kotravai-guardian' | 'naga-serpent' | null
+  boss_difficulty: 'easy' | 'normal' | 'hard'
   question_order: string[]
   paused_at: string | null
   pause_duration_seconds: number

@@ -12,3 +12,16 @@ export {
   type AttackerState,
   type BattleState,
 } from './battle'
+export {
+  STREAK_TEAM_ATTACK_THRESHOLD,
+  STREAK_TEAM_ATTACK_BONUS_DAMAGE,
+  streakTeamAttacksTriggered,
+  buildCoopBattleState,
+  coopProgressPct,
+  rankCoopContributions,
+  isCoopBattleConcluded,
+  type CoopContribution,
+  type CoopBattleState,
+  type ParticipantAnswerSummary,
+  type CoopSessionStatus,
+} from './coopBattle'

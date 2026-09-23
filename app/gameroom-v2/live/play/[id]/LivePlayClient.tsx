@@ -9,7 +9,6 @@ import { RacingGame } from '@/components/gameRoomV2/racing'
 import { BossBattleGame } from '@/components/gameRoomV2/bossBattle'
 import { useSupabaseBrowserClient } from '@/lib/supabase/client'
 import { subscribeToLiveSession } from '@/lib/gameRoomV2/liveClassroom/realtime'
-import { hasDedicatedLiveClassroomComponent } from '@/lib/gameRoomV2/liveClassroom/engineBranch'
 import { shouldRenderGameplay } from '@/lib/gameRoomV2/liveClassroom/lifecycle'
 
 const HEARTBEAT_INTERVAL_MS = 8000
@@ -25,6 +24,8 @@ interface LiveStateResponse {
   sessionId: string | null
   participantId: string
   raceDifficulty: 'easy' | 'normal' | 'hard'
+  bossId: 'suran' | 'kotravai-guardian' | 'naga-serpent' | null
+  bossDifficulty: 'easy' | 'normal' | 'hard'
   stale: boolean
   roster: RosterEntry[]
 }
@@ -41,24 +42,16 @@ interface LiveStateResponse {
 // engines that actually declare (and, as of this pass, genuinely
 // implement) liveClassroomSupport: true in the registry; every other
 // engine's registry entry keeps that flag false specifically because
-// no branch exists for it here. The engine-id list itself is the
-// single, pure, framework-free source of truth in
-// lib/gameRoomV2/liveClassroom/engineBranch.ts (directly unit tested
-// by scripts/verify-gameroom-v2-live-classroom.ts) -- this function
-// only maps that same list to the actual imported components, so the
-// two can never drift apart.
+// no branch exists for it here.
 //
-// Racing is rendered separately below (not through this generic
-// mapping) because it's the one engine with genuine multiplayer
-// support -- it needs liveSessionId/participantId/raceDifficulty props
-// no other engine takes, since RacingGame branches internally into a
-// server-polled multi-racer view instead of its solo local-tick loop.
-function engineComponentFor(engineId: string) {
-  if (!hasDedicatedLiveClassroomComponent(engineId)) return null
-  if (engineId === 'boss-battle') return BossBattleGame
-  return null
-}
-
+// Racing and Boss Battle are BOTH special-cased directly below (not
+// through a generic id-to-component map) because they're the two
+// engines with genuine multiplayer support -- each needs extra
+// liveSessionId/participantId/fixed-config props no other engine
+// takes, since both branch internally into a server-polled
+// multiplayer view instead of their solo local-tick loop. Every other
+// liveClassroomSupport engine (today, only classic-quiz) falls through
+// to the plain GameSessionRuntime fallback.
 export function LivePlayClient({ liveSessionId }: { liveSessionId: string }) {
   const router = useRouter()
   const [state, setState] = useState<LiveStateResponse | null>(null)
@@ -135,9 +128,17 @@ export function LivePlayClient({ liveSessionId }: { liveSessionId: string }) {
         />
       )
     }
-    const EngineComponent = engineComponentFor(state.engineId)
-    if (EngineComponent) {
-      return <EngineComponent sessionId={state.sessionId} onExit={handleExit} />
+    if (state.engineId === 'boss-battle') {
+      return (
+        <BossBattleGame
+          sessionId={state.sessionId}
+          onExit={handleExit}
+          liveSessionId={liveSessionId}
+          myParticipantId={state.participantId}
+          fixedBossId={state.bossId ?? undefined}
+          fixedDifficulty={state.bossDifficulty}
+        />
+      )
     }
     return <GameSessionRuntime sessionId={state.sessionId} onExit={handleExit} />
   }

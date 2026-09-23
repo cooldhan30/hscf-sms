@@ -85,23 +85,28 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     compatibility: {
       supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'TEXT_INPUT'],
       soloSupport: true,
-      // Ships solo today (one student vs. a phased boss) with the
-      // battle simulation already shaped for multiple attackers sharing
-      // one boss's health pool (see lib/gameRoomV2/bossBattle/battle.ts's
-      // AttackerState/applyCorrectAnswerDamage) -- multiplayerSupport
-      // stays declared as a real target capability ("architecture ready
-      // for classroom co-op"), but no SHARED-boss-health-across-students
-      // real-time sync exists yet -- that's still architecture, not a
-      // shipped co-op mode. liveClassroomSupport is a DIFFERENT,
-      // narrower claim that IS now genuinely shipped: a teacher can host
-      // a Boss Battle live session, and every joined student plays their
-      // own independent boss fight simultaneously, with the host seeing
-      // a real-time leaderboard aggregated server-side from each
-      // student's own sms_gamev2_sessions row (app/gameroom-v2/live/
-      // play/[id]/LivePlayClient.tsx branches to BossBattleGame; see
-      // scripts/verify-gameroom-v2-live-classroom.ts). Multiple students
-      // fighting the SAME shared boss together is the multiplayerSupport
-      // gap above, not this one.
+      // Solo mode: one student vs. a phased boss with its own player
+      // health/counterattack/defeat state
+      // (components/gameRoomV2/bossBattle/BossBattleGame.tsx's
+      // SoloBossBattleGame).
+      //
+      // Cooperative multiplayer (Live Classroom only, since it needs a
+      // shared boss + difficulty every attacker fights identically --
+      // see migration 082): genuinely shipped, and deliberately a
+      // DIFFERENT mechanic from solo, not just a multiplayer wrapper
+      // around it. The whole class shares ONE boss health pool; there is
+      // NO individual player health, NO boss counterattack, and NO
+      // defeat state in cooperative mode -- a wrong answer has no public
+      // consequence at all, so a student can always recover fully on the
+      // next question (see lib/gameRoomV2/bossBattle/coopBattle.ts's
+      // header comment for the full "no naming/shaming" rationale). Boss
+      // HP is never client-reported; it's derived server-side from the
+      // sum of every participant's already-persisted correct-answer
+      // count (buildCoopBattleState), polled at a deliberately coarse
+      // ~1.5s HTTP cadence (CoopBossBattleGame), not pushed over Realtime
+      // on every tick. Streaks trigger celebratory, PUBLIC-but-never-
+      // negative "team attack" bonus damage bursts -- see
+      // scripts/verify-gameroom-v2-boss-battle-multiplayer.ts.
       multiplayerSupport: true,
       liveClassroomSupport: true,
       homeworkSupport: true,

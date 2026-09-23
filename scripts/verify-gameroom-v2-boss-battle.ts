@@ -192,11 +192,16 @@ assert(
   "one attacker's correct answer never grants charge to a different attacker"
 )
 
-console.log('\n== Registry: Boss Battle is now a real, playable engine ==')
+console.log('\n== Registry: Boss Battle supports both solo and (Live Classroom) cooperative multiplayer play ==')
 const engine = getGameEngineV2('boss-battle')
 assert(engine?.status === 'ACTIVE', 'Boss Battle is ACTIVE in the registry')
 assert(engine?.compatibility.soloSupport === true, 'Boss Battle supports solo play')
-assert(engine?.compatibility.multiplayerSupport === true, 'Boss Battle still declares multiplayer/co-op as a target capability')
+// multiplayerSupport is now genuinely backed by Live Classroom's
+// cooperative shared-boss-HP battle (see scripts/verify-gameroom-v2-
+// boss-battle-multiplayer.ts for the actual multi-participant
+// coverage) -- this script only re-confirms the flag itself, since the
+// pure SOLO battle logic tested above has no opinion on Live Classroom.
+assert(engine?.compatibility.multiplayerSupport === true, 'Boss Battle declares multiplayer/co-op as a supported capability')
 
 console.log(`\n${failures === 0 ? 'PASS' : 'FAIL'}: ${failures} failure(s).`)
 process.exit(failures === 0 ? 0 : 1)

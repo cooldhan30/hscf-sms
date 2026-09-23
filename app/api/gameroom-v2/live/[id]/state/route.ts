@@ -31,6 +31,12 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     // column) -- every other engine's live session just carries the
     // table's default, unused by that engine's client.
     raceDifficulty: liveSession.race_difficulty,
+    // Only meaningful for boss-battle (see migration 082's boss_id/
+    // boss_difficulty columns) -- every other engine's live session
+    // just carries the table's default/null, unused by that engine's
+    // client.
+    bossId: liveSession.boss_id,
+    bossDifficulty: liveSession.boss_difficulty,
     // HOST DISCONNECT / STALE ROOM: a student stuck in the lobby (or
     // an ACTIVE session with no bridge row yet) whose host tab closed
     // and never returned would otherwise poll forever with no signal

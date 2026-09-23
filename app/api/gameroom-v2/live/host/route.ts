@@ -112,6 +112,24 @@ export async function POST(request: Request) {
     raceDifficulty = body.raceDifficulty
   }
 
+  // Boss Battle needs one shared boss + difficulty for the whole class
+  // to cooperatively fight (see migration 082) -- meaningless for every
+  // other engine.
+  let bossId: string | null = null
+  let bossDifficulty = 'normal'
+  if (engineId === 'boss-battle') {
+    if (typeof body.bossId !== 'string' || !['suran', 'kotravai-guardian', 'naga-serpent'].includes(body.bossId)) {
+      return NextResponse.json({ error: 'A valid boss must be selected' }, { status: 400 })
+    }
+    bossId = body.bossId
+    if (typeof body.bossDifficulty === 'string') {
+      if (!['easy', 'normal', 'hard'].includes(body.bossDifficulty)) {
+        return NextResponse.json({ error: 'Invalid boss battle difficulty' }, { status: 400 })
+      }
+      bossDifficulty = body.bossDifficulty
+    }
+  }
+
   const hostTeacherId = isAdmin ? teacher?.id : teacher!.id
   if (!hostTeacherId) {
     return NextResponse.json({ error: 'An admin hosting live sessions needs a teacher record -- ask an admin to link one' }, { status: 400 })
@@ -127,6 +145,8 @@ export async function POST(request: Request) {
         engine_id: engineId,
         question_count: questionCount,
         race_difficulty: raceDifficulty,
+        boss_id: bossId,
+        boss_difficulty: bossDifficulty,
         status: 'LOBBY',
       },
     ])

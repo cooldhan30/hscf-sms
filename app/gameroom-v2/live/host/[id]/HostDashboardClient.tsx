@@ -7,6 +7,7 @@ import { useSupabaseBrowserClient } from '@/lib/supabase/client'
 import { subscribeToLiveSession } from '@/lib/gameRoomV2/liveClassroom/realtime'
 import { toast } from '@/lib/toast'
 import { RaceTrackOverview } from './RaceTrackOverview'
+import { BossBattleOverview } from './BossBattleOverview'
 
 interface LobbyParticipant {
   id: string
@@ -191,6 +192,14 @@ export function HostDashboardClient({ liveSessionId }: { liveSessionId: string }
           separately-computed view that could disagree with it. */}
       {lobby.engineId === 'racing' && (lobby.status === 'ACTIVE' || lobby.status === 'PAUSED') && (
         <RaceTrackOverview liveSessionId={liveSessionId} />
+      )}
+
+      {/* Boss Battle's own cooperative overview -- boss HP, class
+          progress, and the class contribution leaderboard, polling the
+          same server-authoritative /boss-battle endpoint every
+          student's own screen uses. */}
+      {lobby.engineId === 'boss-battle' && (lobby.status === 'ACTIVE' || lobby.status === 'PAUSED') && (
+        <BossBattleOverview liveSessionId={liveSessionId} />
       )}
     </div>
   )

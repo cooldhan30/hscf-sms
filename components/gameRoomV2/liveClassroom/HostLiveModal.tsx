@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { GameV2Modal, GameV2Button, GameV2Loading, GameV2Empty } from '@/components/gameRoomV2'
 import { RACING_DIFFICULTY_SETTINGS, type RacingDifficulty } from '@/lib/gameRoomV2/racing'
+import { BOSSES, BOSS_BATTLE_DIFFICULTY_SETTINGS, type BossId, type BossBattleDifficulty } from '@/lib/gameRoomV2/bossBattle'
 import { toast } from '@/lib/toast'
 
 interface ClassOption {
@@ -43,6 +44,11 @@ export function HostLiveModal({
   // participant must run identical physics for the race to be a fair
   // comparison.
   const [raceDifficulty, setRaceDifficulty] = useState<RacingDifficulty>('normal')
+  // Shared boss + difficulty (migration 082) -- only meaningful/shown
+  // when hosting Boss Battle, since the whole class cooperatively
+  // fights ONE shared boss health pool.
+  const [bossId, setBossId] = useState<BossId>(BOSSES[0].id)
+  const [bossDifficulty, setBossDifficulty] = useState<BossBattleDifficulty>('normal')
 
   useEffect(() => {
     if (!open) return
@@ -63,6 +69,8 @@ export function HostLiveModal({
         classId,
         questionCount: questionCount.trim() ? Number(questionCount) : null,
         raceDifficulty: engineId === 'racing' ? raceDifficulty : undefined,
+        bossId: engineId === 'boss-battle' ? bossId : undefined,
+        bossDifficulty: engineId === 'boss-battle' ? bossDifficulty : undefined,
       }),
     })
     const data = await res.json().catch(() => ({}))
@@ -110,6 +118,40 @@ export function HostLiveModal({
             ))}
           </select>
         </label>
+      )}
+
+      {engineId === 'boss-battle' && (
+        <>
+          <label className="block mb-4">
+            <span className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500">Boss</span>
+            <p className="text-[11px] text-gamev2ink-400 dark:text-gamev2ink-500 mb-1">The whole class cooperatively fights this one boss together.</p>
+            <select
+              value={bossId}
+              onChange={(e) => setBossId(e.target.value as BossId)}
+              className="w-full px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm"
+            >
+              {BOSSES.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block mb-4">
+            <span className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500">Difficulty</span>
+            <select
+              value={bossDifficulty}
+              onChange={(e) => setBossDifficulty(e.target.value as BossBattleDifficulty)}
+              className="w-full px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm"
+            >
+              {BOSS_BATTLE_DIFFICULTY_SETTINGS.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
       )}
 
       {classes === null ? (
