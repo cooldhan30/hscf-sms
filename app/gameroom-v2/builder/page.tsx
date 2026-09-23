@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import { FiLock } from 'react-icons/fi'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
+import { GameV2Error } from '@/components/gameRoomV2'
 import { BuilderListClient, type QuestionSetRow } from './BuilderListClient'
 
 export const dynamic = 'force-dynamic'
@@ -34,10 +35,20 @@ export default async function QuestionSetBuilderPage() {
 
   const { supabase, profile } = access
 
-  const { data: questionSets } = await supabase
+  const { data: questionSets, error: setsError } = await supabase
     .from('sms_gamev2_question_sets')
     .select('*, creator:sms_profiles(first_name, last_name)')
     .order('updated_at', { ascending: false })
+
+  if (setsError) {
+    return (
+      <div className="min-h-screen bg-stone-50 dark:bg-gamev2ink-950 px-4 sm:px-6 py-8">
+        <div className="max-w-5xl mx-auto">
+          <GameV2Error description="Something went wrong loading your question sets. Please refresh the page." />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-stone-50 dark:bg-gamev2ink-950 px-4 sm:px-6 py-8">

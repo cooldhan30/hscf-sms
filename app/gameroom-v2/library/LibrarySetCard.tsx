@@ -9,6 +9,7 @@ import { GRADE_LEVEL_OPTIONS } from '@/lib/constants'
 
 export interface LibrarySet {
   id: string
+  class_id: string | null
   title: string
   tamil_title: string | null
   english_title: string | null

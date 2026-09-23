@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { FiUsers, FiCopy, FiPlay, FiPause, FiSquare } from 'react-icons/fi'
-import { GameV2Card, GameV2Button, GameV2Loading, GameV2Error } from '@/components/gameRoomV2'
+import { GameV2Card, GameV2Button, GameV2Loading, GameV2Error, GameV2ConfirmDialog } from '@/components/gameRoomV2'
 import { useSupabaseBrowserClient } from '@/lib/supabase/client'
 import { subscribeToLiveSession } from '@/lib/gameRoomV2/liveClassroom/realtime'
 import { toast } from '@/lib/toast'
@@ -43,6 +43,7 @@ export function HostDashboardClient({ liveSessionId }: { liveSessionId: string }
   const [results, setResults] = useState<ResultRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [actionInFlight, setActionInFlight] = useState(false)
+  const [confirmEndOpen, setConfirmEndOpen] = useState(false)
   const supabase = useSupabaseBrowserClient()
 
   const refresh = useCallback(async () => {
@@ -87,6 +88,11 @@ export function HostDashboardClient({ liveSessionId }: { liveSessionId: string }
       return
     }
     refresh()
+  }
+
+  async function handleConfirmEnd() {
+    setConfirmEndOpen(false)
+    await handleAction('end')
   }
 
   function copyJoinCode() {
@@ -148,7 +154,7 @@ export function HostDashboardClient({ liveSessionId }: { liveSessionId: string }
               </GameV2Button>
             )}
             {(lobby.status === 'ACTIVE' || lobby.status === 'PAUSED' || lobby.status === 'LOBBY') && (
-              <GameV2Button size="md" variant="danger" disabled={actionInFlight} onClick={() => handleAction('end')}>
+              <GameV2Button size="md" variant="danger" disabled={actionInFlight} onClick={() => setConfirmEndOpen(true)}>
                 <FiSquare className="w-4 h-4" /> End
               </GameV2Button>
             )}
@@ -201,6 +207,29 @@ export function HostDashboardClient({ liveSessionId }: { liveSessionId: string }
       {lobby.engineId === 'boss-battle' && (lobby.status === 'ACTIVE' || lobby.status === 'PAUSED') && (
         <BossBattleOverview liveSessionId={liveSessionId} />
       )}
+
+      <GameV2ConfirmDialog
+        open={confirmEndOpen}
+        onClose={() => setConfirmEndOpen(false)}
+        onConfirm={handleConfirmEnd}
+        title="End this session?"
+        confirmLabel="End Session"
+        confirming={actionInFlight}
+        message={
+          lobby.status === 'LOBBY' ? (
+            <p>This closes the lobby before anyone has started playing. The join code will stop working.</p>
+          ) : (
+            <>
+              <p>
+                {connectedCount > 0
+                  ? `${connectedCount} student${connectedCount === 1 ? ' is' : 's are'} currently connected. Ending now will stop the game for everyone immediately.`
+                  : 'This will stop the game for everyone.'}
+              </p>
+              <p className="mt-2">Anyone still mid-game keeps their progress and score so far, but this cannot be undone or resumed.</p>
+            </>
+          )
+        }
+      />
     </div>
   )
 }

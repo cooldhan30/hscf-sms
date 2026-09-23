@@ -68,7 +68,7 @@ export function LibraryClient({
   }, [sets, tab, currentProfileId, recentSetIds])
 
   const filtered = useMemo(() => {
-    return tabFiltered.filter((s) => {
+    const matches = tabFiltered.filter((s) => {
       if (filters.search.trim()) {
         const q = filters.search.trim().toLowerCase()
         const haystack = [s.title, s.tamil_title ?? '', s.english_title ?? '', s.topic ?? '', ...s.tags].join(' ').toLowerCase()
@@ -81,7 +81,28 @@ export function LibraryClient({
       if (filters.creator && s.created_by !== filters.creator) return false
       return true
     })
-  }, [tabFiltered, filters])
+
+    // "Recently Used" is already meaningfully pre-ordered by recentSetIds
+    // (see tabFiltered above) -- re-sorting it would defeat the tab's
+    // whole point, so the sort control only applies elsewhere.
+    if (tab === 'recent') return matches
+
+    const sorted = [...matches]
+    switch (filters.sort) {
+      case 'title':
+        sorted.sort((a, b) => (a.tamil_title || a.title).localeCompare(b.tamil_title || b.title))
+        break
+      case 'usage':
+        sorted.sort((a, b) => b.usageCount - a.usageCount)
+        break
+      case 'duration':
+        sorted.sort((a, b) => (a.estimated_duration_minutes ?? Infinity) - (b.estimated_duration_minutes ?? Infinity))
+        break
+      default:
+        break
+    }
+    return sorted
+  }, [tabFiltered, filters, tab])
 
   async function handleToggleFavorite(set: LibrarySet) {
     const method = set.isFavorite ? 'DELETE' : 'POST'
@@ -105,6 +126,7 @@ export function LibraryClient({
   }
 
   const previewSet = sets.find((s) => s.id === previewId) ?? null
+  const hasActiveFilters = Object.values(filters).some((v) => v !== '')
 
   return (
     <div className="space-y-4">
@@ -130,6 +152,8 @@ export function LibraryClient({
           <GameV2Empty
             title={sets.length === 0 ? 'No question sets yet' : 'No sets match your filters'}
             description={sets.length === 0 ? 'Create one in the Question Set Builder to get started.' : 'Try a different search or clear your filters.'}
+            actionLabel={sets.length === 0 ? 'Create New Set' : hasActiveFilters ? 'Clear Filters' : undefined}
+            onAction={sets.length === 0 ? () => router.push('/gameroom-v2/builder/new') : () => setFilters(EMPTY_LIBRARY_FILTERS)}
           />
         </GameV2Card>
       ) : (
@@ -171,6 +195,7 @@ export function LibraryClient({
           setId={assignSet.id}
           setTitle={assignSet.title}
           classes={classes}
+          currentClassId={assignSet.class_id}
           onAssigned={() => router.refresh()}
         />
       )}

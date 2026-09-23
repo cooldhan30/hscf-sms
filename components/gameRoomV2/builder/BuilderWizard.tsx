@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { FiArrowLeft, FiArrowRight, FiCheck, FiSave } from 'react-icons/fi'
+import { FiArrowLeft, FiArrowRight, FiCheck, FiSave, FiPlay } from 'react-icons/fi'
 import { GameV2Button, GameV2Card } from '@/components/gameRoomV2'
 import { MetadataStep, emptyMetadata, type SetMetadata } from './MetadataStep'
 import { QuestionListStep } from './QuestionListStep'
 import { QuestionPreviewCard } from './QuestionPreviewCard'
 import { CompatibilityResults } from './CompatibilityResults'
+import { ChooseGameModal } from './ChooseGameModal'
 import { toast } from '@/lib/toast'
 import { validateQuestionSet, type GameRoomQuestionType } from '@/lib/gameRoomV2/domain'
 import type { DraftQuestion } from './types'
@@ -28,6 +29,7 @@ export function BuilderWizard({ initial }: { initial?: BuilderInitialData }) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedId, setSavedId] = useState<string | null>(initial?.id ?? null)
+  const [chooseGameOpen, setChooseGameOpen] = useState(false)
 
   const step = STEPS[stepIndex]
 
@@ -196,18 +198,24 @@ export function BuilderWizard({ initial }: { initial?: BuilderInitialData }) {
           <GameV2Card>
             <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100 mb-1">Saved!</p>
             <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400">
-              &quot;{metadata.title}&quot; is saved. Choose how you&apos;d like to use it next.
+              &quot;{metadata.title}&quot; is saved. Play it yourself, host it live for your class, or keep editing.
             </p>
           </GameV2Card>
 
           {questionTypes.length > 0 && <CompatibilityResults questionTypes={questionTypes} />}
+
+          {questionTypes.length > 0 && (
+            <GameV2Button variant="spark" fullWidth onClick={() => setChooseGameOpen(true)}>
+              <FiPlay className="w-4 h-4" /> Play or Host Live
+            </GameV2Button>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <GameV2Button variant="ghost" onClick={() => router.push('/gameroom-v2/builder')}>
               Back to My Sets
             </GameV2Button>
             <GameV2Button
-              variant="primary"
+              variant="ghost"
               onClick={() => {
                 setSaveError(null)
                 goTo(3)
@@ -216,9 +224,16 @@ export function BuilderWizard({ initial }: { initial?: BuilderInitialData }) {
               Keep Editing
             </GameV2Button>
           </div>
-          <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500 text-center">
-            Playing a set through a game engine isn&apos;t available yet -- every engine above is still in development.
-          </p>
+
+          {questionTypes.length > 0 && (
+            <ChooseGameModal
+              open={chooseGameOpen}
+              onClose={() => setChooseGameOpen(false)}
+              questionSetId={savedId}
+              questionTypes={questionTypes}
+              setTitle={metadata.title}
+            />
+          )}
         </div>
       )}
 

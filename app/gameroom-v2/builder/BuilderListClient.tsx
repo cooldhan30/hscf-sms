@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { FiPlus, FiEdit2, FiTrash2, FiUsers, FiLock, FiGlobe } from 'react-icons/fi'
-import { GameV2Button, GameV2Card, GameV2Empty } from '@/components/gameRoomV2'
+import { GameV2Button, GameV2Card, GameV2Empty, GameV2ConfirmDialog } from '@/components/gameRoomV2'
 import { checkEngineCompatibility, type GameRoomQuestionType, type QuestionSetVisibility } from '@/lib/gameRoomV2/domain'
 import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
 import { toast } from '@/lib/toast'
@@ -29,15 +29,18 @@ export function BuilderListClient({ questionSets, currentProfileId }: { question
   const router = useRouter()
   const [sets, setSets] = useState(questionSets)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<QuestionSetRow | null>(null)
 
-  async function handleDelete(id: string, title: string) {
-    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return
+  async function handleDelete() {
+    if (!confirmDelete) return
+    const { id, title } = confirmDelete
     setDeletingId(id)
     const res = await fetch(`/api/gameroom-v2/question-sets/${id}`, { method: 'DELETE' })
     setDeletingId(null)
+    setConfirmDelete(null)
     if (res.ok) {
       setSets((prev) => prev.filter((s) => s.id !== id))
-      toast.success('Question set deleted')
+      toast.success(`"${title}" deleted`)
     } else {
       const data = await res.json().catch(() => ({}))
       toast.error(data.error || 'Failed to delete question set')
@@ -121,7 +124,7 @@ export function BuilderListClient({ questionSets, currentProfileId }: { question
                     </GameV2Button>
                     <button
                       type="button"
-                      onClick={() => handleDelete(set.id, set.title)}
+                      onClick={() => setConfirmDelete(set)}
                       disabled={deletingId === set.id}
                       aria-label="Delete"
                       className="p-2.5 rounded-xl text-gamev2coral-500 hover:bg-gamev2coral-50 dark:hover:bg-gamev2coral-500/10 disabled:opacity-40"
@@ -135,6 +138,29 @@ export function BuilderListClient({ questionSets, currentProfileId }: { question
           })}
         </div>
       )}
+
+      <GameV2ConfirmDialog
+        open={confirmDelete !== null}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={handleDelete}
+        title="Delete this question set?"
+        confirmLabel="Delete"
+        confirming={deletingId !== null}
+        message={
+          confirmDelete && (
+            <>
+              <p>
+                &quot;{confirmDelete.title}&quot; ({confirmDelete.question_count} question{confirmDelete.question_count === 1 ? '' : 's'}) will be permanently deleted. This cannot be undone.
+              </p>
+              {confirmDelete.visibility !== 'PRIVATE' && (
+                <p className="mt-2 font-bold text-gamev2coral-600 dark:text-gamev2coral-400">
+                  This set is shared ({confirmDelete.visibility === 'SCHOOL' ? 'School' : 'Public'}) -- other teachers may be relying on it.
+                </p>
+              )}
+            </>
+          )
+        }
+      />
     </div>
   )
 }

@@ -40,10 +40,13 @@ const VISIBILITY_INFO: Record<QuestionSetVisibility, { label: string; descriptio
   PUBLIC: { label: 'Public', description: 'Visible to every teacher, same as School for now.' },
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-sm font-bold text-gamev2ink-700 dark:text-gamev2ink-200 mb-1.5">{label}</label>
+      <label className="block text-sm font-bold text-gamev2ink-700 dark:text-gamev2ink-200 mb-1.5">
+        {label}
+        {required && <span className="text-gamev2coral-500 ml-0.5">*</span>}
+      </label>
       {children}
     </div>
   )
@@ -56,8 +59,11 @@ export function MetadataStep({ value, onChange }: { value: SetMetadata; onChange
 
   return (
     <div className="space-y-5">
-      <Field label="Title (internal name, for your own list)">
+      <Field label="Title (internal name, for your own list)" required>
         <TamilTextInput value={value.title} onChange={(v) => set('title', v)} placeholder="e.g. Thinai Grammar Set 3" />
+        {!value.title.trim() && (
+          <p className="text-xs text-gamev2coral-500 dark:text-gamev2coral-400 mt-1">A title is required before you can save this set.</p>
+        )}
       </Field>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

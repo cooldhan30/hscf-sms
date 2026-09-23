@@ -49,6 +49,9 @@ export function CompatibilityResults({ questionTypes }: { questionTypes: GameRoo
             <div>
               <p className={`font-bold ${compatible ? 'text-gamev2mint-800 dark:text-gamev2mint-300' : 'text-gamev2ink-600 dark:text-gamev2ink-300'}`}>
                 {engine.name}
+                {compatible && (
+                  <span className="ml-2 font-normal text-xs text-gamev2ink-400 dark:text-gamev2ink-500">~{engine.estimatedDurationMinutes} min</span>
+                )}
               </p>
               {!compatible && unsupportedTypes.length > 0 && (
                 <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500 mt-0.5">

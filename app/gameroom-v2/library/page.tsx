@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import Link from 'next/link'
 import { FiLock, FiPlus } from 'react-icons/fi'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
-import { GameV2Button } from '@/components/gameRoomV2'
+import { GameV2Button, GameV2Error } from '@/components/gameRoomV2'
 import { LibraryClient } from './LibraryClient'
 import type { LibrarySet } from './LibrarySetCard'
 
@@ -38,47 +38,68 @@ export default async function QuestionSetLibraryPage() {
 
   const { supabase, profile, teacher } = access
 
-  const [{ data: questionSets }, { data: favoriteRows }, { data: recentUsageRows }, { data: classes }] = await Promise.all([
-    // RLS ("gamev2_question_sets: teacher manage own" + "... teacher
-    // read shared") already scopes this to own sets (any visibility)
-    // plus other teachers' SCHOOL/PUBLIC sets.
-    supabase
-      .from('sms_gamev2_question_sets')
-      .select('*, creator:sms_profiles(first_name, last_name)')
-      .order('updated_at', { ascending: false }),
-    supabase.from('sms_gamev2_favorites').select('question_set_id'),
-    supabase
-      .from('sms_gamev2_question_set_usage')
-      .select('question_set_id, created_at')
-      .order('created_at', { ascending: false })
-      .limit(200),
-    teacher
-      ? supabase.from('sms_class_teachers').select('class:sms_classes(id, name)').eq('teacher_id', teacher.id)
-      : Promise.resolve({ data: [] as { class: { id: string; name: string } | null }[] }),
-  ])
+  let enrichedSets: LibrarySet[] = []
+  let recentSetIds: string[] = []
+  let classOptions: { id: string; name: string }[] = []
+  let loadError: string | null = null
 
-  const favoriteIds = new Set((favoriteRows ?? []).map((f) => f.question_set_id))
+  try {
+    const [{ data: questionSets, error: setsError }, { data: favoriteRows }, { data: recentUsageRows }, { data: classes }] = await Promise.all([
+      // RLS ("gamev2_question_sets: teacher manage own" + "... teacher
+      // read shared") already scopes this to own sets (any visibility)
+      // plus other teachers' SCHOOL/PUBLIC sets.
+      supabase
+        .from('sms_gamev2_question_sets')
+        .select('*, creator:sms_profiles(first_name, last_name)')
+        .order('updated_at', { ascending: false }),
+      supabase.from('sms_gamev2_favorites').select('question_set_id'),
+      supabase
+        .from('sms_gamev2_question_set_usage')
+        .select('question_set_id, created_at')
+        .order('created_at', { ascending: false })
+        .limit(200),
+      teacher
+        ? supabase.from('sms_class_teachers').select('class:sms_classes(id, name)').eq('teacher_id', teacher.id)
+        : Promise.resolve({ data: [] as { class: { id: string; name: string } | null }[] }),
+    ])
 
-  const usageCounts = await Promise.all(
-    (questionSets ?? []).map(async (s) => {
-      const { data } = await supabase.rpc('sms_gamev2_question_set_usage_count', { p_question_set_id: s.id })
-      return [s.id, data ?? 0] as const
-    })
-  )
-  const usageCountById = new Map(usageCounts)
+    if (setsError) throw setsError
 
-  const enrichedSets: LibrarySet[] = (questionSets ?? []).map((s) => ({
-    ...s,
-    isFavorite: favoriteIds.has(s.id),
-    usageCount: usageCountById.get(s.id) ?? 0,
-  }))
+    const favoriteIds = new Set((favoriteRows ?? []).map((f) => f.question_set_id))
 
-  // Most-recent-first, deduped to one entry per set.
-  const recentSetIds = Array.from(new Set((recentUsageRows ?? []).map((r) => r.question_set_id))).slice(0, 20)
+    const usageCounts = await Promise.all(
+      (questionSets ?? []).map(async (s) => {
+        const { data } = await supabase.rpc('sms_gamev2_question_set_usage_count', { p_question_set_id: s.id })
+        return [s.id, data ?? 0] as const
+      })
+    )
+    const usageCountById = new Map(usageCounts)
 
-  const classOptions = ((classes ?? []) as { class: { id: string; name: string } | null }[])
-    .map((c) => c.class)
-    .filter((c): c is { id: string; name: string } => Boolean(c))
+    enrichedSets = (questionSets ?? []).map((s) => ({
+      ...s,
+      isFavorite: favoriteIds.has(s.id),
+      usageCount: usageCountById.get(s.id) ?? 0,
+    }))
+
+    // Most-recent-first, deduped to one entry per set.
+    recentSetIds = Array.from(new Set((recentUsageRows ?? []).map((r) => r.question_set_id))).slice(0, 20)
+
+    classOptions = ((classes ?? []) as { class: { id: string; name: string } | null }[])
+      .map((c) => c.class)
+      .filter((c): c is { id: string; name: string } => Boolean(c))
+  } catch {
+    loadError = 'Something went wrong loading your question sets. Please refresh the page.'
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-stone-50 dark:bg-gamev2ink-950 px-4 sm:px-6 py-8">
+        <div className="max-w-6xl mx-auto">
+          <GameV2Error description={loadError} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-stone-50 dark:bg-gamev2ink-950 px-4 sm:px-6 py-8">

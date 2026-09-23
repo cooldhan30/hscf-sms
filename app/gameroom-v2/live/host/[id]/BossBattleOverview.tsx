@@ -16,13 +16,24 @@ const POLL_INTERVAL_MS = 1500
 // render (CoopArena.tsx already handles a null viewer).
 export function BossBattleOverview({ liveSessionId }: { liveSessionId: string }) {
   const [liveBattle, setLiveBattle] = useState<LiveCoopBattleView | null>(null)
+  const [stale, setStale] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     async function poll() {
-      const res = await fetch(`/api/gameroom-v2/live/${liveSessionId}/boss-battle`)
-      const data = await res.json().catch(() => null)
-      if (!cancelled && res.ok && data) setLiveBattle(data)
+      try {
+        const res = await fetch(`/api/gameroom-v2/live/${liveSessionId}/boss-battle`)
+        const data = await res.json().catch(() => null)
+        if (cancelled) return
+        if (res.ok && data) {
+          setLiveBattle(data)
+          setStale(false)
+        } else {
+          setStale(true)
+        }
+      } catch {
+        if (!cancelled) setStale(true)
+      }
     }
     poll()
     const interval = setInterval(poll, POLL_INTERVAL_MS)
@@ -36,7 +47,14 @@ export function BossBattleOverview({ liveSessionId }: { liveSessionId: string })
 
   return (
     <GameV2Card>
-      <h2 className="font-extrabold text-gamev2ink-900 dark:text-white mb-4">Live Battle</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-extrabold text-gamev2ink-900 dark:text-white">Live Battle</h2>
+        {stale && (
+          <span className="text-[11px] font-bold text-gamev2coral-500 dark:text-gamev2coral-400">
+            Having trouble refreshing -- showing last known state
+          </span>
+        )}
+      </div>
       <CoopArena battle={liveBattle} myParticipantId={null} lastHitBoss={false} />
     </GameV2Card>
   )

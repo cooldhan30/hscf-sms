@@ -4,6 +4,8 @@ import { FiSearch } from 'react-icons/fi'
 import { GRADE_LEVEL_OPTIONS } from '@/lib/constants'
 import { QUESTION_SET_DIFFICULTIES, QUESTION_SET_LANGUAGES, GAME_ROOM_V2_QUESTION_TYPES } from '@/lib/gameRoomV2/domain'
 
+export type LibrarySortOption = 'updated' | 'title' | 'usage' | 'duration'
+
 export interface LibraryFilterState {
   search: string
   level: string
@@ -12,6 +14,7 @@ export interface LibraryFilterState {
   language: string
   creator: string
   tag: string
+  sort: LibrarySortOption
 }
 
 export const EMPTY_LIBRARY_FILTERS: LibraryFilterState = {
@@ -22,7 +25,15 @@ export const EMPTY_LIBRARY_FILTERS: LibraryFilterState = {
   language: '',
   creator: '',
   tag: '',
+  sort: 'updated',
 }
+
+const SORT_OPTIONS: { value: LibrarySortOption; label: string }[] = [
+  { value: 'updated', label: 'Recently Updated' },
+  { value: 'title', label: 'Title (A-Z)' },
+  { value: 'usage', label: 'Most Used' },
+  { value: 'duration', label: 'Shortest First' },
+]
 
 function Select({ value, onChange, options, placeholder }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; placeholder: string }) {
   return (
@@ -90,6 +101,18 @@ export function LibraryFilterPanel({
         placeholder="Any Language"
       />
       {creators.length > 0 && <Select value={value.creator} onChange={(v) => set('creator', v)} options={creators} placeholder="Any Creator" />}
+      <select
+        value={value.sort}
+        onChange={(e) => set('sort', e.target.value as LibrarySortOption)}
+        aria-label="Sort by"
+        className="px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm font-bold text-gamev2ink-700 dark:text-gamev2ink-200"
+      >
+        {SORT_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            Sort: {o.label}
+          </option>
+        ))}
+      </select>
     </div>
   )
 }
