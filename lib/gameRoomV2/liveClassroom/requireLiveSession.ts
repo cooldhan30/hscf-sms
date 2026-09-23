@@ -1,7 +1,8 @@
 import 'server-only'
+import { auth } from '@clerk/nextjs/server'
 import { requireStudent } from '@/lib/require-student'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
-import type { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 
 export interface LiveSessionRow {
   id: string
@@ -12,6 +13,8 @@ export interface LiveSessionRow {
   engine_id: string
   status: 'LOBBY' | 'ACTIVE' | 'PAUSED' | 'ENDED'
   question_time_limit_seconds: number
+  question_count: number | null
+  race_difficulty: 'easy' | 'normal' | 'hard'
   question_order: string[]
   paused_at: string | null
   pause_duration_seconds: number
@@ -100,4 +103,45 @@ export async function requireLiveSessionParticipant(
   }
 
   return { ok: true, supabase, studentId: student.id, liveSession: liveSession as LiveSessionRow, participant }
+}
+
+// A route BOTH the host teacher AND every joined participant read
+// (currently only the live race view, which every racer -- and the
+// teacher watching -- needs to see simultaneously) authenticates
+// through this instead of picking one of the two guards above. Tries
+// the teacher identity first (an admin/teacher account never also has
+// a student record in this system), falling back to the student
+// identity -- the ACTUAL authorization for "is this caller allowed to
+// see this specific live session's race data" still happens inside
+// the SECURITY DEFINER RPC itself (sms_gamev2_get_live_race_state,
+// migration 081), which independently re-checks host-or-participant
+// membership; this guard's job is only "is the caller signed in as
+// SOME GameRoom V2 role at all," giving a clean 401/403 instead of a
+// raw RPC exception reaching the client.
+export async function requireLiveSessionAny(
+  liveSessionId: unknown
+): Promise<
+  | { ok: true; supabase: ReturnType<typeof createClient>; liveSession: LiveSessionRow }
+  | { ok: false; status: number; error: string }
+> {
+  if (typeof liveSessionId !== 'string' || !liveSessionId) {
+    return { ok: false, status: 400, error: 'liveSessionId is required' }
+  }
+
+  const { userId } = await auth()
+  if (!userId) {
+    return { ok: false, status: 401, error: 'Not authenticated' }
+  }
+
+  const hostGuard = await requireLiveSessionHost(liveSessionId)
+  if (hostGuard.ok) {
+    return { ok: true, supabase: hostGuard.supabase, liveSession: hostGuard.liveSession }
+  }
+
+  const participantGuard = await requireLiveSessionParticipant(liveSessionId)
+  if (participantGuard.ok) {
+    return { ok: true, supabase: participantGuard.supabase, liveSession: participantGuard.liveSession }
+  }
+
+  return { ok: false, status: 403, error: 'You are not part of this live session' }
 }

@@ -126,22 +126,27 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     thumbnail: null,
     compatibility: {
       supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'ORDER_WORDS', 'ORDER_LETTERS'],
-      // Ships solo today (a student races a scripted rival) with the
-      // simulation layer already shaped for N racers (see
-      // lib/gameRoomV2/racing/race.ts's RacerState) -- multiplayerSupport
-      // stays declared as a real target capability, but no REAL-TIME
-      // OPPONENT SYNC (seeing another student's racer move live on the
-      // same track) exists yet. That's still groundwork, not a shipped
-      // multiplayer mode. liveClassroomSupport is a DIFFERENT, narrower
-      // claim that IS now genuinely shipped: a teacher can host a Racing
-      // live session, and every joined student races their own
-      // independent track simultaneously (still vs. the scripted rival,
-      // not vs. each other), with the host seeing a real-time
-      // leaderboard aggregated server-side from each student's own
-      // sms_gamev2_sessions row (LivePlayClient.tsx branches to
-      // RacingGame; see scripts/verify-gameroom-v2-live-classroom.ts).
-      // Students racing each other's actual positions live is the
-      // multiplayerSupport gap above, not this one.
+      // Solo mode: a student races a scripted rival, ticked locally at
+      // 100ms resolution (components/gameRoomV2/racing/RacingGame.tsx's
+      // SoloRacingGame).
+      //
+      // Multiplayer (Live Classroom only, since it needs a shared
+      // question_order + a shared race_difficulty every racer runs
+      // identically -- see migration 081): genuinely shipped. Every
+      // joined participant IS one racer on the SAME shared track, and
+      // every viewer (each racer's own screen, plus the teacher's
+      // RaceTrackOverview) sees every OTHER racer's live, server-
+      // authoritative position -- not a solo-vs-rival simulation per
+      // student. Racer distance is never client-reported; it's replayed
+      // server-side from each participant's own answer history (see
+      // lib/gameRoomV2/racing/race.ts's replayRacerFromAnswers) and
+      // polled at a deliberately coarse ~1.5s HTTP cadence
+      // (MultiplayerRacingGame), not pushed over Realtime on every
+      // physics tick -- meaningful gameplay state is synchronized;
+      // animation between polls is smoothed locally. This IS real
+      // multiplayer racing, just polled rather than push-synced at
+      // sub-second resolution -- see
+      // scripts/verify-gameroom-v2-racing-multiplayer.ts.
       soloSupport: true,
       multiplayerSupport: true,
       liveClassroomSupport: true,

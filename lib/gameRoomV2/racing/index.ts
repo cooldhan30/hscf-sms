@@ -6,7 +6,17 @@ export {
   createInitialRace,
   applyAnswerEffect,
   tickRace,
+  replayRacerFromAnswers,
   type RacerState,
   type RaceState,
   type RaceTickResult,
+  type AnswerEvent,
 } from './race'
+export {
+  liveRacersToRaceState,
+  buildLiveRacersFromRows,
+  rankLiveRacers,
+  type LiveRacer,
+  type LiveRaceResponse,
+  type RawRaceRow,
+} from './liveRace'

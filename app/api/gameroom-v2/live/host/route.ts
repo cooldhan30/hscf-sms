@@ -6,13 +6,22 @@ import { checkEngineCompatibility } from '@/lib/gameRoomV2/domain'
 
 // POST /api/gameroom-v2/live/host -- the teacher flow's final step:
 // "Select Question Set -> Select compatible Game -> Host Live -> Receive
-// join code". Body: { questionSetId, engineId, classId }. Validates the
-// same engine/question-set compatibility sessions/start/route.ts
-// already enforces for solo play, PLUS that the caller actually teaches
-// classId (a teacher can't host a live session "for" a class they
-// don't own -- the concrete mechanism behind
+// join code". Body: { questionSetId, engineId, classId, questionCount?
+// }. Validates the same engine/question-set compatibility
+// sessions/start/route.ts already enforces for solo play, PLUS that the
+// caller actually teaches classId (a teacher can't host a live session
+// "for" a class they don't own -- the concrete mechanism behind
 // sms_gamev2_live_sessions.class_id being the join-authorization
 // anchor every student's /join call checks against).
+//
+// questionCount (optional, migration 081) is the "configurable
+// question count" a teacher can set -- e.g. race the first 10
+// questions of a 30-question set for a quick sprint. Validated against
+// the set's actual question count here so a teacher never asks for
+// more than exists; NULL/omitted means use every question, unchanged
+// from prior behavior. Applied when the host later clicks Start (see
+// start/route.ts), not here, since question_order itself is still only
+// generated at start.
 export async function POST(request: Request) {
   const guard = await requireGameV2Teacher()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
@@ -79,6 +88,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'This question set has no questions' }, { status: 409 })
   }
 
+  let questionCount: number | null = null
+  if (body.questionCount !== undefined && body.questionCount !== null) {
+    const parsed = Number(body.questionCount)
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return NextResponse.json({ error: 'Question count must be a positive whole number' }, { status: 400 })
+    }
+    if (parsed > questions.length) {
+      return NextResponse.json({ error: `This question set only has ${questions.length} question${questions.length === 1 ? '' : 's'}` }, { status: 400 })
+    }
+    questionCount = parsed
+  }
+
+  // Racing needs one shared difficulty for every racer (see migration
+  // 081) -- meaningless for every other engine, so only validated/
+  // applied when hosting a racing session; any other engine's request
+  // simply ignores raceDifficulty and the column keeps its default.
+  let raceDifficulty = 'normal'
+  if (engineId === 'racing' && typeof body.raceDifficulty === 'string') {
+    if (!['easy', 'normal', 'hard'].includes(body.raceDifficulty)) {
+      return NextResponse.json({ error: 'Invalid race difficulty' }, { status: 400 })
+    }
+    raceDifficulty = body.raceDifficulty
+  }
+
   const hostTeacherId = isAdmin ? teacher?.id : teacher!.id
   if (!hostTeacherId) {
     return NextResponse.json({ error: 'An admin hosting live sessions needs a teacher record -- ask an admin to link one' }, { status: 400 })
@@ -92,6 +125,8 @@ export async function POST(request: Request) {
         class_id: classId,
         question_set_id: questionSetId,
         engine_id: engineId,
+        question_count: questionCount,
+        race_difficulty: raceDifficulty,
         status: 'LOBBY',
       },
     ])

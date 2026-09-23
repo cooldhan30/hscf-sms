@@ -26,6 +26,11 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     status: liveSession.status,
     engineId: liveSession.engine_id,
     sessionId: participant.session_id,
+    participantId: participant.id,
+    // Only meaningful for racing (see migration 081's race_difficulty
+    // column) -- every other engine's live session just carries the
+    // table's default, unused by that engine's client.
+    raceDifficulty: liveSession.race_difficulty,
     // HOST DISCONNECT / STALE ROOM: a student stuck in the lobby (or
     // an ACTIVE session with no bridge row yet) whose host tab closed
     // and never returned would otherwise poll forever with no signal

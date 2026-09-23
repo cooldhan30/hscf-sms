@@ -23,6 +23,8 @@ interface LiveStateResponse {
   status: 'LOBBY' | 'ACTIVE' | 'PAUSED' | 'ENDED'
   engineId: string
   sessionId: string | null
+  participantId: string
+  raceDifficulty: 'easy' | 'normal' | 'hard'
   stale: boolean
   roster: RosterEntry[]
 }
@@ -45,9 +47,14 @@ interface LiveStateResponse {
 // by scripts/verify-gameroom-v2-live-classroom.ts) -- this function
 // only maps that same list to the actual imported components, so the
 // two can never drift apart.
+//
+// Racing is rendered separately below (not through this generic
+// mapping) because it's the one engine with genuine multiplayer
+// support -- it needs liveSessionId/participantId/raceDifficulty props
+// no other engine takes, since RacingGame branches internally into a
+// server-polled multi-racer view instead of its solo local-tick loop.
 function engineComponentFor(engineId: string) {
   if (!hasDedicatedLiveClassroomComponent(engineId)) return null
-  if (engineId === 'racing') return RacingGame
   if (engineId === 'boss-battle') return BossBattleGame
   return null
 }
@@ -117,6 +124,17 @@ export function LivePlayClient({ liveSessionId }: { liveSessionId: string }) {
   }
 
   if (shouldRenderGameplay(state.status, state.sessionId !== null) && state.sessionId) {
+    if (state.engineId === 'racing') {
+      return (
+        <RacingGame
+          sessionId={state.sessionId}
+          onExit={handleExit}
+          liveSessionId={liveSessionId}
+          myParticipantId={state.participantId}
+          fixedDifficulty={state.raceDifficulty}
+        />
+      )
+    }
     const EngineComponent = engineComponentFor(state.engineId)
     if (EngineComponent) {
       return <EngineComponent sessionId={state.sessionId} onExit={handleExit} />

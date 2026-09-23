@@ -6,6 +6,7 @@ import { GameV2Card, GameV2Button, GameV2Loading, GameV2Error } from '@/componen
 import { useSupabaseBrowserClient } from '@/lib/supabase/client'
 import { subscribeToLiveSession } from '@/lib/gameRoomV2/liveClassroom/realtime'
 import { toast } from '@/lib/toast'
+import { RaceTrackOverview } from './RaceTrackOverview'
 
 interface LobbyParticipant {
   id: string
@@ -180,6 +181,17 @@ export function HostDashboardClient({ liveSessionId }: { liveSessionId: string }
           </ul>
         )}
       </GameV2Card>
+
+      {/* Racing's own track overview -- the score list above already
+          covers every engine generically, but for a race specifically
+          the teacher benefits from seeing the actual track (who's
+          ahead visually), not just a score table. Polls the same
+          server-authoritative /race endpoint every racer's own screen
+          uses -- the teacher sees exactly what students see, never a
+          separately-computed view that could disagree with it. */}
+      {lobby.engineId === 'racing' && (lobby.status === 'ACTIVE' || lobby.status === 'PAUSED') && (
+        <RaceTrackOverview liveSessionId={liveSessionId} />
+      )}
     </div>
   )
 }

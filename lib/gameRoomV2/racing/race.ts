@@ -86,6 +86,93 @@ export interface RaceTickResult {
   justFinished: string[]
 }
 
+// One racer's actual distance/effect state, replayed from a
+// server-held answer history -- the authoritative mechanism behind
+// multiplayer racing's "prevent race progress manipulation" and
+// "server-authoritative score/progress" requirements. Never trusts a
+// client-reported position: instead, this reconstructs EXACTLY what
+// tickRace would have produced had it run continuously from race start
+// to now, driven only by (isCorrect, timestamp) pairs pulled from
+// sms_gamev2_answers -- the same server-persisted, already-tamper-proof
+// record every engine's scoring already relies on (see answer/route.ts's
+// own "nothing the client claims is ever trusted" precedent). A client
+// is never asked to report its own distance at all, so there is no
+// value to spoof in the first place -- this is stronger than validating
+// a client-submitted position, which is why this function exists rather
+// than a "verify the client's claimed distance" check.
+//
+// isPlayer only affects the ONE cosmetic branch tickRace itself already
+// has (a non-boosted human racer moves at flat 1x, a non-boosted NPC
+// rival wobbles per rivalSpeedMultiplier) -- every real participant in
+// a multiplayer race is isPlayer: true, so that branch is inert for
+// them; it only still matters for solo play's own scripted rival.
+export interface AnswerEvent {
+  isCorrect: boolean
+  atMs: number
+}
+
+export function replayRacerFromAnswers(
+  raceStartMs: number,
+  nowMs: number,
+  answers: AnswerEvent[],
+  settings: RacingDifficultySettings
+): { distance: number; finished: boolean; finishedAtMs: number | null; effect: RacerState['effect'] } {
+  let distance = 0
+  let effect: RacerState['effect'] = null
+  let cursorMs = raceStartMs
+  let finished = false
+  let finishedAtMs: number | null = null
+
+  // Advances the simulation from cursorMs to targetMs, but NEVER in one
+  // single jump when an effect is active and would expire partway
+  // through that span -- an effect's speed multiplier only applies for
+  // its own remainingMs, then movement continues at the post-expiry
+  // rate for whatever span is left. Recursing in effect-duration-bounded
+  // chunks is what makes this match tickRace's own per-tick decay
+  // exactly, rather than (incorrectly) applying one effect's multiplier
+  // across a jump that spans well past when it actually wore off.
+  function advanceTo(targetMs: number) {
+    if (finished || targetMs <= cursorMs) return
+
+    const effectExpiresAtMs = effect ? cursorMs + effect.remainingMs : Infinity
+    const chunkEndMs = Math.min(targetMs, effectExpiresAtMs)
+    const deltaMs = chunkEndMs - cursorMs
+    const multiplier = effect ? effect.multiplier : 1
+    distance = Math.min(settings.trackLength, distance + settings.baseSpeed * multiplier * DISTANCE_UNITS_PER_MS * deltaMs)
+
+    if (effect) {
+      const remainingMs = effect.remainingMs - deltaMs
+      effect = remainingMs > 0 ? { ...effect, remainingMs } : null
+    }
+
+    if (distance >= settings.trackLength && !finished) {
+      finished = true
+      finishedAtMs = chunkEndMs
+    }
+
+    cursorMs = chunkEndMs
+
+    // The effect expired before reaching targetMs -- recurse to cover
+    // the remaining span at the (now-cleared) post-expiry rate.
+    if (!finished && cursorMs < targetMs) advanceTo(targetMs)
+  }
+
+  // Answers are assumed already ordered by timestamp (the caller reads
+  // them from sms_gamev2_answers ordered by answered_at, or equivalently
+  // by question_index, which is monotonic per session by construction).
+  for (const answer of answers) {
+    advanceTo(Math.min(answer.atMs, nowMs))
+    if (finished) break
+    effect = answer.isCorrect
+      ? { kind: 'boost', multiplier: settings.boostMultiplier, remainingMs: settings.boostDurationMs }
+      : { kind: 'penalty', multiplier: settings.penaltyMultiplier, remainingMs: settings.penaltyDurationMs }
+  }
+
+  advanceTo(nowMs)
+
+  return { distance, finished, finishedAtMs, effect }
+}
+
 // The single simulation step -- pure function, same input always
 // produces the same output. Advances every non-finished racer by its
 // base speed times its current effect multiplier (1 if none), decays

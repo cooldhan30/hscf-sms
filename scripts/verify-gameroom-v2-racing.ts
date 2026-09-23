@@ -9,7 +9,7 @@
 
 import { RACE_THEMES, getRaceTheme } from '../lib/gameRoomV2/racing/themes'
 import { RACING_DIFFICULTY_SETTINGS, getRacingDifficultySettings } from '../lib/gameRoomV2/racing/difficulty'
-import { PLAYER_RACER_ID, RIVAL_RACER_ID, createInitialRace, applyAnswerEffect, tickRace } from '../lib/gameRoomV2/racing/race'
+import { PLAYER_RACER_ID, RIVAL_RACER_ID, createInitialRace, applyAnswerEffect, tickRace, replayRacerFromAnswers } from '../lib/gameRoomV2/racing/race'
 import { getGameEngineV2 } from '../lib/gameRoomV2/registry'
 
 let failures = 0
@@ -146,11 +146,101 @@ const distanceMoreCorrect = simulateRacer([500, 4000], 10000)
 const distanceOneCorrect = simulateRacer([500], 10000)
 assert(distanceMoreCorrect > distanceOneCorrect, 'a racer with MORE correct answers travels further than one with fewer, regardless of speed')
 
-console.log('\n== Registry: Racing now supports solo play, with multiplayer groundwork in place ==')
+console.log('\n== Server-authoritative replay: matches step-by-step simulation exactly ==')
+// The core guarantee behind multiplayer racing's "prevent race progress
+// manipulation": a racer's distance is NEVER reported by the client --
+// it's reconstructed server-side from the same answer-effect history
+// tickRace itself would have produced. This block proves the replay
+// function produces IDENTICAL results to actually ticking through that
+// same history in real time, step by step.
+// Mirrors RacingGame.tsx's real setInterval usage exactly: ticks fire
+// AFTER each stepMs has elapsed (never at t=0), and stop once
+// accumulated elapsed time reaches totalMs -- not an inclusive t <=
+// totalMs loop, which would tick one extra time past the target and
+// diverge from the continuous replay by exactly one step's worth of
+// movement.
+function simulateStepByStepWithAnswers(answerTimesAndCorrectness: { atMs: number; isCorrect: boolean }[], totalMs: number, stepMs = 50) {
+  let r = createInitialRace(settings)
+  const applied = new Set<number>()
+  let elapsed = 0
+  while (elapsed < totalMs) {
+    const nextElapsed = elapsed + stepMs
+    for (const a of answerTimesAndCorrectness) {
+      if (!applied.has(a.atMs) && a.atMs > elapsed && a.atMs <= nextElapsed) {
+        applied.add(a.atMs)
+        r = applyAnswerEffect(r, PLAYER_RACER_ID, a.isCorrect, settings)
+      }
+    }
+    r = tickRace(r, stepMs, settings).state
+    elapsed = nextElapsed
+  }
+  return r.racers.find((rc) => rc.id === PLAYER_RACER_ID)!
+}
+
+const answerHistory = [
+  { atMs: 500, isCorrect: true },
+  { atMs: 3000, isCorrect: false },
+  { atMs: 6000, isCorrect: true },
+]
+const totalRaceTimeMs = 10000
+const stepByStep = simulateStepByStepWithAnswers(answerHistory, totalRaceTimeMs)
+const replayed = replayRacerFromAnswers(
+  0,
+  totalRaceTimeMs,
+  answerHistory.map((a) => ({ isCorrect: a.isCorrect, atMs: a.atMs })),
+  settings
+)
+assert(
+  Math.abs(replayed.distance - stepByStep.distance) < 0.01,
+  `replay distance (${replayed.distance.toFixed(3)}) matches step-by-step tick simulation (${stepByStep.distance.toFixed(3)}) within floating-point tolerance`
+)
+assert(replayed.finished === stepByStep.finished, 'replay agrees with step-by-step simulation on whether the racer finished')
+
+console.log('\n== Server-authoritative replay: no answers means no movement beyond baseline ==')
+const noAnswersReplay = replayRacerFromAnswers(0, 5000, [], settings)
+const noAnswersStepByStep = simulateStepByStepWithAnswers([], 5000)
+assert(Math.abs(noAnswersReplay.distance - noAnswersStepByStep.distance) < 0.01, 'a racer with zero answers still moves at flat baseline speed, matching step-by-step simulation')
+
+console.log('\n== Server-authoritative replay: an answer after the race ends is never applied ==')
+const finishingSettings = { ...settings, trackLength: 1 } // trivially short so baseline speed alone finishes fast
+const earlyFinishReplay = replayRacerFromAnswers(0, 10000, [{ isCorrect: true, atMs: 9000 }], finishingSettings)
+assert(earlyFinishReplay.finished, 'a racer moving at baseline speed on a short track finishes before a late answer would even apply')
+
+console.log('\n== Server-authoritative replay: a long gap between polls still expires effects correctly ==')
+// Regression test for a real bug caught during development: an early
+// version of replayRacerFromAnswers jumped from an answer's timestamp
+// straight to "now" in one single step, applying that answer's boost
+// multiplier across the ENTIRE jump even when the boost's own duration
+// was far shorter than the jump -- silently over-crediting distance any
+// time a client polled less often than an effect's duration (exactly
+// the kind of gap a real multiplayer poll/reconnect scenario produces).
+// The fix advances in effect-duration-bounded chunks; this asserts the
+// long-gap case now matches a fine-grained step simulation exactly.
+const longGapSettings = settings
+const longGapAnswer = [{ atMs: 500, isCorrect: true }]
+const longGapNowMs = 10000 // far past boostDurationMs (2400ms) after the answer
+const longGapReplay = replayRacerFromAnswers(0, longGapNowMs, longGapAnswer, longGapSettings)
+const longGapStepByStep = simulateStepByStepWithAnswers(longGapAnswer, longGapNowMs, 10)
+assert(
+  Math.abs(longGapReplay.distance - longGapStepByStep.distance) < 0.1,
+  `a single poll spanning a long gap after one answer (replay: ${longGapReplay.distance.toFixed(2)}) still matches fine-grained simulation (${longGapStepByStep.distance.toFixed(2)}) -- the effect correctly stops applying once its own duration elapses, not once the poll gap ends`
+)
+
+console.log('\n== Server-authoritative replay: replaying twice with the same input is deterministic ==')
+const replayA = replayRacerFromAnswers(0, 7000, answerHistory, settings)
+const replayB = replayRacerFromAnswers(0, 7000, answerHistory, settings)
+assert(JSON.stringify(replayA) === JSON.stringify(replayB), 'replaying the identical answer history twice produces byte-identical results -- no hidden randomness')
+
+console.log('\n== Registry: Racing supports both solo and (Live Classroom) multiplayer play ==')
 const engine = getGameEngineV2('racing')
-assert(engine?.compatibility.soloSupport === true, 'Racing now supports solo play')
-assert(engine?.compatibility.minPlayers === 1, 'Racing\'s minPlayers is 1 now that solo play is supported')
-assert(engine?.compatibility.multiplayerSupport === true, 'Racing still declares multiplayer as a supported capability (groundwork, not yet live)')
+assert(engine?.compatibility.soloSupport === true, 'Racing supports solo play')
+assert(engine?.compatibility.minPlayers === 1, "Racing's minPlayers is 1 (solo is playable alone)")
+// multiplayerSupport is now genuinely backed by Live Classroom's
+// shared-track racing (see scripts/verify-gameroom-v2-racing-
+// multiplayer.ts for the actual multi-participant coverage) -- this
+// script only re-confirms the flag itself, since the pure solo
+// simulation logic tested above has no opinion on Live Classroom.
+assert(engine?.compatibility.multiplayerSupport === true, 'Racing declares multiplayer as a supported capability')
 assert(engine?.status === 'ACTIVE', 'Racing is ACTIVE in the registry')
 
 console.log(`\n${failures === 0 ? 'PASS' : 'FAIL'}: ${failures} failure(s).`)

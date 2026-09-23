@@ -7,8 +7,31 @@ import { getRaceTheme, type RaceState, type RaceThemeId } from '@/lib/gameRoomV2
 // The race track: one horizontal lane per racer, each racer's emoji
 // positioned by its distance-to-trackLength ratio. Theme controls only
 // colors/emoji -- the lane layout and physics are identical across
-// every theme.
-export function Track({ state, themeId }: { state: RaceState; themeId: RaceThemeId }) {
+// every theme. Only reads racers/trackLength (not the full RaceState)
+// so the SAME component renders both solo racing (a full, locally-
+// ticked RaceState) and live classroom multiplayer racing (a
+// server-polled subset synthesized by
+// lib/gameRoomV2/racing/liveRace.ts's liveRacersToRaceState) without
+// either caller needing to fabricate elapsedMs/raceOver/winnerId/
+// difficulty fields Track itself never looks at.
+export function Track({
+  state,
+  themeId,
+  live,
+}: {
+  state: Pick<RaceState, 'racers' | 'trackLength'>
+  themeId: RaceThemeId
+  // Live Classroom multiplayer mode polls server positions roughly
+  // every 1.5s (see RacingGame.tsx's LIVE_POLL_INTERVAL_MS) rather than
+  // ticking locally every 100ms -- a fast 0.1s linear tween tuned for
+  // that fine-grained solo cadence would visibly SNAP into place on
+  // every poll instead of gliding. `live` swaps in a longer,
+  // eased tween sized to bridge one full poll interval smoothly,
+  // without changing anything about WHAT is animated -- still just
+  // interpolating between two already-known distances, never
+  // fabricating intermediate positions the server never reported.
+  live?: boolean
+}) {
   const theme = getRaceTheme(themeId)
   const { reduced } = useGameV2Motion()
 
@@ -43,7 +66,7 @@ export function Track({ state, themeId }: { state: RaceState; themeId: RaceTheme
                   className="absolute top-1/2 -translate-y-1/2 text-xl sm:text-2xl"
                   style={{ left: 0 }}
                   animate={{ left: `calc(${pct}% - ${pct > 90 ? '24px' : '0px'})` }}
-                  transition={reduced ? { duration: 0 } : { type: 'tween', ease: 'linear', duration: 0.1 }}
+                  transition={reduced ? { duration: 0 } : live ? { type: 'tween', ease: 'linear', duration: 1.4 } : { type: 'tween', ease: 'linear', duration: 0.1 }}
                   aria-hidden
                 >
                   {theme.racerEmoji}

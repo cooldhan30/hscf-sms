@@ -42,7 +42,12 @@ export async function POST(_request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: 'This question set has no questions' }, { status: 409 })
   }
 
-  const questionOrder = shuffle(questions.map((q) => q.id))
+  // Configurable question count (migration 081): a teacher can race a
+  // shorter sprint than the full Question Set. Sliced AFTER shuffling
+  // so the subset is still a random sample of the set, not always the
+  // same first N questions in authoring order.
+  const shuffledQuestionIds = shuffle(questions.map((q) => q.id))
+  const questionOrder = liveSession.question_count ? shuffledQuestionIds.slice(0, liveSession.question_count) : shuffledQuestionIds
 
   const { data: startedCount, error } = await supabase.rpc('sms_gamev2_start_live_session', {
     p_live_session_id: liveSession.id,
