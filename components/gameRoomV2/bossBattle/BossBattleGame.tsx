@@ -106,6 +106,7 @@ function SoloBossBattleGame({ sessionId, onExit, onPlayAgain }: { sessionId: str
   const [lastHitBoss, setLastHitBoss] = useState(false)
   const [lastHitPlayer, setLastHitPlayer] = useState(false)
   const [showVictorySequence, setShowVictorySequence] = useState(false)
+  const defeatSoundPlayed = useRef(false)
   const { soundEnabled } = useSoundPreference()
   const { state: sessionState, error, result, poll, togglePause, exit } = useGameSessionState<StatePayload>({
     sessionId,
@@ -142,9 +143,20 @@ function SoloBossBattleGame({ sessionId, onExit, onPlayAgain }: { sessionId: str
   useEffect(() => {
     if (battle?.victory && !showVictorySequence) {
       setShowVictorySequence(true)
-      playSound('complete', soundEnabled)
+      playSound('victory', soundEnabled)
     }
   }, [battle?.victory, showVictorySequence, soundEnabled])
+
+  // The "Defeated..." screen (below, battle.battleOver && !battle.victory)
+  // previously played no sound at all -- a losing end state is just as
+  // important to mark audibly as winning, so this mirrors the victory
+  // effect's exactly-once-on-transition guard.
+  useEffect(() => {
+    if (battle?.battleOver && !battle.victory && !defeatSoundPlayed.current) {
+      defeatSoundPlayed.current = true
+      playSound('gameOver', soundEnabled)
+    }
+  }, [battle?.battleOver, battle?.victory, soundEnabled])
 
   useEffect(() => {
     if (!battle || !sessionState || sessionState.status !== 'ACTIVE' || !sessionState.question) return
@@ -159,13 +171,16 @@ function SoloBossBattleGame({ sessionId, onExit, onPlayAgain }: { sessionId: str
   }
 
   function handleAnswerResult(res: { correct: boolean }) {
+    // QuestionOverlay already played correct/incorrect (+ haptic) the
+    // moment the server responded, just before calling this callback --
+    // this handler owns ONLY the visual hit-flash and battle-state
+    // update, never a second audio cue for the same answer.
     setShowQuestion(false)
     setBattle((prev) => {
       if (!prev || !difficulty) return prev
       const settings = getBossBattleDifficultySettings(difficulty)
       if (res.correct) {
         setLastHitBoss(true)
-        playSound('correct', soundEnabled)
         window.setTimeout(() => setLastHitBoss(false), 350)
         return applyCorrectAnswerDamage(prev, PLAYER_ATTACKER_ID, settings)
       }
@@ -316,6 +331,14 @@ function CoopBossBattleGame({
   const victorySoundPlayed = useRef(false)
   const lastAnsweredIndexRef = useRef(-1)
   const lastTeamAttackDamageRef = useRef<Record<string, number>>({})
+  // The poll effect below intentionally does NOT list soundEnabled in
+  // its own dependency array -- restarting a live-classroom poll
+  // interval every time a student toggles mute would be a real (if
+  // small) functional regression, not just a lint nit. A ref gives the
+  // effect's closure the CURRENT mute state without needing to be a
+  // dependency.
+  const soundEnabledRef = useRef(soundEnabled)
+  soundEnabledRef.current = soundEnabled
   const { state: sessionState, error, result, poll, togglePause, exit } = useGameSessionState<StatePayload>({
     sessionId,
     enabled: ready,
@@ -347,6 +370,7 @@ function CoopBossBattleGame({
               const prevContribution = prev.contributions.find((p) => p.participantId === c.participantId)
               if (prevContribution && c.damageDealt > prevDamage && streakCrossedNewThreshold(prevContribution.bestStreak, c.bestStreak)) {
                 setTeamAttackNotice(c.nickname)
+                playSound('achievement', soundEnabledRef.current)
               }
               lastTeamAttackDamageRef.current[c.participantId] = c.damageDealt
             }
@@ -371,7 +395,7 @@ function CoopBossBattleGame({
     if (liveBattle?.victory && !victorySoundPlayed.current) {
       victorySoundPlayed.current = true
       setShowVictorySequence(true)
-      playSound('complete', soundEnabled)
+      playSound('victory', soundEnabled)
     }
   }, [liveBattle?.victory, soundEnabled])
 
@@ -392,9 +416,12 @@ function CoopBossBattleGame({
   }
 
   function handleAnswerResult(res: { correct: boolean }) {
+    void res
     lastAnsweredIndexRef.current = sessionState?.currentIndex ?? lastAnsweredIndexRef.current
     setShowQuestion(false)
-    if (res.correct) playSound('correct', soundEnabled)
+    // QuestionOverlay already played correct/incorrect the moment the
+    // server responded, just before calling this callback -- no second
+    // audio cue needed here.
     // The server already recorded the answer and will reflect its
     // damage on the NEXT /boss-battle poll -- this client never
     // predicts or locally applies boss damage, and a wrong answer has

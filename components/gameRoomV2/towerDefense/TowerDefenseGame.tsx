@@ -87,9 +87,10 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain }: { sessionId
         }
         if (result.waveCleared && !result.state.victory) {
           setWaveMessage(`Wave ${prev.wave} cleared!`)
+          playSound('checkpoint', soundEnabled)
         }
-        if (result.state.gameOver) playSound('incorrect', soundEnabled)
-        if (result.state.victory) playSound('complete', soundEnabled)
+        if (result.state.gameOver) playSound('gameOver', soundEnabled)
+        if (result.state.victory) playSound('victory', soundEnabled)
         return result.state
       })
     }, SIM_INTERVAL_MS)
@@ -116,6 +117,8 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain }: { sessionId
   }
 
   function handleAnswerResult(res: { correct: boolean }) {
+    // QuestionOverlay already played correct/incorrect the moment the
+    // server responded, just before calling this callback.
     setShowQuestion(false)
     setBattlefield((prev) => {
       if (!prev) return prev

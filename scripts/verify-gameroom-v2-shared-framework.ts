@@ -37,6 +37,16 @@ const completePayload = {
   skillsPracticed: ['Grammar', 'Thinai'],
 }
 const built = buildGameResult(completePayload)
+assert(
+  Array.isArray(built.newlyEarnedAchievementIds) && built.newlyEarnedAchievementIds.length === 0,
+  'newlyEarnedAchievementIds defaults to an empty array when the raw payload omits it (older callers / already-finalized re-fetch)'
+)
+
+const builtWithAchievements = buildGameResult({ ...completePayload, newlyEarnedAchievementIds: ['first-game', 'ten-correct'] })
+assert(
+  JSON.stringify(builtWithAchievements.newlyEarnedAchievementIds) === JSON.stringify(['first-game', 'ten-correct']),
+  'newlyEarnedAchievementIds is passed through unchanged when present -- this is what the game-feel pass wires the achievement sound/badge display to'
+)
 assert(built.sessionId === completePayload.sessionId, 'sessionId passed through unchanged')
 assert(built.score === completePayload.score, 'score passed through unchanged, never recomputed client-side')
 assert(built.accuracyPct === completePayload.accuracyPct, 'accuracyPct passed through unchanged')

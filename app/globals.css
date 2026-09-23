@@ -230,7 +230,7 @@ html {
 
 /* Tamil Script Decorative Element - Standardized */
 .tamil-accent {
-  font-family: 'Noto Sans Tamil', sans-serif;
+  font-family: var(--font-tamil), 'Noto Sans Tamil', 'Latha', 'Tamil Sangam MN', sans-serif;
   color: #eab308;
   opacity: 0.05;
   font-size: 240px;

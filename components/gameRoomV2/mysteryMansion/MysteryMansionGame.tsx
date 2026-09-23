@@ -65,7 +65,7 @@ export function MysteryMansionGame({ sessionId, onExit, onPlayAgain }: { session
   useEffect(() => {
     if (investigation?.mysterySolved && !showResolvedScreen) {
       setShowResolvedScreen(true)
-      playSound('complete', soundEnabled)
+      playSound('victory', soundEnabled)
     }
   }, [investigation?.mysterySolved, showResolvedScreen, soundEnabled])
 
@@ -86,12 +86,13 @@ export function MysteryMansionGame({ sessionId, onExit, onPlayAgain }: { session
   }
 
   function handleAnswerResult(res: { correct: boolean }) {
+    // QuestionOverlay already played correct/incorrect the moment the
+    // server responded, just before calling this callback.
     setShowQuestion(false)
     setRevealedClue(null)
     setInvestigation((prev) => {
       if (!prev || !difficulty) return prev
       const settings = getMysteryMansionDifficultySettings(difficulty)
-      playSound(res.correct ? 'correct' : 'incorrect', soundEnabled)
       if (res.correct) {
         const solvedRoom = currentRoom(prev)
         setRevealedClue(prev.mystery.clueByRoomId[solvedRoom.id])

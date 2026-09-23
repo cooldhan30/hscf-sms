@@ -124,7 +124,7 @@ export function MemoryGame({ sessionId, onExit, onPlayAgain }: { sessionId: stri
     })
       .then((res) => res.json())
       .then(() => {
-        playSound('complete', soundEnabled)
+        playSound('checkpoint', soundEnabled)
         setRound(null)
         setSubmitting(false)
         poll()

@@ -74,6 +74,11 @@ export interface GameResult {
   bestStreak: number
   skillsPracticed: string[]
   responses: GameResponse[]
+  // Achievement ids granted at the moment this session completed (see
+  // lib/gameRoomV2/progression/achievements.ts) -- empty on a session
+  // that didn't newly unlock anything, never populated on a later
+  // re-fetch of an already-finalized session.
+  newlyEarnedAchievementIds: string[]
 }
 
 // A reward earned from a session -- deliberately generic (not just

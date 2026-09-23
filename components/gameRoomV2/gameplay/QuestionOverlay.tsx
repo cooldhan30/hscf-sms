@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { QuestionPanel } from '@/components/gameRoomV2'
 import { QuestionInput } from './QuestionInput'
 import { playSound } from './playSound'
+import { vibrate } from './useHaptics'
 import { useSoundPreference } from './useSoundPreference'
 import type { GameRoomQuestionType } from '@/lib/gameRoomV2/domain'
 
@@ -80,6 +81,7 @@ export function QuestionOverlay({
     if (!res.ok || !data) return
 
     playSound(data.isCorrect ? 'correct' : 'incorrect', soundEnabled)
+    vibrate(data.isCorrect ? 'correct' : 'incorrect', soundEnabled)
     onResult({
       correct: data.isCorrect,
       answer,

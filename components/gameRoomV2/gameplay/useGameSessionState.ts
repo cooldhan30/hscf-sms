@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { playSound } from './playSound'
+import { playSound, stopAllSounds } from './playSound'
+import { vibrate } from './useHaptics'
 import {
   buildGameResult,
   pauseToggleEndpoint,
@@ -70,6 +71,13 @@ export function useGameSessionState<TState extends BaseSessionStatePayload>({
     return () => clearInterval(interval)
   }, [poll, enabled])
 
+  // Every engine's top-level play screen mounts this hook exactly once
+  // for the lifetime of a session, so it's the one shared place that
+  // can guarantee sound cleanup on unmount (exiting a game, navigating
+  // away mid-round, a session ending) regardless of which engine-
+  // specific effects also called playSound() along the way.
+  useEffect(() => stopAllSounds, [])
+
   // Fires exactly once, the first time /state reports COMPLETED --
   // `result` being set thereafter prevents this from re-firing on
   // subsequent polls (see complete/route.ts's own idempotency
@@ -80,6 +88,7 @@ export function useGameSessionState<TState extends BaseSessionStatePayload>({
     if (!completedSoundPlayedRef.current) {
       completedSoundPlayedRef.current = true
       playSound('complete', soundEnabled)
+      vibrate('victory', soundEnabled)
     }
     if (!onCompletedFiredRef.current) {
       onCompletedFiredRef.current = true
@@ -92,6 +101,15 @@ export function useGameSessionState<TState extends BaseSessionStatePayload>({
         if (data.error) {
           setError(data.error)
           return
+        }
+        // Fires alongside (not instead of) the `complete`/`victory`/
+        // `gameOver` sound each engine already played moments earlier
+        // for the game-over transition itself -- an achievement unlock
+        // is a distinct, additional moment layered slightly after, not
+        // a replacement for the session-end sound.
+        if (data.newlyEarnedAchievementIds && data.newlyEarnedAchievementIds.length > 0) {
+          playSound('achievement', soundEnabled)
+          vibrate('achievement', soundEnabled)
         }
         setResult(buildGameResult(data))
       })

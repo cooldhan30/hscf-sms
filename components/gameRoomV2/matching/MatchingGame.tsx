@@ -117,10 +117,16 @@ export function MatchingGame({ sessionId, onExit, onPlayAgain }: { sessionId: st
     })
       .then((res) => res.json())
       .then((data) => {
-        if (data?.isCorrect !== undefined) {
-          playSound(data.isCorrect ? 'correct' : 'incorrect', soundEnabled)
+        // One sound per round-clear, not two stacked on top of each
+        // other: a wrong-somewhere-in-the-round result still gets its
+        // own `incorrect` cue, but an all-correct round plays the
+        // distinct `checkpoint` chime instead of layering `correct`
+        // immediately under `complete` (this used to fire both).
+        if (data?.isCorrect === false) {
+          playSound('incorrect', soundEnabled)
+        } else {
+          playSound('checkpoint', soundEnabled)
         }
-        playSound('complete', soundEnabled)
         setRound(null)
         setRoundSecondsRemaining(null)
         setSubmitting(false)

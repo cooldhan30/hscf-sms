@@ -1,7 +1,8 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { GameV2Card, GameV2Button, useGameV2Motion } from '@/components/gameRoomV2'
+import { GameV2Card, GameV2Button, GameV2Badge, useGameV2Motion } from '@/components/gameRoomV2'
+import { getAchievement } from '@/lib/gameRoomV2/progression/achievements'
 import type { GameResult } from '@/lib/gameRoomV2/domain'
 
 // The full Results screen per the spec: Score, Accuracy, Correct,
@@ -21,6 +22,9 @@ export function GameResultsScreen({
   onExit?: () => void
 }) {
   const { celebrate, reduced } = useGameV2Motion()
+  const newAchievements = (result.newlyEarnedAchievementIds ?? [])
+    .map((id) => getAchievement(id))
+    .filter((a): a is NonNullable<typeof a> => a !== undefined)
 
   return (
     <GameV2Card padding="lg" className="max-w-lg w-full mx-auto text-center">
@@ -52,6 +56,24 @@ export function GameResultsScreen({
           <span aria-hidden>🪙</span> +{result.coinsEarned}
         </div>
       </div>
+
+      {newAchievements.length > 0 && (
+        <motion.div
+          initial={reduced ? { opacity: 0 } : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={celebrate}
+          className="mt-6"
+        >
+          <p className="text-xs font-bold uppercase tracking-wide text-gamev2spark-600 dark:text-gamev2spark-400 mb-2">
+            Achievement Unlocked!
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {newAchievements.map((a) => (
+              <GameV2Badge key={a.id} icon={a.icon} label={a.name} />
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {result.skillsPracticed.length > 0 && (
         <div className="mt-6">

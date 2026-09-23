@@ -51,7 +51,7 @@ export function TreasureQuestGame({ sessionId, onExit, onPlayAgain }: { sessionI
   useEffect(() => {
     if (exploration?.treasureFound && !showTreasureScreen) {
       setShowTreasureScreen(true)
-      playSound('complete', soundEnabled)
+      playSound('victory', soundEnabled)
     }
   }, [exploration?.treasureFound, showTreasureScreen, soundEnabled])
 
@@ -71,11 +71,12 @@ export function TreasureQuestGame({ sessionId, onExit, onPlayAgain }: { sessionI
   }
 
   function handleAnswerResult(res: { correct: boolean }) {
+    // QuestionOverlay already played correct/incorrect the moment the
+    // server responded, just before calling this callback.
     setShowQuestion(false)
     setExploration((prev) => {
       if (!prev || !difficulty) return prev
       const settings = getTreasureQuestDifficultySettings(difficulty)
-      playSound(res.correct ? 'correct' : 'incorrect', soundEnabled)
       return res.correct ? applyCorrectAnswer(prev, settings) : applyWrongAnswer(prev, settings)
     })
     poll()

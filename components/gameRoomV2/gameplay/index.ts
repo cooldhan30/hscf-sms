@@ -4,5 +4,6 @@ export { QuestionOverlay, type QuestionOverlayQuestion, type AnswerResult } from
 export { QuestionInput } from './QuestionInput'
 export { GameResultsScreen } from './GameResultsScreen'
 export { useSoundPreference } from './useSoundPreference'
-export { playSound, type SoundId } from './playSound'
+export { playSound, stopAllSounds, type SoundId } from './playSound'
+export { useHaptics, vibrate, type HapticId } from './useHaptics'
 export { useGameSessionState } from './useGameSessionState'

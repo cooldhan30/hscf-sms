@@ -23,10 +23,22 @@ export interface CompletePayload {
   coinsEarned: number
   bestStreak: number
   skillsPracticed: string[]
+  // Already computed and sent by /complete (see that route's own
+  // comment: granted exactly once, empty on any later re-fetch of an
+  // already-finalized session) -- previously received here and then
+  // silently dropped before reaching GameResultShape, so no engine's
+  // Results screen could ever show "you unlocked an achievement" or
+  // play the achievement sound for it. Optional because a few older
+  // callers of buildGameResult() in tests construct a CompletePayload
+  // by hand without this field.
+  newlyEarnedAchievementIds?: string[]
 }
 
 export interface GameResultShape extends CompletePayload {
   responses: never[]
+  // Always present here (buildGameResult defaults to []) even though
+  // it's optional on the raw CompletePayload coming off the wire.
+  newlyEarnedAchievementIds: string[]
 }
 
 // Every engine's completion effect builds the exact same GameResult
@@ -46,6 +58,7 @@ export function buildGameResult(data: CompletePayload): GameResultShape {
     coinsEarned: data.coinsEarned,
     bestStreak: data.bestStreak,
     skillsPracticed: data.skillsPracticed,
+    newlyEarnedAchievementIds: data.newlyEarnedAchievementIds ?? [],
     responses: [],
   }
 }

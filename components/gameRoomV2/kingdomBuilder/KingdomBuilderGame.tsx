@@ -63,7 +63,7 @@ export function KingdomBuilderGame({ sessionId, onExit, onPlayAgain }: { session
   useEffect(() => {
     if (kingdom && kingdomComplete(kingdom) && !showCompleteScreen) {
       setShowCompleteScreen(true)
-      playSound('complete', soundEnabled)
+      playSound('victory', soundEnabled)
     }
   }, [kingdom, showCompleteScreen, soundEnabled])
 
@@ -94,14 +94,15 @@ export function KingdomBuilderGame({ sessionId, onExit, onPlayAgain }: { session
   }
 
   function handleAnswerResult(res: { correct: boolean }) {
+    // QuestionOverlay already played correct/incorrect the moment the
+    // server responded, just before calling this callback.
     setShowQuestion(false)
     setKingdom((prev) => {
       if (!prev || !difficulty) return prev
       const settings = getKingdomBuilderDifficultySettings(difficulty)
-      playSound(res.correct ? 'correct' : 'incorrect', soundEnabled)
       if (res.correct) {
         const next = applyCorrectAnswer(prev, settings)
-        if (next.justCompletedId) playSound('complete', soundEnabled)
+        if (next.justCompletedId) playSound('checkpoint', soundEnabled)
         return next
       }
       setInSetback(true)

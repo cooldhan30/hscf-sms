@@ -134,7 +134,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        tamil: ['Noto Sans Tamil', 'sans-serif'],
+        // var(--font-tamil) is set by next/font in app/layout.tsx -- see that file's comment for the full rationale.
+        tamil: ['var(--font-tamil)', 'Noto Sans Tamil', 'Latha', 'Tamil Sangam MN', 'sans-serif'],
       },
       boxShadow: {
         'xs': '0 1px 2px rgba(41, 37, 36, 0.05)',

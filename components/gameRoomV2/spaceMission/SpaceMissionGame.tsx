@@ -58,7 +58,7 @@ export function SpaceMissionGame({ sessionId, onExit, onPlayAgain }: { sessionId
   useEffect(() => {
     if (flight?.missionComplete && !showCompleteScreen) {
       setShowCompleteScreen(true)
-      playSound('complete', soundEnabled)
+      playSound('victory', soundEnabled)
     }
   }, [flight?.missionComplete, showCompleteScreen, soundEnabled])
 
@@ -78,11 +78,12 @@ export function SpaceMissionGame({ sessionId, onExit, onPlayAgain }: { sessionId
   }
 
   function handleAnswerResult(res: { correct: boolean }) {
+    // QuestionOverlay already played correct/incorrect the moment the
+    // server responded, just before calling this callback.
     setShowQuestion(false)
     setFlight((prev) => {
       if (!prev || !difficulty) return prev
       const settings = getSpaceMissionDifficultySettings(difficulty)
-      playSound(res.correct ? 'correct' : 'incorrect', soundEnabled)
       return res.correct ? applyCorrectAnswer(prev, settings) : applyWrongAnswer(prev, settings)
     })
     poll()

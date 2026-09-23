@@ -337,7 +337,24 @@ console.log('\n== 5. Shared config files touched by V2 work are additive-only ==
 // zero deletions vs. git HEAD so a future edit that removes or
 // repurposes an EXISTING key (as opposed to adding a new gamev2* one)
 // fails loudly instead of silently changing another portal's theme.
+//
+// One deliberate, reviewed exception: `fontFamily.tamil`'s value itself
+// (not the key) was updated once to point at a real, self-hosted
+// next/font Tamil font instead of an unloaded font-family string --
+// `font-tamil` is used outside GameRoom V2 too (login/sign-up), so this
+// was a genuine app-wide bug fix, explicitly approved to land alongside
+// the game-feel pass rather than reverted or split out. Modeled as an
+// allowed line-content substitution (old value -> new value), not a
+// blanket bypass -- any OTHER change to this file still fails the gate.
 const SHARED_CONFIG_FILES_MUST_BE_ADDITIVE_ONLY = ['tailwind.config.ts']
+const ALLOWED_LINE_SUBSTITUTIONS: Record<string, [string, string][]> = {
+  'tailwind.config.ts': [
+    [
+      "      fontFamily: {\n        tamil: ['Noto Sans Tamil', 'sans-serif'],\n      },",
+      "      fontFamily: {\n        // var(--font-tamil) is set by next/font in app/layout.tsx -- see that file's comment for the full rationale.\n        tamil: ['var(--font-tamil)', 'Noto Sans Tamil', 'Latha', 'Tamil Sangam MN', 'sans-serif'],\n      },",
+    ],
+  ],
+}
 for (const file of SHARED_CONFIG_FILES_MUST_BE_ADDITIVE_ONLY) {
   const headContent = gitShowHead(file)
   const workingContent = existsSync(join(ROOT, file)) ? readFileSync(join(ROOT, file), 'utf8') : null
@@ -349,6 +366,20 @@ for (const file of SHARED_CONFIG_FILES_MUST_BE_ADDITIVE_ONLY) {
     console.log(`  ok: ${file} unchanged`)
     continue
   }
+
+  let effectiveHeadContent = headContent
+  const substitutions = ALLOWED_LINE_SUBSTITUTIONS[file] ?? []
+  for (const [before, after] of substitutions) {
+    if (headContent.includes(before) && workingContent.includes(after)) {
+      effectiveHeadContent = effectiveHeadContent.replace(before, after)
+    }
+  }
+
+  if (effectiveHeadContent === workingContent) {
+    console.log(`  ok: ${file} changed only via its explicitly allowed substitution(s)`)
+    continue
+  }
+
   const diffOutput = execSync(`git diff --numstat -- "${file}"`, { cwd: ROOT, encoding: 'utf8' }).trim()
   const [added, removed] = diffOutput.split(/\s+/).map(Number)
   if (removed > 0) {

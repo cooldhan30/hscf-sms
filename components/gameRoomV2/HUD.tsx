@@ -1,8 +1,10 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FiClock } from 'react-icons/fi'
 import { useGameV2Motion } from './useGameV2Motion'
+import { playSound } from './gameplay/playSound'
 
 // The three HUD readouts every engine's play screen needs. Kept as
 // small, focused components (not one monolithic "HUD bar") so an
@@ -10,9 +12,34 @@ import { useGameV2Motion } from './useGameV2Motion'
 // put the timer top-center and XP/coins in corners, a racing game
 // might hide the timer entirely.
 
-export function GameV2Timer({ secondsRemaining, totalSeconds }: { secondsRemaining: number; totalSeconds: number }) {
+export function GameV2Timer({
+  secondsRemaining,
+  totalSeconds,
+  soundEnabled = false,
+}: {
+  secondsRemaining: number
+  totalSeconds: number
+  // Opt-in (default off): GameV2Timer has exactly one caller today
+  // (GameHUD, in-game only) but is a shared, generically-named export --
+  // defaulting to silent keeps it safe for any future non-gameplay use
+  // of a countdown (e.g. a lobby "starting in..." timer) that shouldn't
+  // automatically tick audibly.
+  soundEnabled?: boolean
+}) {
   const pct = totalSeconds > 0 ? Math.max(0, Math.min(100, (secondsRemaining / totalSeconds) * 100)) : 0
   const urgent = secondsRemaining <= 5
+  const lastTickedRef = useRef<number | null>(null)
+
+  // One tick per second while urgent, never re-firing for the same
+  // second (a parent re-render with the same secondsRemaining value
+  // must not double-tick). Deliberately stops at 1, not 0 -- the
+  // question's own timeout/incorrect sound already covers "time's up."
+  useEffect(() => {
+    if (!urgent || secondsRemaining < 1) return
+    if (lastTickedRef.current === secondsRemaining) return
+    lastTickedRef.current = secondsRemaining
+    playSound('countdown', soundEnabled)
+  }, [urgent, secondsRemaining, soundEnabled])
 
   return (
     <div

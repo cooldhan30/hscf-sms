@@ -112,7 +112,7 @@ function SoloRacingGame({ sessionId, onExit, onPlayAgain }: { sessionId: string;
   useEffect(() => {
     if (race?.raceOver && !raceFinishSoundPlayed.current) {
       raceFinishSoundPlayed.current = true
-      playSound(race.winnerId === PLAYER_RACER_ID ? 'complete' : 'incorrect', soundEnabled)
+      playSound(race.winnerId === PLAYER_RACER_ID ? 'victory' : 'gameOver', soundEnabled)
     }
   }, [race?.raceOver, race?.winnerId, soundEnabled])
 
@@ -133,6 +133,8 @@ function SoloRacingGame({ sessionId, onExit, onPlayAgain }: { sessionId: string;
   }
 
   function handleAnswerResult(res: { correct: boolean }) {
+    // QuestionOverlay already played correct/incorrect the moment the
+    // server responded, just before calling this callback.
     setShowQuestion(false)
     setRace((prev) => {
       if (!prev || !difficulty) return prev
@@ -288,7 +290,7 @@ function MultiplayerRacingGame({
     if (allFinished && !raceFinishSoundPlayed.current) {
       raceFinishSoundPlayed.current = true
       const me = liveRace!.racers.find((r) => r.participantId === myParticipantId)
-      playSound(me?.finished ? 'complete' : 'incorrect', soundEnabled)
+      playSound(me?.finished ? 'complete' : 'gameOver', soundEnabled)
     }
   }, [liveRace, myParticipantId, soundEnabled])
 
@@ -306,9 +308,12 @@ function MultiplayerRacingGame({
     setThemeId(theme)
   }
 
-  function handleAnswerResult() {
+  function handleAnswerResult(res: { correct: boolean }) {
+    void res
     lastAnsweredIndexRef.current = sessionState?.currentIndex ?? lastAnsweredIndexRef.current
     setShowQuestion(false)
+    // QuestionOverlay already played correct/incorrect the moment the
+    // server responded, just before calling this callback.
     // The server already recorded the answer and will reflect its
     // effect on the NEXT /race poll -- this client never predicts or
     // locally applies its own boost/penalty, unlike solo mode, so
