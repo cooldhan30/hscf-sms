@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireStudent } from '@/lib/require-student'
+import { requireGameV2Student } from '@/lib/gameRoomV2/requireStudentAccess'
 import { pickChallengeConcepts, challengeMessage, type LearningEvent } from '@/lib/gameRoomV2/analytics'
 
 // GET /api/gameroom-v2/analytics/student-challenge -- இன்றைய சவால்
@@ -13,7 +13,7 @@ import { pickChallengeConcepts, challengeMessage, type LearningEvent } from '@/l
 // covering the suggested concept and plays it normally -- this route
 // only ever reads and suggests, never a reward path).
 export async function GET() {
-  const guard = await requireStudent()
+  const guard = await requireGameV2Student()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
   const { supabase, student } = guard
 

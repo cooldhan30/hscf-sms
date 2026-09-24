@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { GameV2Card, GameV2Button, GameV2Loading, GameV2Error, useGameV2Motion } from '@/components/gameRoomV2'
 import { QuestionOverlay, type QuestionOverlayQuestion, GameResultsScreen, useSoundPreference, playSound, useGameSessionState } from '@/components/gameRoomV2/gameplay'
+import { useManagedTimeouts } from '@/components/gameRoomV2/gameplay/useManagedTimeouts'
 import { DifficultyPicker } from './DifficultyPicker'
 import { Battlefield } from './Battlefield'
 import { TowerShop } from './TowerShop'
@@ -59,11 +60,15 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain }: { sessionId
   const [waveMessage, setWaveMessage] = useState<string | null>(null)
   const { soundEnabled } = useSoundPreference()
   const { reduced } = useGameV2Motion()
+  const scheduleTimeout = useManagedTimeouts()
   const { state: sessionState, error, result, poll, togglePause, exit } = useGameSessionState<StatePayload>({
     sessionId,
     enabled: !!difficulty,
     soundEnabled,
   })
+
+  const simRunning =
+    !!battlefield && !showQuestion && sessionState?.status !== 'PAUSED' && !battlefield.gameOver && !battlefield.victory
 
   // Local battlefield simulation clock -- independent of the 2s session
   // poll, since enemy movement needs to feel real-time. Frozen whenever
@@ -74,8 +79,14 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain }: { sessionId
   // Question Set than the wave count doesn't strand an in-progress
   // battle -- the player finishes the fight with whatever towers they
   // already built, then sees their results once gameOver/victory lands.
+  //
+  // Keyed on the `simRunning` boolean, NOT the battlefield object: the
+  // tick replaces the battlefield every 100ms, so depending on it tore
+  // down and recreated this interval on every single tick. The tick
+  // reads state through the functional updater, so it never needs the
+  // battlefield in its closure.
   useEffect(() => {
-    if (!battlefield || showQuestion || sessionState?.status === 'PAUSED' || battlefield.gameOver || battlefield.victory) return
+    if (!simRunning) return
 
     const interval = setInterval(() => {
       setBattlefield((prev) => {
@@ -83,7 +94,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain }: { sessionId
         const result = tickBattlefield(prev, SIM_INTERVAL_MS)
         if (result.impacts.length > 0) {
           setImpacts(result.impacts)
-          window.setTimeout(() => setImpacts((cur) => cur.filter((i) => !result.impacts.includes(i))), 350)
+          scheduleTimeout(() => setImpacts((cur) => cur.filter((i) => !result.impacts.includes(i))), 350)
         }
         if (result.waveCleared && !result.state.victory) {
           setWaveMessage(`Wave ${prev.wave} cleared!`)
@@ -96,7 +107,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain }: { sessionId
     }, SIM_INTERVAL_MS)
 
     return () => clearInterval(interval)
-  }, [battlefield, showQuestion, sessionState?.status, soundEnabled])
+  }, [simRunning, soundEnabled, scheduleTimeout])
 
   // A fresh question opportunity opens periodically while a wave is
   // active -- the exact core loop the spec describes ("wave begins ->

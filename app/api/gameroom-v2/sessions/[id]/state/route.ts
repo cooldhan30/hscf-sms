@@ -19,17 +19,21 @@ import { getGameEngineV2 } from '@/lib/gameRoomV2/registry'
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const guard = await requireGameV2Session(params.id)
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-  const { supabase, session } = guard
+  const { admin, studentId, session } = guard
 
   let currentSession = session
 
   if (currentSession.status === 'READY') {
-    const { data: updated } = await supabase
+    // Compare-and-set on status: two concurrent first polls can't both
+    // (re)start the timer anchor.
+    const { data: updated } = await admin
       .from('sms_gamev2_sessions')
       .update({ status: 'ACTIVE', started_at: new Date().toISOString(), current_question_started_at: new Date().toISOString() })
       .eq('id', currentSession.id)
+      .eq('student_id', studentId)
+      .eq('status', 'READY')
       .select()
-      .single()
+      .maybeSingle()
     if (updated) currentSession = updated
   }
 
@@ -64,10 +68,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ ...base, question: null, remainingSeconds: null })
   }
 
-  const { data: question } = await supabase
+  // Read server-side (students have no direct read on question
+  // payloads since migration 083); only stripAnswerKey()'s output ever
+  // leaves this route.
+  const { data: question } = await admin
     .from('sms_gamev2_questions')
     .select('id, question_type, prompt, payload, media_url, points')
     .eq('id', questionId)
+    .eq('question_set_id', currentSession.question_set_id)
     .single()
 
   if (!question) {

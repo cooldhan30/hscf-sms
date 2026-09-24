@@ -1,5 +1,6 @@
 import 'server-only'
 import type { createClient } from '@/lib/supabase/server'
+import type { createAdminClient } from '@/lib/supabase/admin'
 import { calculateCompletionBonus } from '@/lib/gameRoomV2/scoring'
 import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
 import { computeEngineMilestone } from '@/lib/gameRoomV2/progression/engineMilestone'
@@ -15,11 +16,17 @@ import type { GameV2SessionRow } from '@/lib/gameRoomV2/requireSession'
 // is the ONLY code path allowed to call the SECURITY DEFINER RPCs that
 // mutate sms_gamev2_player_stats/engine_mastery/question_set_completions/
 // player_achievements/daily_challenge_progress. It is called from
-// exactly one place -- sessions/[id]/complete/route.ts -- which already
-// guards against double-finalization via rewards_finalized_at; this
-// service does not re-check that guard itself, since the route's
-// existing check is what makes calling this function safe to call
-// exactly once per session.
+// exactly one place -- sessions/[id]/complete/route.ts -- which
+// atomically CLAIMS the session (rewards_finalized_at NULL -> now, a
+// single compare-and-set) before calling this; only the request that
+// wins that claim ever reaches this function, so it runs at most once
+// per session even under concurrent /complete calls.
+//
+// Since migration 083 the three reward RPCs are EXECUTE-able by
+// service_role ONLY (they were SECURITY DEFINER with no caller check
+// and a default PUBLIC grant -- anyone could mint XP for anyone), so
+// every RPC call and write below goes through `admin`. Reads of the
+// student's own progression rows still use their RLS-scoped `supabase`.
 //
 // No game engine (Tower Defense, Boss Battle, Racing, Treasure Quest,
 // Word Ninja, Classic Quiz) ever calls anything in this file, imports
@@ -33,6 +40,7 @@ import type { GameV2SessionRow } from '@/lib/gameRoomV2/requireSession'
 // already fully persisted.
 export interface SessionFinalizationInput {
   supabase: ReturnType<typeof createClient>
+  admin: ReturnType<typeof createAdminClient>
   studentId: string
   session: GameV2SessionRow
   // Server date string ('YYYY-MM-DD'), computed by the caller so this
@@ -62,18 +70,20 @@ export interface SessionFinalizationResult {
 // or derived from it -- nothing here trusts a value the client passed
 // in this request.
 export async function finalizeSessionRewards(input: SessionFinalizationInput): Promise<SessionFinalizationResult> {
-  const { supabase, studentId, session, todayIso } = input
+  const { supabase, admin, studentId, session, todayIso } = input
 
   const bonus = calculateCompletionBonus()
   const totalSessionXp = session.xp_earned + bonus.xp
   const totalSessionCoins = session.coins_earned + bonus.coins
 
-  await supabase
+  // rewards_finalized_at was already set by the caller's atomic claim.
+  await admin
     .from('sms_gamev2_sessions')
-    .update({ xp_earned: totalSessionXp, coins_earned: totalSessionCoins, rewards_finalized_at: new Date().toISOString() })
+    .update({ xp_earned: totalSessionXp, coins_earned: totalSessionCoins })
     .eq('id', session.id)
+    .eq('student_id', studentId)
 
-  const { data: ledger } = await supabase.rpc('sms_gamev2_apply_session_rewards', {
+  const { data: ledger } = await admin.rpc('sms_gamev2_apply_session_rewards', {
     p_student_id: studentId,
     p_xp_earned: totalSessionXp,
     p_coins_earned: totalSessionCoins,
@@ -98,11 +108,25 @@ export async function finalizeSessionRewards(input: SessionFinalizationInput): P
   // applyDailyActivity sees the state as it was BEFORE this session,
   // exactly once per session (this service is only ever invoked once
   // per session, per the caller's rewards_finalized_at guard).
-  const { data: statsBefore } = await supabase
-    .from('sms_gamev2_player_stats')
-    .select('last_active_date, current_daily_streak, best_daily_streak, correct_answers_total')
-    .eq('student_id', studentId)
-    .single()
+  // These four reads are independent of each other (and of the ledger
+  // RPC above, which never touches streak/correct-answer columns), so
+  // they go out together instead of as four sequential round trips on
+  // the /complete critical path.
+  const [{ data: statsBefore }, { data: existingAchievements }, { data: enginesPlayedRows }, { data: qsCompletionRow }] = await Promise.all([
+    supabase
+      .from('sms_gamev2_player_stats')
+      .select('last_active_date, current_daily_streak, best_daily_streak, correct_answers_total')
+      .eq('student_id', studentId)
+      .single(),
+    supabase.from('sms_gamev2_player_achievements').select('achievement_id').eq('student_id', studentId),
+    supabase.from('sms_gamev2_engine_mastery').select('engine_id').eq('student_id', studentId),
+    supabase
+      .from('sms_gamev2_question_set_completions')
+      .select('completion_count')
+      .eq('student_id', studentId)
+      .eq('question_set_id', session.question_set_id)
+      .maybeSingle(),
+  ])
 
   const streakResult = applyDailyActivity(todayIso, {
     lastActiveDate: statsBefore?.last_active_date ?? null,
@@ -110,12 +134,6 @@ export async function finalizeSessionRewards(input: SessionFinalizationInput): P
     bestDailyStreak: statsBefore?.best_daily_streak ?? 0,
   })
 
-  const { data: existingAchievements } = await supabase
-    .from('sms_gamev2_player_achievements')
-    .select('achievement_id')
-    .eq('student_id', studentId)
-
-  const { data: enginesPlayedRows } = await supabase.from('sms_gamev2_engine_mastery').select('engine_id').eq('student_id', studentId)
   const enginesPlayed = Array.from(new Set([...(enginesPlayedRows ?? []).map((r) => r.engine_id), session.engine_id]))
 
   const engineMilestoneReached = computeEngineMilestone({
@@ -125,13 +143,6 @@ export async function finalizeSessionRewards(input: SessionFinalizationInput): P
     lives: session.lives,
     maxLives: session.max_lives,
   })
-
-  const { data: qsCompletionRow } = await supabase
-    .from('sms_gamev2_question_set_completions')
-    .select('completion_count')
-    .eq('student_id', studentId)
-    .eq('question_set_id', session.question_set_id)
-    .single()
 
   const achievementContext: AchievementContext = {
     sessionsCompletedTotal: (ledgerRow?.sessions_completed as number | undefined) ?? 0,
@@ -150,7 +161,7 @@ export async function finalizeSessionRewards(input: SessionFinalizationInput): P
 
   const newlyEarned = evaluateAchievements(achievementContext)
 
-  await supabase.rpc('sms_gamev2_apply_progression', {
+  await admin.rpc('sms_gamev2_apply_progression', {
     p_student_id: studentId,
     p_correct_answers_this_session: session.correct_count,
     p_current_daily_streak: streakResult.currentDailyStreak,
@@ -176,7 +187,7 @@ export async function finalizeSessionRewards(input: SessionFinalizationInput): P
     correctCount: session.correct_count,
   })
 
-  await supabase.rpc('sms_gamev2_apply_daily_challenge_progress', {
+  await admin.rpc('sms_gamev2_apply_daily_challenge_progress', {
     p_student_id: studentId,
     p_challenge_date: todayIso,
     p_challenge_id: challenge.id,

@@ -76,6 +76,10 @@ export function BuilderWizard({ initial }: { initial?: BuilderInitialData }) {
       visibility: metadata.visibility,
       published: false,
       questions: questions.map((q) => ({
+        // Lets the server update an existing question in place instead
+        // of deleting and recreating it (which would cascade-delete
+        // every student's answers to it). Absent for new questions.
+        id: q.id,
         questionType: q.questionType,
         prompt: q.prompt,
         payload: q.payload,

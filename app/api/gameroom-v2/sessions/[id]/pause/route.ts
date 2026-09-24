@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { requireGameV2Session } from '@/lib/gameRoomV2/requireSession'
+import { requireGameV2Session, isLiveBridgedSession } from '@/lib/gameRoomV2/requireSession'
+import { studentMayControlPause } from '@/lib/gameRoomV2/security/limits'
 
 // POST /api/gameroom-v2/sessions/[id]/pause -- ACTIVE -> PAUSED. Records
 // paused_at so resume/route.ts can compute exactly how long the pause
@@ -7,24 +8,33 @@ import { requireGameV2Session } from '@/lib/gameRoomV2/requireSession'
 // "don't silently burn the student's remaining time while paused" idiom
 // legacy GameRoom's pause/resume + sms_shift_game_player_timers uses
 // (reimplemented here, not shared code -- see requireSession.ts).
+//
+// Solo sessions only: a Live Classroom participant's session is paused
+// by the HOST for the whole class (see studentMayControlPause).
 export async function POST(_request: Request, { params }: { params: { id: string } }) {
   const guard = await requireGameV2Session(params.id)
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-  const { supabase, session } = guard
+  const { supabase, admin, studentId, session } = guard
 
   if (session.status !== 'ACTIVE') {
     return NextResponse.json({ error: `Cannot pause -- game is "${session.status}"` }, { status: 409 })
   }
 
-  const { data: updated, error } = await supabase
+  if (!studentMayControlPause(await isLiveBridgedSession(supabase, session.id))) {
+    return NextResponse.json({ error: 'Your teacher controls pausing in a Live Classroom game' }, { status: 403 })
+  }
+
+  const { data: updated } = await admin
     .from('sms_gamev2_sessions')
     .update({ status: 'PAUSED', paused_at: new Date().toISOString() })
     .eq('id', session.id)
+    .eq('student_id', studentId)
+    .eq('status', 'ACTIVE')
     .select()
-    .single()
+    .maybeSingle()
 
-  if (error || !updated) {
-    return NextResponse.json({ error: error?.message || 'Failed to pause' }, { status: 400 })
+  if (!updated) {
+    return NextResponse.json({ error: 'Failed to pause -- refresh your game state' }, { status: 409 })
   }
 
   return NextResponse.json({ status: updated.status })

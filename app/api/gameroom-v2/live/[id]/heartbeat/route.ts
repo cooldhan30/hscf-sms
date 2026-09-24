@@ -11,12 +11,13 @@ import { requireLiveSessionParticipant } from '@/lib/gameRoomV2/liveClassroom/re
 export async function POST(_request: Request, { params }: { params: { id: string } }) {
   const guard = await requireLiveSessionParticipant(params.id)
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-  const { supabase, participant } = guard
+  const { admin, studentId, participant } = guard
 
-  await supabase
+  await admin
     .from('sms_gamev2_live_participants')
     .update({ connected: true, last_seen_at: new Date().toISOString() })
     .eq('id', participant.id)
+    .eq('student_id', studentId)
 
   return NextResponse.json({ ok: true })
 }

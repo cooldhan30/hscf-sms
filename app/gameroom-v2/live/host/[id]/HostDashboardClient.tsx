@@ -1,13 +1,24 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { FiUsers, FiCopy, FiPlay, FiPause, FiSquare } from 'react-icons/fi'
 import { GameV2Card, GameV2Button, GameV2Loading, GameV2Error, GameV2ConfirmDialog } from '@/components/gameRoomV2'
 import { useSupabaseBrowserClient } from '@/lib/supabase/client'
 import { subscribeToLiveSession } from '@/lib/gameRoomV2/liveClassroom/realtime'
+import { createCoalescer } from '@/lib/gameRoomV2/gameplay/coalesce'
 import { toast } from '@/lib/toast'
-import { RaceTrackOverview } from './RaceTrackOverview'
-import { BossBattleOverview } from './BossBattleOverview'
+
+// Engine-specific overviews are code-split: a teacher hosting a Classic
+// Quiz never downloads the race track or boss arena, and a Racing host
+// never downloads Boss Battle's.
+const RaceTrackOverview = dynamic(() => import('./RaceTrackOverview').then((m) => m.RaceTrackOverview))
+const BossBattleOverview = dynamic(() => import('./BossBattleOverview').then((m) => m.BossBattleOverview))
+
+// Every participant heartbeat is a Realtime event; refetch the lobby at
+// most once per window (see lib/gameRoomV2/gameplay/coalesce.ts).
+const REFRESH_COALESCE_MS = 1000
+const RESULTS_POLL_MS = 3000
 
 interface LobbyParticipant {
   id: string
@@ -45,6 +56,7 @@ export function HostDashboardClient({ liveSessionId }: { liveSessionId: string }
   const [actionInFlight, setActionInFlight] = useState(false)
   const [confirmEndOpen, setConfirmEndOpen] = useState(false)
   const supabase = useSupabaseBrowserClient()
+  const lastLobbyRef = useRef<string | null>(null)
 
   const refresh = useCallback(async () => {
     const res = await fetch(`/api/gameroom-v2/live/${liveSessionId}/lobby`)
@@ -54,6 +66,11 @@ export function HostDashboardClient({ liveSessionId }: { liveSessionId: string }
       return
     }
     setError(null)
+    // A heartbeat-triggered refetch usually returns the identical lobby;
+    // skip the re-render of the whole dashboard (and its live track).
+    const serialized = JSON.stringify(data)
+    if (serialized === lastLobbyRef.current) return
+    lastLobbyRef.current = serialized
     setLobby(data)
   }, [liveSessionId])
 
@@ -63,18 +80,29 @@ export function HostDashboardClient({ liveSessionId }: { liveSessionId: string }
     if (res.ok && data) setResults(data.results)
   }, [liveSessionId])
 
-  useEffect(() => {
-    refresh()
-    const channel = subscribeToLiveSession(supabase, liveSessionId, refresh)
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [supabase, liveSessionId, refresh])
+  const coalescedRefresh = useMemo(() => createCoalescer(() => void refresh(), REFRESH_COALESCE_MS), [refresh])
 
   useEffect(() => {
-    if (lobby?.status !== 'ACTIVE' && lobby?.status !== 'ENDED') return
+    refresh()
+    const channel = subscribeToLiveSession(supabase, liveSessionId, coalescedRefresh.call)
+    return () => {
+      coalescedRefresh.cancel()
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, liveSessionId, refresh, coalescedRefresh])
+
+  // Live leaderboard: polled while ACTIVE; fetched ONCE when the session
+  // ends (final standings never change after ENDED -- this used to keep
+  // polling every 3s for as long as the tab stayed open).
+  useEffect(() => {
+    const status = lobby?.status
+    if (status === 'ENDED') {
+      refreshResults()
+      return
+    }
+    if (status !== 'ACTIVE') return
     refreshResults()
-    const interval = setInterval(refreshResults, 3000)
+    const interval = setInterval(refreshResults, RESULTS_POLL_MS)
     return () => clearInterval(interval)
   }, [lobby?.status, refreshResults])
 

@@ -84,13 +84,16 @@ export function MatchingGame({ sessionId, onExit, onPlayAgain }: { sessionId: st
   // NOT fail the round (matching every other V2 engine's non-punitive
   // design), it simply stops decrementing, leaving the student free to
   // keep matching at their own pace.
+  // Keyed on a boolean so the interval isn't torn down and recreated on
+  // every one-second decrement.
+  const countdownRunning = roundSecondsRemaining !== null && roundSecondsRemaining > 0 && sessionState?.status === 'ACTIVE' && !submitting
   useEffect(() => {
-    if (roundSecondsRemaining === null || roundSecondsRemaining <= 0 || sessionState?.status !== 'ACTIVE' || submitting) return
+    if (!countdownRunning) return
     const interval = window.setInterval(() => {
       setRoundSecondsRemaining((prev) => (prev !== null && prev > 0 ? prev - 1 : prev))
     }, 1000)
     return () => window.clearInterval(interval)
-  }, [roundSecondsRemaining, sessionState?.status, submitting])
+  }, [countdownRunning])
 
   // The attempt-feedback ring (matched/mismatched) clears itself after
   // a short beat, mirroring every prior engine's one-shot

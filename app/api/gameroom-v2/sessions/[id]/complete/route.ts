@@ -16,14 +16,22 @@ import { levelForXp } from '@/lib/gameRoomV2/progression/levels'
 // enforce the COMPLETED-status precondition, and guard against calling
 // the reward service more than once for the same session.
 //
-// Calling this route twice for the same session is safe: the second
-// call is rejected by the alreadyFinalized check below (never calls
-// finalizeSessionRewards again) and instead returns the already-
-// persisted results.
+// Calling this route twice for the same session -- sequentially OR
+// concurrently -- is safe: finalization is claimed with ONE atomic
+// compare-and-set (`rewards_finalized_at IS NULL` -> now) before any
+// reward is granted, so exactly one request can ever win the claim and
+// call finalizeSessionRewards. (Previously the route read
+// rewards_finalized_at, then granted, then wrote it -- two parallel
+// requests could both see NULL and both grant.) Every other caller
+// returns the already-persisted results. If a request dies after
+// winning the claim but before granting, the student is under-rewarded
+// for that one session rather than ever double-rewarded -- the safe
+// direction for a currency ledger.
 export async function POST(_request: Request, { params }: { params: { id: string } }) {
   const guard = await requireGameV2Session(params.id)
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-  const { supabase, studentId, session } = guard
+  const { supabase, admin, studentId } = guard
+  let session = guard.session
 
   if (session.status !== 'COMPLETED') {
     return NextResponse.json({ error: `Cannot finalize -- game is "${session.status}", not COMPLETED` }, { status: 409 })
@@ -47,7 +55,27 @@ export async function POST(_request: Request, { params }: { params: { id: string
   // checked via a dedicated column rather than re-deriving from
   // xp_earned, since a legitimate 0-XP completion (every answer wrong)
   // must still be distinguishable from "not finalized yet."
-  const alreadyFinalized = Boolean(session.rewards_finalized_at)
+  let wonClaim = false
+  if (!session.rewards_finalized_at) {
+    const { data: claimed } = await admin
+      .from('sms_gamev2_sessions')
+      .update({ rewards_finalized_at: new Date().toISOString() })
+      .eq('id', session.id)
+      .eq('student_id', studentId)
+      .eq('status', 'COMPLETED')
+      .is('rewards_finalized_at', null)
+      .select('id')
+      .maybeSingle()
+    wonClaim = Boolean(claimed)
+  }
+  const alreadyFinalized = !wonClaim
+
+  if (alreadyFinalized) {
+    // Another request finalized it (possibly a moment ago, in parallel)
+    // -- re-read so the response reflects the bonus that request applied.
+    const { data: fresh } = await supabase.from('sms_gamev2_sessions').select('*').eq('id', session.id).single()
+    if (fresh) session = fresh
+  }
 
   let xpEarned = session.xp_earned
   let coinsEarned = session.coins_earned
@@ -61,6 +89,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
   if (!alreadyFinalized) {
     const result = await finalizeSessionRewards({
       supabase,
+      admin,
       studentId,
       session,
       todayIso: new Date().toISOString().slice(0, 10),

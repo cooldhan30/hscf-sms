@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { GameV2Card } from '@/components/gameRoomV2'
-import { CoopArena, type LiveCoopBattleView } from '@/components/gameRoomV2/bossBattle'
+import { CoopArena, type LiveCoopBattleView } from '@/components/gameRoomV2/bossBattle/CoopArena'
 
 const POLL_INTERVAL_MS = 1500
 

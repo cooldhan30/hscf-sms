@@ -13,21 +13,25 @@ import { requireGameV2Session } from '@/lib/gameRoomV2/requireSession'
 export async function POST(_request: Request, { params }: { params: { id: string } }) {
   const guard = await requireGameV2Session(params.id)
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-  const { supabase, session } = guard
+  const { admin, studentId, session } = guard
 
   if (session.status === 'COMPLETED' || session.status === 'ABANDONED') {
     return NextResponse.json({ error: `Cannot exit -- game is already "${session.status}"` }, { status: 409 })
   }
 
-  const { data: updated, error } = await supabase
+  // Only from a non-terminal status -- a concurrent final answer that
+  // just COMPLETED the session must never be flipped to ABANDONED.
+  const { data: updated } = await admin
     .from('sms_gamev2_sessions')
     .update({ status: 'ABANDONED', abandoned_at: new Date().toISOString() })
     .eq('id', session.id)
+    .eq('student_id', studentId)
+    .in('status', ['CREATED', 'READY', 'ACTIVE', 'PAUSED'])
     .select()
-    .single()
+    .maybeSingle()
 
-  if (error || !updated) {
-    return NextResponse.json({ error: error?.message || 'Failed to exit' }, { status: 400 })
+  if (!updated) {
+    return NextResponse.json({ error: 'Failed to exit -- refresh your game state' }, { status: 409 })
   }
 
   return NextResponse.json({ status: updated.status })

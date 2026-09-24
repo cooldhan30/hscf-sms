@@ -3,6 +3,7 @@ import { requireGameV2Session } from '@/lib/gameRoomV2/requireSession'
 import { gradeAnswer } from '@/lib/gameRoomV2/gradeAnswer'
 import { calculatePoints, calculateRewardsForAnswer } from '@/lib/gameRoomV2/scoring'
 import { effectiveDimension, effectiveConceptTags, extractConfusionPair, confusionPairKey } from '@/lib/gameRoomV2/analytics'
+import { checkSubmittedAnswer } from '@/lib/gameRoomV2/security/limits'
 
 // POST /api/gameroom-v2/sessions/[id]/answer -- the ONLY place scoring
 // happens, entirely server-side. This is the "receive correct/
@@ -23,10 +24,16 @@ import { effectiveDimension, effectiveConceptTags, extractConfusionPair, confusi
 // - sms_gamev2_answers' UNIQUE(session_id, question_index) is the hard
 //   backstop against double-answering, on top of the current_index
 //   check here.
+// - The session update is a compare-and-set on current_index, so two
+//   racing requests can never both advance the session.
+// - The submitted answer is size-capped before it is stored.
+// - Every write goes through the server-only admin client (migration
+//   083 made these tables SELECT-only for students), so the client can
+//   no longer insert its own is_correct=true answer or edit its score.
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const guard = await requireGameV2Session(params.id)
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-  const { supabase, studentId, session } = guard
+  const { admin, studentId, session } = guard
 
   if (session.status !== 'ACTIVE') {
     return NextResponse.json({ error: `Cannot answer -- game is "${session.status}"` }, { status: 409 })
@@ -47,21 +54,26 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: 'No question at this index' }, { status: 409 })
   }
 
-  const { data: question } = await supabase
+  // submittedAnswer may legitimately be null/undefined (a client-
+  // detected timeout submits no answer at all) -- gradeAnswer() always
+  // returns false for that, same as legacy GameRoom's null-on-timeout
+  // handling.
+  const submittedAnswer = 'answer' in body ? (body.answer ?? null) : null
+  const answerCheck = checkSubmittedAnswer(submittedAnswer)
+  if (!answerCheck.ok) {
+    return NextResponse.json({ error: answerCheck.error }, { status: 413 })
+  }
+
+  const { data: question } = await admin
     .from('sms_gamev2_questions')
     .select('id, question_type, payload, points, explanation, dimension, concept_tags')
     .eq('id', questionId)
+    .eq('question_set_id', session.question_set_id)
     .single()
 
   if (!question) {
     return NextResponse.json({ error: 'Question not found' }, { status: 500 })
   }
-
-  // submittedAnswer may legitimately be null/undefined (a client-
-  // detected timeout submits no answer at all) -- gradeAnswer() always
-  // returns false for that, same as legacy GameRoom's null-on-timeout
-  // handling.
-  const submittedAnswer = 'answer' in body ? body.answer : null
 
   const responseTimeMs = session.current_question_started_at
     ? Date.now() - new Date(session.current_question_started_at).getTime()
@@ -74,7 +86,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // UNIQUE(session_id, question_index) turns a duplicate submission
   // (a race between two tabs, a retried request) into a clean insert
   // failure rather than double counting.
-  const { data: insertedAnswer, error: insertError } = await supabase
+  const { data: insertedAnswer, error: insertError } = await admin
     .from('sms_gamev2_answers')
     .insert([
       {
@@ -94,7 +106,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     if (insertError?.code === '23505') {
       return NextResponse.json({ error: 'You already answered this question' }, { status: 409 })
     }
-    return NextResponse.json({ error: insertError?.message || 'Failed to record answer' }, { status: 400 })
+    return NextResponse.json({ error: 'Failed to record answer' }, { status: 400 })
   }
 
   // Learning analytics event -- tracks EDUCATIONAL performance
@@ -106,7 +118,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // this exact moment. Best-effort: a failure here never blocks the
   // student's actual answer from being recorded or scored -- learning
   // analytics is a read model for teachers, not gameplay-critical path.
-  const { data: questionSetForAnalytics } = await supabase
+  const { data: questionSetForAnalytics } = await admin
     .from('sms_gamev2_question_sets')
     .select('tags')
     .eq('id', session.question_set_id)
@@ -119,7 +131,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   )
   const confusionPair = extractConfusionPair(question.question_type, question.payload as Record<string, unknown>, submittedAnswer, isCorrect)
 
-  await supabase.from('sms_gamev2_learning_events').insert([
+  await admin.from('sms_gamev2_learning_events').insert([
     {
       student_id: studentId,
       answer_id: insertedAnswer.id,
@@ -147,7 +159,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // engine-specific rule, not a framework-wide one.
   const newLives = isCorrect ? session.lives : Math.max(0, session.lives - 1)
 
-  const { data: updatedSession, error: updateError } = await supabase
+  // `status` is only written when this answer completes the session --
+  // otherwise it's left alone, so a host Pause that lands between this
+  // request's guard read and this update is never silently overwritten
+  // back to ACTIVE.
+  const { data: updatedSession, error: updateError } = await admin
     .from('sms_gamev2_sessions')
     .update({
       current_index: newIndex,
@@ -160,15 +176,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
       lives: newLives,
       xp_earned: session.xp_earned + xp,
       coins_earned: session.coins_earned + coins,
-      status: isNowCompleted ? 'COMPLETED' : 'ACTIVE',
-      completed_at: isNowCompleted ? new Date().toISOString() : null,
+      ...(isNowCompleted ? { status: 'COMPLETED', completed_at: new Date().toISOString() } : {}),
     })
     .eq('id', session.id)
+    .eq('student_id', studentId)
+    .eq('current_index', questionIndex)
     .select()
-    .single()
+    .maybeSingle()
 
   if (updateError || !updatedSession) {
-    return NextResponse.json({ error: updateError?.message || 'Failed to record answer' }, { status: 400 })
+    return NextResponse.json({ error: 'This question is no longer current -- refresh your game state' }, { status: 409 })
   }
 
   // Reaching the last question marks the session COMPLETED here, but

@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
-import { requireStudent } from '@/lib/require-student'
+import { requireGameV2Student } from '@/lib/gameRoomV2/requireStudentAccess'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requireString } from '@/lib/validation'
 import { getGameEngineV2 } from '@/lib/gameRoomV2/registry'
 import { checkEngineCompatibility } from '@/lib/gameRoomV2/domain'
 import { shuffle } from '@/lib/gameRoomV2/shuffle'
+import { SESSION_START_LIMIT, exceedsSessionStartLimit } from '@/lib/gameRoomV2/security/limits'
 
 // POST /api/gameroom-v2/sessions/start -- CREATED status. Body:
 // { questionSetId, engineId }. Validates:
@@ -19,10 +21,17 @@ import { shuffle } from '@/lib/gameRoomV2/shuffle'
 // forked from legacy GameRoom rather than imported -- see that file's
 // header) and persisted on the session row -- never re-derived, so
 // "question 3 of 10" means the same thing across every refresh/resume.
+//
+// Writes and question reads go through the server-only admin client
+// (migration 083: students can no longer write sessions or read
+// question payloads directly). The question-SET lookup still runs
+// through the student's own RLS client -- that lookup is the
+// authorization for "may this student play this set at all".
 export async function POST(request: Request) {
-  const guard = await requireStudent()
+  const guard = await requireGameV2Student()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
   const { supabase, student } = guard
+  const admin = createAdminClient()
 
   const body = await request.json().catch(() => null)
   if (!body) {
@@ -67,10 +76,20 @@ export async function POST(request: Request) {
     )
   }
 
-  const { data: questions } = await supabase
+  const since = new Date(Date.now() - SESSION_START_LIMIT.windowMinutes * 60 * 1000).toISOString()
+  const { count: recentStarts } = await supabase
+    .from('sms_gamev2_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('student_id', student.id)
+    .gte('created_at', since)
+  if (exceedsSessionStartLimit(recentStarts ?? 0)) {
+    return NextResponse.json({ error: 'Too many games started -- take a short break and try again' }, { status: 429 })
+  }
+
+  const { data: questions } = await admin
     .from('sms_gamev2_questions')
     .select('id')
-    .eq('question_set_id', questionSetId)
+    .eq('question_set_id', questionSet.id)
 
   if (!questions || questions.length === 0) {
     return NextResponse.json({ error: 'This question set has no questions' }, { status: 409 })
@@ -85,11 +104,11 @@ export async function POST(request: Request) {
   // to the moment the student's client actually confirms it's showing
   // the first question, not to whenever this request happened to reach
   // the server.
-  const { data: session, error } = await supabase
+  const { data: session, error } = await admin
     .from('sms_gamev2_sessions')
     .insert([
       {
-        question_set_id: questionSetId,
+        question_set_id: questionSet.id,
         engine_id: engineId,
         student_id: student.id,
         status: 'READY',
@@ -101,7 +120,7 @@ export async function POST(request: Request) {
     .single()
 
   if (error || !session) {
-    return NextResponse.json({ error: error?.message || 'Failed to start session' }, { status: 400 })
+    return NextResponse.json({ error: 'Failed to start session' }, { status: 400 })
   }
 
   return NextResponse.json({ sessionId: session.id }, { status: 201 })

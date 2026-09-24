@@ -1,29 +1,57 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ComponentType } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { GameSessionRuntime } from '@/components/gameRoomV2/gameplay'
-import { TowerDefenseGame } from '@/components/gameRoomV2/towerDefense'
-import { RacingGame } from '@/components/gameRoomV2/racing'
-import { BossBattleGame } from '@/components/gameRoomV2/bossBattle'
-import { TreasureQuestGame } from '@/components/gameRoomV2/treasureQuest'
-import { WordNinjaGame } from '@/components/gameRoomV2/wordNinja'
-import { SpaceMissionGame } from '@/components/gameRoomV2/spaceMission'
-import { KingdomBuilderGame } from '@/components/gameRoomV2/kingdomBuilder'
-import { MysteryMansionGame } from '@/components/gameRoomV2/mysteryMansion'
-import { MatchingGame } from '@/components/gameRoomV2/matching'
-import { MemoryGame } from '@/components/gameRoomV2/memory'
 import { GameV2Loading } from '@/components/gameRoomV2'
 
 // Most engines have no visual layer of their own and mount
 // GameSessionRuntime directly (the "thin reference engine" path). Tower
-// Defense, Racing, Boss Battle, Treasure Quest, and Word Ninja each want
-// a different visual frame around the question -- a battlefield, race
-// track, arena, room map, or flight board instead of a plain centered
-// card -- so this is the one branch point: a single lightweight /state
-// call reveals which engine owns the session, then the right top-level
-// component takes over. Every future engine that needs its own board
-// gets a case here the same way.
+// Defense, Racing, Boss Battle, Treasure Quest, Word Ninja and the rest
+// each want a different visual frame around the question -- a
+// battlefield, race track, arena, room map, or flight board instead of a
+// plain centered card -- so this is the one branch point: a single
+// lightweight /state call reveals which engine owns the session, then the
+// right top-level component takes over.
+//
+// Every engine is loaded with next/dynamic, so each one is its own chunk
+// and a student downloads ONLY the engine they're actually playing. This
+// page used to import all ten statically, shipping every engine's
+// components and simulation code to every player. Every future engine
+// that needs its own board gets an entry in ENGINE_COMPONENTS the same way.
+type EngineProps = { sessionId: string; onExit: () => void; onPlayAgain?: () => void }
+
+const engineLoading = () => <GameV2Loading label="Loading game..." />
+
+const ENGINE_COMPONENTS: Record<string, ComponentType<EngineProps>> = {
+  'tower-defense': dynamic(() => import('@/components/gameRoomV2/towerDefense/TowerDefenseGame').then((m) => m.TowerDefenseGame), {
+    loading: engineLoading,
+  }),
+  racing: dynamic(() => import('@/components/gameRoomV2/racing/RacingGame').then((m) => m.RacingGame), { loading: engineLoading }),
+  'boss-battle': dynamic(() => import('@/components/gameRoomV2/bossBattle/BossBattleGame').then((m) => m.BossBattleGame), {
+    loading: engineLoading,
+  }),
+  'treasure-quest': dynamic(() => import('@/components/gameRoomV2/treasureQuest/TreasureQuestGame').then((m) => m.TreasureQuestGame), {
+    loading: engineLoading,
+  }),
+  'word-ninja': dynamic(() => import('@/components/gameRoomV2/wordNinja/WordNinjaGame').then((m) => m.WordNinjaGame), { loading: engineLoading }),
+  'space-mission': dynamic(() => import('@/components/gameRoomV2/spaceMission/SpaceMissionGame').then((m) => m.SpaceMissionGame), {
+    loading: engineLoading,
+  }),
+  'kingdom-builder': dynamic(() => import('@/components/gameRoomV2/kingdomBuilder/KingdomBuilderGame').then((m) => m.KingdomBuilderGame), {
+    loading: engineLoading,
+  }),
+  'mystery-mansion': dynamic(() => import('@/components/gameRoomV2/mysteryMansion/MysteryMansionGame').then((m) => m.MysteryMansionGame), {
+    loading: engineLoading,
+  }),
+  matching: dynamic(() => import('@/components/gameRoomV2/matching/MatchingGame').then((m) => m.MatchingGame), { loading: engineLoading }),
+  memory: dynamic(() => import('@/components/gameRoomV2/memory/MemoryGame').then((m) => m.MemoryGame), { loading: engineLoading }),
+}
+
+const GameSessionRuntime = dynamic(() => import('@/components/gameRoomV2/gameplay/GameSessionRuntime').then((m) => m.GameSessionRuntime), {
+  loading: engineLoading,
+})
+
 export function PlaySessionClient({ sessionId }: { sessionId: string }) {
   const router = useRouter()
   const [engineId, setEngineId] = useState<string | null>(null)
@@ -45,110 +73,12 @@ export function PlaySessionClient({ sessionId }: { sessionId: string }) {
 
   if (engineId === null) return <GameV2Loading label="Loading game..." />
 
-  if (engineId === 'tower-defense') {
-    return (
-      <TowerDefenseGame
-        sessionId={sessionId}
-        onExit={() => router.push('/gameroom-v2/library')}
-        onPlayAgain={() => router.push('/gameroom-v2/library')}
-      />
-    )
+  const goToLibrary = () => router.push('/gameroom-v2/library')
+  const Engine = ENGINE_COMPONENTS[engineId]
+
+  if (Engine) {
+    return <Engine sessionId={sessionId} onExit={goToLibrary} onPlayAgain={goToLibrary} />
   }
 
-  if (engineId === 'racing') {
-    return (
-      <RacingGame
-        sessionId={sessionId}
-        onExit={() => router.push('/gameroom-v2/library')}
-        onPlayAgain={() => router.push('/gameroom-v2/library')}
-      />
-    )
-  }
-
-  if (engineId === 'boss-battle') {
-    return (
-      <BossBattleGame
-        sessionId={sessionId}
-        onExit={() => router.push('/gameroom-v2/library')}
-        onPlayAgain={() => router.push('/gameroom-v2/library')}
-      />
-    )
-  }
-
-  if (engineId === 'treasure-quest') {
-    return (
-      <TreasureQuestGame
-        sessionId={sessionId}
-        onExit={() => router.push('/gameroom-v2/library')}
-        onPlayAgain={() => router.push('/gameroom-v2/library')}
-      />
-    )
-  }
-
-  if (engineId === 'word-ninja') {
-    return (
-      <WordNinjaGame
-        sessionId={sessionId}
-        onExit={() => router.push('/gameroom-v2/library')}
-        onPlayAgain={() => router.push('/gameroom-v2/library')}
-      />
-    )
-  }
-
-  if (engineId === 'space-mission') {
-    return (
-      <SpaceMissionGame
-        sessionId={sessionId}
-        onExit={() => router.push('/gameroom-v2/library')}
-        onPlayAgain={() => router.push('/gameroom-v2/library')}
-      />
-    )
-  }
-
-  if (engineId === 'kingdom-builder') {
-    return (
-      <KingdomBuilderGame
-        sessionId={sessionId}
-        onExit={() => router.push('/gameroom-v2/library')}
-        onPlayAgain={() => router.push('/gameroom-v2/library')}
-      />
-    )
-  }
-
-  if (engineId === 'mystery-mansion') {
-    return (
-      <MysteryMansionGame
-        sessionId={sessionId}
-        onExit={() => router.push('/gameroom-v2/library')}
-        onPlayAgain={() => router.push('/gameroom-v2/library')}
-      />
-    )
-  }
-
-  if (engineId === 'matching') {
-    return (
-      <MatchingGame
-        sessionId={sessionId}
-        onExit={() => router.push('/gameroom-v2/library')}
-        onPlayAgain={() => router.push('/gameroom-v2/library')}
-      />
-    )
-  }
-
-  if (engineId === 'memory') {
-    return (
-      <MemoryGame
-        sessionId={sessionId}
-        onExit={() => router.push('/gameroom-v2/library')}
-        onPlayAgain={() => router.push('/gameroom-v2/library')}
-      />
-    )
-  }
-
-  return (
-    <GameSessionRuntime
-      sessionId={sessionId}
-      onExit={() => router.push('/gameroom-v2/library')}
-    />
-  )
+  return <GameSessionRuntime sessionId={sessionId} onExit={goToLibrary} />
 }

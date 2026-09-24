@@ -75,14 +75,17 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain }: { sessionId: s
 
   // The round's own flight clock -- independent of the 2s session poll,
   // frozen while the session is paused or a submission is in flight.
+  // Keyed on a boolean, not the round object (which changes every tick,
+  // and depending on it recreated this interval every 100ms).
+  const flightRunning = !!round && !!difficulty && !submitting && sessionState?.status !== 'PAUSED' && !isRoundReadyToSubmit(round)
   useEffect(() => {
-    if (!round || !difficulty || submitting || sessionState?.status === 'PAUSED' || isRoundReadyToSubmit(round)) return
+    if (!flightRunning || !difficulty) return
     const settings = getWordNinjaDifficultySettings(difficulty)
     const interval = setInterval(() => {
       setRound((prev) => (prev ? tickRound(prev, SIM_INTERVAL_MS, settings) : prev))
     }, SIM_INTERVAL_MS)
     return () => clearInterval(interval)
-  }, [round, difficulty, submitting, sessionState?.status])
+  }, [flightRunning, difficulty])
 
   // Once every word in the round has been slashed into a lane, submit
   // the whole mapping as this question's answer through the SAME

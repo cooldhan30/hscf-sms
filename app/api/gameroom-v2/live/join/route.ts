@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { requireStudent } from '@/lib/require-student'
+import { requireGameV2Student } from '@/lib/gameRoomV2/requireStudentAccess'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requireString } from '@/lib/validation'
 import { normalizeJoinCode, deriveLiveNickname } from '@/lib/gameRoomV2/liveClassroom'
 import { canJoinByCode, requiresLateJoinBridge, isLiveSessionStale } from '@/lib/gameRoomV2/liveClassroom/lifecycle'
@@ -41,10 +42,20 @@ interface ResolvedLiveSession {
 // student_id) constraint on sms_gamev2_live_participants means a second
 // tab's /join just re-marks the same participant row connected, it
 // never creates a second identity in the roster.
+//
+// Since migration 083 this route is the ONLY way a participant row can
+// come into existence: students have SELECT-only RLS on
+// sms_gamev2_live_participants (previously FOR ALL, which let a student
+// insert themselves into any live session by id -- skipping both the
+// join code and the enrollment check -- or rewrite their own roster
+// nickname). The insert/update below go through the server-only admin
+// client, and only after the resolver RPC has confirmed the caller is
+// enrolled; the nickname is always server-derived.
 export async function POST(request: Request) {
-  const guard = await requireStudent()
+  const guard = await requireGameV2Student()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
   const { supabase, student, profile } = guard
+  const admin = createAdminClient()
 
   const body = await request.json().catch(() => null)
   if (!body) {
@@ -65,7 +76,7 @@ export async function POST(request: Request) {
     .maybeSingle()) as { data: ResolvedLiveSession | null; error: { message: string } | null }
 
   if (resolveError) {
-    return NextResponse.json({ error: resolveError.message }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid join code' }, { status: 404 })
   }
   // A code that matches nothing and a code that matches a session the
   // student isn't enrolled for return the SAME generic error -- never
@@ -97,7 +108,7 @@ export async function POST(request: Request) {
     .eq('student_id', student.id)
     .maybeSingle()
 
-  if (existingParticipant) {
+  const reconnect = async (participantId: string) => {
     // Reconnect: mark presence fresh again and return the same session.
     // If the live session is already ACTIVE/PAUSED and this
     // participant somehow never got bridged to their own
@@ -106,10 +117,11 @@ export async function POST(request: Request) {
     // them now via the same RPC a fresh late join uses below --
     // idempotent, so a normal reconnect that's already bridged is a
     // no-op read.
-    await supabase
+    await admin
       .from('sms_gamev2_live_participants')
       .update({ connected: true, last_seen_at: new Date().toISOString() })
-      .eq('id', existingParticipant.id)
+      .eq('id', participantId)
+      .eq('student_id', student.id)
     if (requiresLateJoinBridge(resolved.status)) {
       await supabase.rpc('sms_gamev2_join_active_live_session', {
         p_live_session_id: resolved.live_session_id,
@@ -119,18 +131,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ liveSessionId: resolved.live_session_id })
   }
 
+  if (existingParticipant) {
+    return reconnect(existingParticipant.id)
+  }
+
   const nickname = deriveLiveNickname(profile.first_name, profile.last_name)
 
-  const { error: insertError } = await supabase.from('sms_gamev2_live_participants').insert([
-    {
-      live_session_id: resolved.live_session_id,
-      student_id: student.id,
-      nickname,
-    },
-  ])
+  const { data: inserted, error: insertError } = await admin
+    .from('sms_gamev2_live_participants')
+    .insert([
+      {
+        live_session_id: resolved.live_session_id,
+        student_id: student.id,
+        nickname,
+      },
+    ])
+    .select('id')
+    .single()
 
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 400 })
+  if (insertError || !inserted) {
+    // Two tabs racing their first join: UNIQUE (live_session_id,
+    // student_id) lets exactly one insert win -- the loser is just a
+    // reconnect of the row the winner created.
+    if (insertError?.code === '23505') {
+      const { data: raced } = await supabase
+        .from('sms_gamev2_live_participants')
+        .select('id')
+        .eq('live_session_id', resolved.live_session_id)
+        .eq('student_id', student.id)
+        .maybeSingle()
+      if (raced) return reconnect(raced.id)
+    }
+    return NextResponse.json({ error: 'Failed to join live session' }, { status: 400 })
   }
 
   // LATE JOIN: the live session already started (or is paused) before

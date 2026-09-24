@@ -137,7 +137,9 @@ Existing scripts: `verify-gameroom-v2-{isolation,domain,gameplay,question-valida
 
 No dedicated verify script exists for:
 - [ ] Question Set **Builder** UI/validation flow specifically (partially covered indirectly by `verify-gameroom-v2-question-validation.ts`, but no script exercises `BuilderWizard.tsx`'s multi-step flow or `TamilTextInput`/`QuestionTypeEditor` behavior)
-- [ ] `app/api/gameroom-v2/question-sets/**` routes (list/get/duplicate/favorite/usage/assign) — no `verify-gameroom-v2-question-sets-api.ts`
+- [ ] `app/api/gameroom-v2/question-sets/**` routes (list/get/duplicate/favorite/usage/assign) — no `verify-gameroom-v2-question-sets-api.ts` (the security-relevant parts — authoring limits, media-URL rules, and the in-place edit plan — are now covered by `verify-gameroom-v2-security.ts`, Phase 14)
+- [x] Security / data-integrity regression guard — `scripts/verify-gameroom-v2-security.ts` (Phase 14)
+- [x] Performance regression guard — `scripts/verify-gameroom-v2-performance.ts` (Phase 15)
 - [ ] `app/api/gameroom-v2/analytics/teacher/route.ts` (teacher-facing analytics dashboard query) — `verify-gameroom-v2-learning-analytics.ts` covers the underlying `lib/gameRoomV2/analytics/*` functions but not this route's aggregation/response shape
 - [x] ~~Live Classroom's RPC-level authorization~~ — resolved differently than originally scoped: `scripts/verify-gameroom-v2-live-classroom.ts` cannot literally invoke the SECURITY DEFINER RPCs against a live Postgres instance (no local DB harness exists in this repo), so the ownership-check logic added in migration 080 is verified by direct code review instead (documented in the script's own header comment) and the script now covers the full pure-TS state machine those RPCs' calling routes rely on (61 assertions) — this is the practical ceiling for RPC-level testing without introducing new DB-integration-test infrastructure
 
@@ -148,8 +150,8 @@ No dedicated verify script exists for:
 ## Phase 6: Security/RLS hardening items found
 
 - [x] **P0 (see Phase 0) — resolved:** `sms_gamev2_start_live_session`/`pause`/`resume`/`end` now have internal ownership checks (migration 080)
-- [ ] `requireGameV2Session` (`lib/gameRoomV2/requireSession.ts`) wraps plain `requireStudent()` and does **not** re-check `sms_gamev2_testers` membership, unlike `requireGameV2Access`/`requireGameV2Teacher`. Routes using it directly or via `requireStudent()` alone — `app/api/gameroom-v2/sessions/start/route.ts`, `app/api/gameroom-v2/analytics/student-challenge/route.ts`, `app/api/gameroom-v2/progression/route.ts`, `app/api/gameroom-v2/live/join/route.ts` — are reachable by **any active student**, not just allowlisted testers, since the corresponding RLS policies (`gamev2_sessions: student manage own`, etc., migration 076) also don't check tester membership. This is a soft-launch gating gap: the UI pages enforce the allowlist, but the API layer doesn't independently.
-  - [ ] Either add a tester-allowlist check inside these 4 routes/guard, or explicitly document that gameplay API routes are intentionally open to all students once they have a valid session (only the UI entry point is gated) and confirm that's the intended security posture
+- [x] ~~`requireGameV2Session` wraps plain `requireStudent()` and does not re-check `sms_gamev2_testers` membership~~ — **fixed in Phase 14**: new `requireGameV2Student()` (`lib/gameRoomV2/requireStudentAccess.ts`) applies the same allowlist the pages do, and every student-facing V2 route/guard now uses it (`requireGameV2Session`, `requireLiveSessionParticipant`, `sessions/start`, `live/join`, `progression`, `analytics/student-challenge`). `verify-gameroom-v2-security.ts` fails if any V2 route imports plain `requireStudent` again.
+- [x] Decision recorded: gameplay API routes are **not** open to non-testers — the API enforces the allowlist independently of the UI.
 - [ ] `app/api/gameroom-v2/question-sets/route.ts` has no pagination (`select(...)` with no `.range()`/`.limit()` on the main question-sets query, only the secondary usage-history query is capped at 200) — low risk today, becomes a real cost/latency issue as the library grows
 
 **Acceptance criteria:** Each item has an explicit decision (fixed, or documented as accepted risk with reasoning) before any rollout authorization.
@@ -187,11 +189,11 @@ Spot-checked `components/gameRoomV2/racing/Track.tsx`, `components/gameRoomV2/to
 
 ## Phase 9: Performance fixes
 
-- [ ] `app/api/gameroom-v2/question-sets/route.ts` (lines 59-65): usage-count fetch issues one `supabase.rpc()` call per distinct question set id in parallel (`Promise.all(setIds.map(...))`) rather than a single batched/aggregated query — replace with one RPC call taking an array of ids, or a joined query
+- [x] ~~Usage-count fetch issues one `supabase.rpc()` per question set~~ — fixed in Phase 15: one batched RPC (migration 084) for both the list route and the Library page, with a per-set fallback until 084 is applied
 - [ ] Add pagination (`.range()`) to `app/api/gameroom-v2/question-sets/route.ts`'s main list query
-- [ ] Re-verify no N+1 patterns emerge in `app/api/gameroom-v2/analytics/teacher/route.ts` as real usage data grows (not flagged today, but is the route most likely to scale poorly)
+- [ ] Re-verify no N+1 patterns emerge in `app/api/gameroom-v2/analytics/teacher/route.ts` as real usage data grows (re-checked in Phase 15: still a constant 3 queries, but it loads every learning event for the set unbounded — see Phase 15's deferred list)
 
-No missing `useEffect` cleanup was found — all `setInterval` usages in `BossBattleGame.tsx`, `RacingGame.tsx`, `TowerDefenseGame.tsx`, `TreasureQuestGame.tsx`, `WordNinjaGame.tsx`, and `GameSessionRuntime.tsx` have matching `clearInterval` on unmount.
+~~No missing `useEffect` cleanup was found~~ — superseded by Phase 15: every interval did have a `clearInterval`, but four simulation/poll effects re-created their interval on every tick (and the live race poll became back-to-back requests), and hit-flash timeouts were never cleared on exit.
 
 **Acceptance criteria:** Question-sets list route issues a bounded, constant number of queries regardless of library size; pagination confirmed working with a library of 200+ sets.
 
@@ -203,7 +205,8 @@ This phase is **not** "add nav link" — it is about the feature being ready whe
 
 - [x] Phase 0 (P0 security) resolved and verified
 - [x] Phase 1 (registry reconciliation) resolved — no engine's declared compatibility overstates its real behavior
-- [ ] Phase 6 (RLS/gating hardening) items resolved or explicitly accepted
+- [ ] Phase 6 (RLS/gating hardening) items resolved or explicitly accepted — gating item resolved (Phase 14); pagination item still open
+- [ ] Phase 14 (security audit) — migration `083_gameroom_v2_security_hardening.sql` **applied to the database**, and a manual devtools abuse pass (see Phase 14's "Manual verification") run against a real tester student account
 - [ ] Phase 7 (mobile) and Phase 8 (accessibility) baseline items resolved for all ACTIVE engines
 - [ ] All `scripts/verify-gameroom-v2-*.ts` passing (currently: 22/22 passing)
 - [ ] `tsc --noEmit` and `npm run lint` clean (currently: both clean)
@@ -317,3 +320,114 @@ Dedicated audit performed 2026-09-24, covering keyboard navigation, focus states
 - [ ] Legacy GameRoom (`lib/gameRoom/**`, `app/student/game-room/**`, `app/teacher/game-room/**`) was explicitly NOT audited as part of this pass, per "production GameRoom remains untouched" -- a targeted grep for the same two bug CLASSES fixed here (`.charAt(0)` on names, raw `===` comparison on free-typed Tamil answers) found zero matches in legacy GameRoom's own code, but this was a narrow pattern check, not a full audit, and should not be read as a clean bill of health for legacy GameRoom's Tamil handling more broadly
 
 **Acceptance criteria met:** Every fix is scoped to `components/gameRoomV2/**`, `app/gameroom-v2/**`, or `lib/gameRoomV2/**`; no shared/global file was modified; every new automated test uses real, linguistically-representative Tamil content across all 8 requested categories; issues found outside GameRoom V2's boundary are documented above rather than fixed. No production navigation was added; legacy GameRoom was not touched.
+
+---
+
+## Phase 14: Security / data-integrity audit (2026-09-24)
+
+**Threat model.** A student with browser devtools. `lib/supabase/client.ts` (used for Live Classroom Realtime) puts a Supabase-accepted Clerk JWT in the browser next to the public anon key, so **anything the `authenticated` role can do through PostgREST/RPC, a student can do by hand** — the API routes are not a boundary. RLS policies and RPC bodies are.
+
+**Scope reviewed:** authentication/authorization guards, teacher vs. student permissions, question-set ownership, join codes, session access, score/answer submission, analytics/progression/achievement writes, Realtime subscriptions, every V2 RLS policy and SECURITY DEFINER function (migrations 073-082), every `app/api/gameroom-v2/**` route, input validation, rate abuse, duplicate submissions, client-controlled values, ID enumeration, stale sessions. Legacy GameRoom was not read or modified beyond shared infrastructure (`lib/supabase/*`, `lib/require-student.ts`, pre-V2 helper SQL functions).
+
+### Fixed — critical
+
+- [x] **Anyone could mint XP, coins and achievements for any student.** `sms_gamev2_apply_session_rewards` / `_apply_progression` / `_apply_daily_challenge_progress` are SECURITY DEFINER, take the student id and every amount/achievement id as parameters, had no caller check, and kept Postgres' default EXECUTE-to-PUBLIC grant (so even `anon` could call them). **Fix:** migration 083 revokes EXECUTE from PUBLIC/anon/authenticated and grants it to `service_role` only; `rewardService.ts` calls them through the server-only admin client.
+- [x] **Students could write their own score rows.** `student manage own` was `FOR ALL` on `sms_gamev2_sessions`, `_answers`, `_learning_events`, `_skill_practice`. A student could set `score`/`correct_count`/`xp_earned`/`status` directly (inflating `/complete` rewards, the host leaderboard and co-op boss HP, which sums `correct_count`), insert `is_correct = true` answers (spoofing live race position, which is replayed from answers), or poison teacher analytics. **Fix:** all four policies are now SELECT-only; every gameplay write goes through the admin client inside the route, scoped `.eq('id', …).eq('student_id', …)`, with values computed server-side.
+- [x] **Students could join any live session without a code or enrollment, and rename themselves on the class roster.** `sms_gamev2_live_participants: student manage own` was `FOR ALL`, and the join-code resolver returned `live_session_id` even to non-enrolled callers. **Fix:** participant policy SELECT-only (join/heartbeat/leave write via admin; nickname always server-derived); resolver returns nothing unless the caller is enrolled.
+- [x] **Students could read every answer key.** `gamev2_questions: tester read published set` exposed `payload.correctAnswer`/`acceptedAnswers`/`pairs`/`answerKey` to any tester via PostgREST, defeating `stripAnswerKey()`. **Fix:** policy dropped; the student gameplay routes (`sessions/start`, `state`, `answer`) read questions server-side after authorizing the session, and only the stripped payload is sent.
+
+### Fixed — high
+
+- [x] **Double-reward race on `/complete`.** The route read `rewards_finalized_at`, granted, then wrote it — two parallel calls could both grant. **Fix:** one atomic compare-and-set claim (`rewards_finalized_at IS NULL → now()`) before any grant; the loser returns the persisted result. Fails safe (under-reward, never double-reward) if a request dies mid-grant.
+- [x] **Join-code resolver trusted an arbitrary `p_student_id`** — any user could probe any student's class enrollment. **Fix:** caller must be `p_student_id`.
+- [x] **Live participants could self-pause/resume**, including resuming themselves while the host has the class paused. **Fix:** solo `/pause` and `/resume` refuse Live-Classroom-bridged sessions (`studentMayControlPause`). The HUD's pause button just no-ops for live participants (the hook ignores the 403 and re-polls).
+- [x] **Tester allowlist not enforced at the API layer** (Phase 6 item) — fixed via `requireGameV2Student()`.
+- [x] **Host could rewrite a live session row directly** (`FOR ALL`): flip status without creating participant sessions, splice foreign question ids into `question_order`, or move `class_id` to a class they don't teach. **Fix:** host policy is SELECT + INSERT only; INSERT requires `sms_teacher_owns_class(class_id)` and `status = 'LOBBY'`. `sms_gamev2_start_live_session` now rejects any question id outside the session's own set.
+- [x] **`REVOKE … FROM anon` in migrations 080-082 was a no-op** (anon inherits PUBLIC's default grant). Those RPCs were still safe (each checks `sms_current_user_id()`), but 083 now actually revokes from PUBLIC + anon and grants `authenticated`/`service_role` explicitly.
+
+### Fixed — data integrity / medium
+
+- [x] **Every Builder save wiped all student history for the set.** PATCH deleted and reinserted every question; `answers.question_id` is `ON DELETE CASCADE` (and learning events cascade from answers), so each save erased the set's answers and analytics and broke in-progress sessions. **Fix:** in-place update keyed by question id (`planQuestionReplacement`); only questions the teacher removed are deleted; ids from other sets are never trusted. `BuilderWizard.tsx` now sends each question's id.
+- [x] **Every Builder save unassigned the set from its class** (PATCH wrote `class_id = null` because the Builder never sends `classId`). **Fix:** `class_id` only changes when the request sends it; when sent, ownership is checked with `sms_teacher_owns_class` (POST too).
+- [x] **Unbounded input.** Submitted answers capped at 8 KB (UTF-8); question sets capped (200 questions, 16 KB per payload, prompt/explanation/title/tag limits, integer points 1-1000); media/image/audio URLs must be http(s) or root-relative.
+- [x] **Session-start spam** — no rate-limit infrastructure exists in this app, so `sessions/start` applies a DB-count cap (30 starts per student per 10 minutes → 429).
+- [x] **Races in state transitions** — `/answer` advances with a compare-and-set on `current_index` and no longer overwrites a concurrent host Pause back to ACTIVE; `/state` READY→ACTIVE, `/pause`, `/resume`, `/abandon` are all status-guarded compare-and-sets (`/abandon` can't flip a just-COMPLETED session).
+- [x] **Host leaderboard was empty for shared sets** (teacher RLS only covers sessions of sets they authored). `live/[id]/results` now reads exactly the roster's session ids server-side after the host check.
+- [x] **Teacher testers could see other teachers' PRIVATE sets** once published (set-level tester policy applied to every role). Narrowed to student testers.
+- [x] Host route's class check now uses the canonical `sms_teacher_owns_class` (co-teachers included), matching the new INSERT policy. Raw DB error messages are no longer echoed from the rewritten routes.
+
+### Reviewed — no change needed
+
+- [x] **Realtime:** `postgres_changes` on live sessions/participants is filtered by RLS; participants still have SELECT, so subscriptions keep working, and the client-supplied channel filter can't widen what RLS returns.
+- [x] **ID enumeration:** every id is a UUID; session/live-session guards scope lookups to the caller and return uniform 404/403s. Join codes are 8 chars from a 32-symbol alphabet (~40 bits), and a correct code is useless without enrollment.
+- [x] **Duplicate answers:** `UNIQUE(session_id, question_index)` plus the new compare-and-set. **Duplicate joins:** `UNIQUE(live_session_id, student_id)`; a racing second tab's insert conflict is handled as a reconnect.
+- [x] **Grading:** `gradeAnswer` rejects every wrong-typed shape (arrays for strings, `"true"` for `true`, partial maps, extra blanks, empty keys) — covered by the new test.
+
+### Accepted / not fixed (documented risk)
+
+- [ ] **Late answers still grade correct.** Answers after `question_time_limit_seconds` earn 0 speed bonus but keep base points and correctness. The server can't enforce a hard cutoff without breaking engines that deliberately have no per-question timer (Memory, Matching). Revisit if needed as a per-engine flag.
+- [ ] **Stale solo sessions never expire** — a student can resume an old ACTIVE session later (a Live Classroom session ended by the host is correctly ABANDONED). Low impact: rewards still come only from server-graded answers.
+- [ ] **Teacher-inflatable usage counts** — a teacher can insert their own DUPLICATE/ASSIGN usage rows directly, inflating the library "usage" stat. Teacher-only, cosmetic.
+- [ ] **Students may play any published set, not just their class's.** Set visibility for students is "published" + tester, not class-scoped. Deliberately unchanged (would change which sets students see); revisit before rollout.
+- [ ] **No general rate limiting** (no Redis/edge infrastructure). Polling endpoints are cheap reads; only session creation is capped.
+- [ ] **POST-then-PATCH in one Builder visit** — questions created by the first save have no id in local wizard state, so a second save in the same visit replaces them (they have no answers yet, so nothing is lost). Returning ids from POST would close this.
+
+### Tests
+
+New `scripts/verify-gameroom-v2-security.ts` — pure-logic tests (answer size cap incl. Tamil byte counting, adversarial grading shapes, authoring limits, media-URL rules, in-place edit planning, session-start cap, live pause rule) plus static regression guards that replay every GameRoom V2 migration's policies, grants and function definitions **in order** and assert the effective end state: no non-admin write policy on any server-owned table, no student read on questions, reward RPCs executable by `service_role` only, every other SECURITY DEFINER function checks its caller and denies `anon`, the join-code resolver and start RPC have their new checks. It also scans V2 source for writes to server-owned tables through a user-scoped client, reward RPC calls outside the admin path, admin-client imports outside server code, and routes bypassing the tester gate. There is no local Postgres harness, so the RLS itself is verified by this replay plus review, not by live queries.
+
+### Manual verification (needs a real database)
+
+1. Apply `supabase/migrations/083_gameroom_v2_security_hardening.sql`.
+2. As a tester **student**, in devtools with the Supabase client: `update sms_gamev2_sessions set score = 99999` → 0 rows; `insert into sms_gamev2_answers …` → RLS error; `rpc('sms_gamev2_apply_session_rewards', …)` → permission denied; `select payload from sms_gamev2_questions` → 0 rows; `insert into sms_gamev2_live_participants …` → RLS error.
+3. Play a full solo game and a Live Classroom game (join, host pause/resume/end, results): all must still work.
+4. Edit a played question set in the Builder and save: existing answers and analytics for unchanged questions must survive; the set's class assignment must be unchanged.
+
+**Acceptance criteria:** migration 083 applied; `verify-gameroom-v2-security.ts` and the full verify suite pass; the manual devtools checks above are all rejected while normal solo + Live Classroom play works end to end. No production navigation was added; legacy GameRoom was not touched.
+
+---
+
+## Phase 15: Performance audit (2026-09-24)
+
+**Method.** Source inspection of every V2 client component, hook, and API route (focus: Tower Defense, Racing, Boss Battle, Kingdom Builder, Live Classroom). Shell execution was blocked in the session that did this work, so **no build output or bundle sizes were measured** — the "before/after" figures below are counts derived from the code (requests, intervals, chunks), not profiler measurements. Run `npm run build` and compare the `/gameroom-v2/play/[sessionId]` and `/gameroom-v2/live/play/[id]` First Load JS against the previous commit to get real byte numbers.
+
+### Fixed
+
+| Area | Before | After |
+|---|---|---|
+| **Solo play page code loading** | `PlaySessionClient.tsx` statically imported all 10 engines + the quiz runtime: every student downloaded every engine to play one | Each engine is a `next/dynamic` chunk; only the engine being played is downloaded (1 of 11) |
+| **Live Classroom student page** | Racing, Boss Battle and the quiz runtime all loaded, even while waiting in the lobby | Nothing engine-specific loads in the lobby; only the session's engine loads at start |
+| **Host dashboard** | Race track + boss arena overviews (and through them both engines' barrels) always loaded | Only the hosted engine's overview loads; overviews import `Track`/`CoopArena` directly, not the engine barrel |
+| **Live Classroom Realtime refetch storm** | Every participant's 8s heartbeat is a Realtime UPDATE; every client refetched `/state` (students) or `/lobby` (host) on **every** event: ≈ N/8 refetches/s per client, ≈ N²/8 class-wide — **~110 req/s for a class of 30**, nearly all returning identical data, each re-rendering the mounted game | Refetches coalesced to ≤ 1/s per client (leading + trailing, so no change is ever missed); identical payloads skip `setState` (no re-render); a student already in gameplay unsubscribes from participant events entirely (only session status matters) → ~30 req/s class-wide in the lobby, ~0 from heartbeats during play. Simulated in the verify script: 225 heartbeat events → ≤ 65 refetches for one client over 60s |
+| **Live race polling** | `MultiplayerRacingGame`'s poll effect depended on `liveRace?.racers` (a new array every response), so each response re-ran the effect, which fired `poll()` immediately — **back-to-back requests** instead of every 1.5s, for every racer, each one an RPC + full answer replay server-side | Keyed on a `raceFinished` boolean: exactly one request per 1.5s per racer. Also fixed: an empty racer list no longer stops polling permanently (`[].every()` is `true`) |
+| **Simulation clocks** (Tower Defense, solo Racing, solo Boss Battle, Word Ninja) | Effect deps included the state object the 100ms tick replaces, so the interval was torn down and recreated **every tick** (10×/s) — effectively a `setTimeout` chain with drift from render time | Keyed on a `simRunning`/`flightRunning` boolean; one interval per running period. Same visuals and tick rate |
+| **Matching round countdown** | Interval recreated every second | Keyed on `countdownRunning` |
+| **Timers after exit** | Tower Defense impact bursts and Boss Battle hit flashes (solo + co-op) used bare `window.setTimeout`, firing into unmounted components after the student exited | New `useManagedTimeouts()` hook clears all outstanding timeouts on unmount |
+| **Host results polling** | Kept polling `/results` every 3s forever after the session ENDED | One final fetch on ENDED, then stops |
+| **Question-set usage counts** | Library page and `GET /question-sets` made one RPC per set (N+1) | One batched RPC (`sms_gamev2_question_set_usage_counts`, migration 084), with per-set fallback until 084 is applied |
+| **`/complete` critical path** | Reward service made 4 independent reads sequentially | Issued in parallel (`Promise.all`) — 3 fewer sequential round trips per game completion |
+
+### Reviewed — no change needed
+
+- [x] **Kingdom Builder** — no tick loop at all (answer-driven); its one timeout (building pop-in acknowledgement) is already cleared by its effect's cleanup. The scene is CSS/SVG/emoji, no image assets.
+- [x] **Canvas / `requestAnimationFrame`** — none anywhere in V2; all motion is framer-motion (already `useGameV2Motion` reduced-motion aware).
+- [x] **Assets** — the only binary assets are 3 small shared `.wav` files; all other sounds are Web Audio synthesis; `AudioContext` is lazy. No images shipped by any engine.
+- [x] **Large dependencies** — no V2 file imports recharts, jspdf, xlsx, tiptap, livekit, or date-fns. framer-motion is the only sizeable library and is needed by every engine's visuals (kept, per "don't degrade visuals").
+- [x] **Listeners / subscriptions** — every `addEventListener` (LivePlayClient `beforeunload`, `GameV2Modal` keydown) and every Realtime channel has matching cleanup; the shared session hook clears its poll and calls `stopAllSounds()` on unmount. Now enforced by the verify script across all V2 client files.
+- [x] **Question loading** — `/state` fetches only the current question (one row), stripped server-side; nothing preloads a whole set to the client.
+- [x] **Progression queries** — `GET /progression` already issues its 4 reads in parallel.
+- [x] **Leaderboard queries** — `live/[id]/results` is a constant 2 queries; race/boss-battle views are one RPC each.
+
+### Deferred (documented, not changed)
+
+- [ ] **Race replay cost** — `/race` replays every participant's full answer history on every poll (O(participants × answers)). Fine at class scale now that polling is actually 1.5s; a short server-side cache would help if classes get large.
+- [ ] **Teacher analytics** loads every learning event for a set unbounded and aggregates in JS. Constant query count, but row count grows with usage — move aggregation to SQL or paginate by date range before wide rollout.
+- [ ] **Question-sets list pagination** (Phase 9) — still open.
+- [ ] **Heartbeat write volume** — each heartbeat is still a DB write + Realtime broadcast; clients now ignore most of them, but the writes remain. Could move presence to Supabase Realtime Presence later.
+- [ ] Engines still run side effects (sounds, one-shot timers) inside `setState` updaters; harmless in production, but they double-fire under React StrictMode in development.
+
+### Tests
+
+New `scripts/verify-gameroom-v2-performance.ts`: the coalescer on a fake clock (leading call, burst absorption, trailing call, cancel-on-unmount, a 30-student heartbeat simulation), batched usage-count mapping, plus static guards that engines stay `next/dynamic`-loaded on the three live/play pages, the shared component barrel re-exports no engine, no simulation/poll effect is keyed on per-tick state, Live Classroom coalesces and narrows its subscription, and every interval/listener/channel in every V2 client file has matching cleanup.
+
+**Acceptance criteria:** `verify-gameroom-v2-performance.ts` and the full verify suite pass; `npm run build` succeeds and shows engine code split out of the play pages' First Load JS; migration 084 applied; a 2-device Live Classroom smoke test (lobby → start → pause/resume → end, Racing and Boss Battle) shows no visual change and a steady ~1.5s race/boss poll cadence in the network tab.

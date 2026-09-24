@@ -11,6 +11,8 @@ import {
   type GameRoomQuestionType,
 } from '@/lib/gameRoomV2/domain'
 import { isLearningDimension } from '@/lib/gameRoomV2/analytics'
+import { validateQuestionSetLimits } from '@/lib/gameRoomV2/security/limits'
+import { fetchQuestionSetUsageCounts } from '@/lib/gameRoomV2/questionSetUsage'
 
 // GET /api/gameroom-v2/question-sets -- lists question sets visible to
 // the caller: their own (any visibility, via RLS "gamev2_question_sets:
@@ -52,18 +54,14 @@ export async function GET() {
   const favoriteIds = new Set((favoriteRows ?? []).map((f) => f.question_set_id))
 
   // Real usage count per set (DUPLICATE+ASSIGN across every teacher,
-  // via the SECURITY DEFINER RPC so this never has to expose raw
-  // cross-teacher usage rows) -- fetched per distinct set id in
-  // parallel; "if available" per the spec means this is simply omitted
-  // client-side wherever it comes back 0, never fabricated.
-  const setIds = Array.from(new Set((questionSets ?? []).map((s) => s.id)))
-  const usageCounts = await Promise.all(
-    setIds.map(async (id) => {
-      const { data } = await supabase.rpc('sms_gamev2_question_set_usage_count', { p_question_set_id: id })
-      return [id, data ?? 0] as const
-    })
+  // via a SECURITY DEFINER RPC so this never has to expose raw
+  // cross-teacher usage rows) -- ONE batched call for every set (it used
+  // to be one RPC per set); "if available" per the spec means this is
+  // simply omitted client-side wherever it comes back 0, never fabricated.
+  const usageCountById = await fetchQuestionSetUsageCounts(
+    supabase,
+    (questionSets ?? []).map((s) => s.id)
   )
-  const usageCountById = new Map(usageCounts)
 
   return NextResponse.json({
     questionSets: (questionSets ?? []).map((s) => ({
@@ -96,7 +94,7 @@ interface IncomingQuestion {
 export async function POST(request: Request) {
   const guard = await requireGameV2Teacher()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-  const { supabase, profile } = guard
+  const { supabase, profile, isAdmin } = guard
 
   const body = await request.json().catch(() => null)
   if (!body) {
@@ -134,6 +132,23 @@ export async function POST(request: Request) {
   const classId = optionalString(body.classId)
 
   const rawQuestions: IncomingQuestion[] = Array.isArray(body.questions) ? body.questions : []
+
+  // Size/shape bounds first -- rejects an oversized or abusive payload
+  // before any per-question validation work runs on it.
+  const limitProblems = validateQuestionSetLimits({ title, description, tags, questions: rawQuestions })
+  if (limitProblems.length > 0) {
+    return NextResponse.json({ error: limitProblems.join('; ') }, { status: 400 })
+  }
+
+  // Same ownership rule the assign route already enforces -- a set can
+  // only be scoped to a class the author actually teaches.
+  if (classId && !isAdmin) {
+    const { data: owns } = await supabase.rpc('sms_teacher_owns_class', { p_class_id: classId })
+    if (!owns) {
+      return NextResponse.json({ error: 'Class not found or not assigned to you' }, { status: 403 })
+    }
+  }
+
   const questionsForValidation = rawQuestions.map((q) => ({
     questionType: (q.questionType ?? '') as GameRoomQuestionType,
     prompt: q.prompt ?? '',
@@ -205,7 +220,7 @@ export async function POST(request: Request) {
     payload: q.payload ?? {},
     explanation: optionalString(q.explanation ?? null),
     media_url: optionalString(q.mediaUrl ?? null),
-    points: typeof q.points === 'number' && q.points > 0 ? q.points : 100,
+    points: typeof q.points === 'number' && Number.isInteger(q.points) && q.points > 0 ? q.points : 100,
     dimension: isLearningDimension(q.dimension) ? q.dimension : null,
     concept_tags: Array.isArray(q.conceptTags) ? q.conceptTags.filter((t): t is string => typeof t === 'string' && t.trim().length > 0) : [],
   }))

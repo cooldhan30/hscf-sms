@@ -1,6 +1,7 @@
 import 'server-only'
-import { requireStudent } from '@/lib/require-student'
+import { requireGameV2Student } from '@/lib/gameRoomV2/requireStudentAccess'
 import type { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { GameSessionStatus } from './domain'
 
 export interface GameV2SessionRow {
@@ -37,20 +38,34 @@ export interface GameV2SessionRow {
 // wrap requireStudent(), then load/validate the session row -- but
 // reimplemented from scratch rather than imported, per V2's isolation
 // rule (see README.md): no V2 file imports from lib/gameRoom/*, even
-// for a pattern this close. RLS ("gamev2_sessions: student manage
-// own") is the real enforcement boundary; this guard just gives a
-// clean 404/403 instead of a raw RLS-empty-result.
+// for a pattern this close.
+//
+// READS vs WRITES (migration 083): students have SELECT-only RLS on
+// sms_gamev2_sessions/answers/learning_events, so the session lookup
+// below runs through the caller's own RLS-scoped `supabase` client --
+// that lookup IS the authorization ("this session belongs to me"). Every
+// WRITE a gameplay route makes goes through `admin` (service role,
+// server-only), and must always be scoped with
+// `.eq('id', session.id).eq('student_id', studentId)` -- the server
+// computes every written value; the browser can no longer write these
+// rows at all.
 export async function requireGameV2Session(
   sessionId: unknown
 ): Promise<
-  | { ok: true; supabase: ReturnType<typeof createClient>; studentId: string; session: GameV2SessionRow }
+  | {
+      ok: true
+      supabase: ReturnType<typeof createClient>
+      admin: ReturnType<typeof createAdminClient>
+      studentId: string
+      session: GameV2SessionRow
+    }
   | { ok: false; status: number; error: string }
 > {
   if (typeof sessionId !== 'string' || !sessionId) {
     return { ok: false, status: 400, error: 'sessionId is required' }
   }
 
-  const guard = await requireStudent()
+  const guard = await requireGameV2Student()
   if (!guard.ok) {
     return { ok: false, status: guard.status, error: guard.error }
   }
@@ -67,5 +82,15 @@ export async function requireGameV2Session(
     return { ok: false, status: 404, error: 'Game session not found' }
   }
 
-  return { ok: true, supabase, studentId: student.id, session: session as GameV2SessionRow }
+  return { ok: true, supabase, admin: createAdminClient(), studentId: student.id, session: session as GameV2SessionRow }
+}
+
+// True when this session is a Live Classroom participant's bridged
+// session (sms_gamev2_live_participants.session_id) rather than solo
+// play. RLS ("gamev2_live_participants: student read own") lets the
+// student's own client see only their own participant rows, which is
+// exactly the row this looks for.
+export async function isLiveBridgedSession(supabase: ReturnType<typeof createClient>, sessionId: string): Promise<boolean> {
+  const { data } = await supabase.from('sms_gamev2_live_participants').select('id').eq('session_id', sessionId).limit(1)
+  return (data ?? []).length > 0
 }

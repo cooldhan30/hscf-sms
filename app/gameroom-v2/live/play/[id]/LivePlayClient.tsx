@@ -1,17 +1,31 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { FiUsers } from 'react-icons/fi'
 import { GameV2Card, GameV2Loading, GameV2Error } from '@/components/gameRoomV2'
-import { GameSessionRuntime } from '@/components/gameRoomV2/gameplay'
-import { RacingGame } from '@/components/gameRoomV2/racing'
-import { BossBattleGame } from '@/components/gameRoomV2/bossBattle'
 import { useSupabaseBrowserClient } from '@/lib/supabase/client'
 import { subscribeToLiveSession } from '@/lib/gameRoomV2/liveClassroom/realtime'
 import { shouldRenderGameplay } from '@/lib/gameRoomV2/liveClassroom/lifecycle'
+import { createCoalescer } from '@/lib/gameRoomV2/gameplay/coalesce'
+
+// Engines are code-split: a student waiting in the lobby downloads none
+// of them, and a student in a Racing session never downloads Boss
+// Battle (or vice versa).
+const engineLoading = () => <GameV2Loading label="Loading game..." />
+const GameSessionRuntime = dynamic(() => import('@/components/gameRoomV2/gameplay/GameSessionRuntime').then((m) => m.GameSessionRuntime), {
+  loading: engineLoading,
+})
+const RacingGame = dynamic(() => import('@/components/gameRoomV2/racing/RacingGame').then((m) => m.RacingGame), { loading: engineLoading })
+const BossBattleGame = dynamic(() => import('@/components/gameRoomV2/bossBattle/BossBattleGame').then((m) => m.BossBattleGame), {
+  loading: engineLoading,
+})
 
 const HEARTBEAT_INTERVAL_MS = 8000
+// At most one /state refetch per window per client, however many
+// Realtime events arrive (see lib/gameRoomV2/gameplay/coalesce.ts).
+const REFRESH_COALESCE_MS = 1000
 
 interface RosterEntry {
   nickname: string
@@ -58,6 +72,7 @@ export function LivePlayClient({ liveSessionId }: { liveSessionId: string }) {
   const [error, setError] = useState<string | null>(null)
   const supabase = useSupabaseBrowserClient()
   const leftRef = useRef(false)
+  const lastPayloadRef = useRef<string | null>(null)
 
   const refresh = useCallback(async () => {
     const res = await fetch(`/api/gameroom-v2/live/${liveSessionId}/state`)
@@ -67,16 +82,30 @@ export function LivePlayClient({ liveSessionId }: { liveSessionId: string }) {
       return
     }
     setError(null)
+    // Most refetches return an identical payload (a heartbeat changed
+    // last_seen_at, not anything shown). Skipping the setState avoids
+    // re-rendering the whole mounted game tree for nothing.
+    const serialized = JSON.stringify(data)
+    if (serialized === lastPayloadRef.current) return
+    lastPayloadRef.current = serialized
     setState(data)
   }, [liveSessionId])
 
+  const coalescedRefresh = useMemo(() => createCoalescer(() => void refresh(), REFRESH_COALESCE_MS), [refresh])
+  useEffect(() => () => coalescedRefresh.cancel(), [coalescedRefresh])
+
+  // Once gameplay is on screen the roster isn't shown, so only the
+  // session row (PAUSED/ENDED) still matters -- stop receiving every
+  // classmate's heartbeat.
+  const inGameplay = state ? shouldRenderGameplay(state.status, state.sessionId !== null) && Boolean(state.sessionId) : false
+
   useEffect(() => {
     refresh()
-    const channel = subscribeToLiveSession(supabase, liveSessionId, refresh)
+    const channel = subscribeToLiveSession(supabase, liveSessionId, coalescedRefresh.call, { includeParticipants: !inGameplay })
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [supabase, liveSessionId, refresh])
+  }, [supabase, liveSessionId, refresh, coalescedRefresh, inGameplay])
 
   useEffect(() => {
     const interval = setInterval(() => {

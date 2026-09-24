@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import Link from 'next/link'
 import { FiLock, FiPlus } from 'react-icons/fi'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
+import { fetchQuestionSetUsageCounts } from '@/lib/gameRoomV2/questionSetUsage'
 import { GameV2Button, GameV2Error } from '@/components/gameRoomV2'
 import { LibraryClient } from './LibraryClient'
 import type { LibrarySet } from './LibrarySetCard'
@@ -67,13 +68,11 @@ export default async function QuestionSetLibraryPage() {
 
     const favoriteIds = new Set((favoriteRows ?? []).map((f) => f.question_set_id))
 
-    const usageCounts = await Promise.all(
-      (questionSets ?? []).map(async (s) => {
-        const { data } = await supabase.rpc('sms_gamev2_question_set_usage_count', { p_question_set_id: s.id })
-        return [s.id, data ?? 0] as const
-      })
+    // One batched round trip, not one RPC per set (see questionSetUsage.ts).
+    const usageCountById = await fetchQuestionSetUsageCounts(
+      supabase,
+      (questionSets ?? []).map((s) => s.id)
     )
-    const usageCountById = new Map(usageCounts)
 
     enrichedSets = (questionSets ?? []).map((s) => ({
       ...s,

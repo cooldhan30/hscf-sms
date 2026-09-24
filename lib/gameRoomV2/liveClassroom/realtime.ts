@@ -16,23 +16,32 @@ import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
 // presence) for one live session -- used by both the teacher's host
 // dashboard and a student's own lobby/waiting-room view, since both
 // need the identical two signals (who's here, has it started).
+//
+// `includeParticipants: false` subscribes to the session row only. A
+// student who is already mid-game never shows the roster, and every
+// participant's heartbeat is an UPDATE on the participants table -- so
+// staying subscribed to it during gameplay just delivers a steady stream
+// of events nobody renders (see lib/gameRoomV2/gameplay/coalesce.ts).
+// Callers should also coalesce `onChange`, since bursts are normal.
 export function subscribeToLiveSession(
   supabase: SupabaseClient,
   liveSessionId: string,
-  onChange: () => void
+  onChange: () => void,
+  { includeParticipants = true }: { includeParticipants?: boolean } = {}
 ): RealtimeChannel {
-  const channel = supabase
-    .channel(`gamev2-live-session:${liveSessionId}`)
-    .on(
+  let channel = supabase.channel(`gamev2-live-session:${liveSessionId}:${includeParticipants ? 'all' : 'session'}`)
+  if (includeParticipants) {
+    channel = channel.on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'sms_gamev2_live_participants', filter: `live_session_id=eq.${liveSessionId}` },
       () => onChange()
     )
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'sms_gamev2_live_sessions', filter: `id=eq.${liveSessionId}` },
-      () => onChange()
-    )
+  }
+  channel = channel.on(
+    'postgres_changes',
+    { event: 'UPDATE', schema: 'public', table: 'sms_gamev2_live_sessions', filter: `id=eq.${liveSessionId}` },
+    () => onChange()
+  )
 
   supabase.realtime.setAuth().then(() => {
     channel.subscribe((status, err) => {

@@ -55,12 +55,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `${engine.name} does not support Live Classroom yet` }, { status: 409 })
   }
 
-  // A teacher can only host for a class they actually teach -- checked
-  // directly (not relying solely on RLS) so a clear 403 comes back
-  // instead of a generic insert failure.
+  // A teacher can only host for a class they actually teach. Uses the
+  // canonical sms_teacher_owns_class() (sms_class_teachers, so
+  // co-teachers count) -- the SAME check migration 083's INSERT policy
+  // enforces at the database layer; this route-level copy just turns a
+  // violation into a clear 403 instead of a generic insert failure.
   if (!isAdmin) {
-    const { data: ownedClass } = await supabase.from('sms_classes').select('id').eq('id', classId).eq('teacher_id', teacher!.id).maybeSingle()
-    if (!ownedClass) {
+    const { data: owns } = await supabase.rpc('sms_teacher_owns_class', { p_class_id: classId })
+    if (!owns) {
       return NextResponse.json({ error: 'You do not teach this class' }, { status: 403 })
     }
   }
@@ -154,7 +156,7 @@ export async function POST(request: Request) {
     .single()
 
   if (error || !liveSession) {
-    return NextResponse.json({ error: error?.message || 'Failed to host live session' }, { status: 400 })
+    return NextResponse.json({ error: 'Failed to host live session' }, { status: 400 })
   }
 
   return NextResponse.json({ liveSessionId: liveSession.id, joinCode: liveSession.join_code }, { status: 201 })

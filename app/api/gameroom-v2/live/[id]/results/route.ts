@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireLiveSessionHost } from '@/lib/gameRoomV2/liveClassroom/requireLiveSession'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // GET /api/gameroom-v2/live/[id]/results -- "Results" per the
 // requirements list: the host's class-wide results view, built entirely
@@ -9,6 +10,13 @@ import { requireLiveSessionHost } from '@/lib/gameRoomV2/liveClassroom/requireLi
 // ACTIVE (a live-updating leaderboard) or ENDED (the final results
 // screen); this route doesn't care which, it just reports whatever
 // each participant's session currently shows.
+//
+// The participant roster is read through the host's own RLS client
+// (that read is the authorization). The session rows are then read
+// server-side, scoped to exactly the session ids that roster links to:
+// the teacher's own RLS only covers sessions of sets THEY authored, so
+// a host running a colleague's SCHOOL-shared set previously got an
+// all-zero leaderboard. Only these ids are ever read.
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   const guard = await requireLiveSessionHost(params.id)
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
@@ -23,10 +31,11 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
   const { data: sessions } =
     sessionIds.length > 0
-      ? await supabase
+      ? await createAdminClient()
           .from('sms_gamev2_sessions')
           .select('id, status, score, correct_count, answered_count, best_streak')
           .in('id', sessionIds)
+          .eq('question_set_id', liveSession.question_set_id)
       : { data: [] }
 
   const sessionById = new Map((sessions ?? []).map((s) => [s.id, s]))

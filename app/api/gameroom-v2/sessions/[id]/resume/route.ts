@@ -1,18 +1,27 @@
 import { NextResponse } from 'next/server'
-import { requireGameV2Session } from '@/lib/gameRoomV2/requireSession'
+import { requireGameV2Session, isLiveBridgedSession } from '@/lib/gameRoomV2/requireSession'
+import { studentMayControlPause } from '@/lib/gameRoomV2/security/limits'
 
 // POST /api/gameroom-v2/sessions/[id]/resume -- PAUSED -> ACTIVE. Shifts
 // current_question_started_at forward by exactly how long the pause
 // lasted, so the remaining time on the current question is unchanged by
 // the pause -- a student who pauses with 12s left on the clock still
 // has 12s left after resuming, no matter how long the pause itself was.
+//
+// Solo sessions only: without this check a Live Classroom participant
+// could resume THEMSELVES while the host has the whole class paused and
+// keep answering while everyone else is frozen.
 export async function POST(_request: Request, { params }: { params: { id: string } }) {
   const guard = await requireGameV2Session(params.id)
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-  const { supabase, session } = guard
+  const { supabase, admin, studentId, session } = guard
 
   if (session.status !== 'PAUSED') {
     return NextResponse.json({ error: `Cannot resume -- game is "${session.status}"` }, { status: 409 })
+  }
+
+  if (!studentMayControlPause(await isLiveBridgedSession(supabase, session.id))) {
+    return NextResponse.json({ error: 'Your teacher controls pausing in a Live Classroom game' }, { status: 403 })
   }
 
   const pausedForSeconds = session.paused_at ? Math.round((Date.now() - new Date(session.paused_at).getTime()) / 1000) : 0
@@ -21,7 +30,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
     ? new Date(new Date(session.current_question_started_at).getTime() + pausedForSeconds * 1000).toISOString()
     : new Date().toISOString()
 
-  const { data: updated, error } = await supabase
+  const { data: updated } = await admin
     .from('sms_gamev2_sessions')
     .update({
       status: 'ACTIVE',
@@ -30,11 +39,13 @@ export async function POST(_request: Request, { params }: { params: { id: string
       pause_duration_seconds: session.pause_duration_seconds + pausedForSeconds,
     })
     .eq('id', session.id)
+    .eq('student_id', studentId)
+    .eq('status', 'PAUSED')
     .select()
-    .single()
+    .maybeSingle()
 
-  if (error || !updated) {
-    return NextResponse.json({ error: error?.message || 'Failed to resume' }, { status: 400 })
+  if (!updated) {
+    return NextResponse.json({ error: 'Failed to resume -- refresh your game state' }, { status: 409 })
   }
 
   return NextResponse.json({ status: updated.status })

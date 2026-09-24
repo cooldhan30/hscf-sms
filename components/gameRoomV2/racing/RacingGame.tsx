@@ -97,9 +97,12 @@ function SoloRacingGame({ sessionId, onExit, onPlayAgain }: { sessionId: string;
   // shown or the session is paused, and kept running after the
   // session's questions are exhausted so a shorter Question Set than
   // the race length doesn't strand an unfinished race (same reasoning
-  // as Tower Defense's simulation clock).
+  // as Tower Defense's simulation clock). Keyed on a boolean rather than
+  // the race object, which changes every tick -- see TowerDefenseGame's
+  // simulation clock for why.
+  const simRunning = !!race && !!difficulty && !showQuestion && sessionState?.status !== 'PAUSED' && !race.raceOver
   useEffect(() => {
-    if (!race || !difficulty || showQuestion || sessionState?.status === 'PAUSED' || race.raceOver) return
+    if (!simRunning || !difficulty) return
 
     const settings = getRacingDifficultySettings(difficulty)
     const interval = setInterval(() => {
@@ -107,7 +110,7 @@ function SoloRacingGame({ sessionId, onExit, onPlayAgain }: { sessionId: string;
     }, SIM_INTERVAL_MS)
 
     return () => clearInterval(interval)
-  }, [race, difficulty, showQuestion, sessionState?.status])
+  }, [simRunning, difficulty])
 
   useEffect(() => {
     if (race?.raceOver && !raceFinishSoundPlayed.current) {
@@ -267,9 +270,16 @@ function MultiplayerRacingGame({
   // thinking" rule solo racing already has -- the server's own replay
   // naturally reflects this too, since no NEW answer lands mid-question)
   // and stops once the race is over.
+  //
+  // Depends on the `raceFinished` BOOLEAN, never on liveRace itself:
+  // every response is a new racers array, so depending on it re-ran this
+  // effect after every poll -- which fired poll() again immediately,
+  // turning the intended 1.5s cadence into back-to-back requests for
+  // every student in the class.
+  const raceFinished = !!liveRace && liveRace.racers.length > 0 && liveRace.racers.every((r) => r.finished)
   useEffect(() => {
     if (!themeId || sessionState?.status === 'PAUSED') return
-    if (liveRace?.racers.every((r) => r.finished)) return
+    if (raceFinished) return
 
     let cancelled = false
     async function poll() {
@@ -283,7 +293,7 @@ function MultiplayerRacingGame({
       cancelled = true
       clearInterval(interval)
     }
-  }, [themeId, liveSessionId, sessionState?.status, liveRace?.racers])
+  }, [themeId, liveSessionId, sessionState?.status, raceFinished])
 
   useEffect(() => {
     const allFinished = liveRace && liveRace.racers.length > 0 && liveRace.racers.every((r) => r.finished)

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { GameV2Card } from '@/components/gameRoomV2'
-import { Track } from '@/components/gameRoomV2/racing'
+import { Track } from '@/components/gameRoomV2/racing/Track'
 import { RACE_THEMES, liveRacersToRaceState, type LiveRaceResponse } from '@/lib/gameRoomV2/racing'
 
 const POLL_INTERVAL_MS = 1500

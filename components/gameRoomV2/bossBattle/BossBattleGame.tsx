@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { GameV2Card, GameV2Button, GameV2Loading, GameV2Error } from '@/components/gameRoomV2'
 import { QuestionOverlay, type QuestionOverlayQuestion, GameResultsScreen, useSoundPreference, playSound, useGameSessionState } from '@/components/gameRoomV2/gameplay'
+import { useManagedTimeouts } from '@/components/gameRoomV2/gameplay/useManagedTimeouts'
 import { BossSetupPicker } from './BossSetupPicker'
 import { BossArena } from './BossArena'
 import { CoopArena } from './CoopArena'
@@ -108,6 +109,7 @@ function SoloBossBattleGame({ sessionId, onExit, onPlayAgain }: { sessionId: str
   const [showVictorySequence, setShowVictorySequence] = useState(false)
   const defeatSoundPlayed = useRef(false)
   const { soundEnabled } = useSoundPreference()
+  const scheduleTimeout = useManagedTimeouts()
   const { state: sessionState, error, result, poll, togglePause, exit } = useGameSessionState<StatePayload>({
     sessionId,
     enabled: !!difficulty,
@@ -118,9 +120,12 @@ function SoloBossBattleGame({ sessionId, onExit, onPlayAgain }: { sessionId: str
   // interval, entirely independent of the 2s session poll. Frozen while
   // a question is shown or the session is paused, and kept running once
   // the session's questions are exhausted so a shorter Question Set
-  // than the fight needs doesn't strand an unfinished battle.
+  // than the fight needs doesn't strand an unfinished battle. Keyed on a
+  // boolean rather than the battle object, which changes every tick
+  // (see TowerDefenseGame's simulation clock).
+  const simRunning = !!battle && !!difficulty && !showQuestion && sessionState?.status !== 'PAUSED' && !battle.battleOver
   useEffect(() => {
-    if (!battle || !difficulty || showQuestion || sessionState?.status === 'PAUSED' || battle.battleOver) return
+    if (!simRunning || !difficulty) return
 
     const settings = getBossBattleDifficultySettings(difficulty)
     const interval = setInterval(() => {
@@ -131,14 +136,14 @@ function SoloBossBattleGame({ sessionId, onExit, onPlayAgain }: { sessionId: str
         if (next.attackers[0].health < before) {
           setLastHitPlayer(true)
           playSound('incorrect', soundEnabled)
-          window.setTimeout(() => setLastHitPlayer(false), 350)
+          scheduleTimeout(() => setLastHitPlayer(false), 350)
         }
         return next
       })
     }, SIM_INTERVAL_MS)
 
     return () => clearInterval(interval)
-  }, [battle, difficulty, showQuestion, sessionState?.status, soundEnabled])
+  }, [simRunning, difficulty, soundEnabled, scheduleTimeout])
 
   useEffect(() => {
     if (battle?.victory && !showVictorySequence) {
@@ -181,11 +186,11 @@ function SoloBossBattleGame({ sessionId, onExit, onPlayAgain }: { sessionId: str
       const settings = getBossBattleDifficultySettings(difficulty)
       if (res.correct) {
         setLastHitBoss(true)
-        window.setTimeout(() => setLastHitBoss(false), 350)
+        scheduleTimeout(() => setLastHitBoss(false), 350)
         return applyCorrectAnswerDamage(prev, PLAYER_ATTACKER_ID, settings)
       }
       setLastHitPlayer(true)
-      window.setTimeout(() => setLastHitPlayer(false), 350)
+      scheduleTimeout(() => setLastHitPlayer(false), 350)
       return applyWrongAnswerConsequence(prev, PLAYER_ATTACKER_ID, settings)
     })
     poll()
@@ -197,7 +202,7 @@ function SoloBossBattleGame({ sessionId, onExit, onPlayAgain }: { sessionId: str
       const next = activateAbility(prev, PLAYER_ATTACKER_ID, abilityId)
       if (next.bossHealth < prev.bossHealth) {
         setLastHitBoss(true)
-        window.setTimeout(() => setLastHitBoss(false), 350)
+        scheduleTimeout(() => setLastHitBoss(false), 350)
       }
       return next
     })
@@ -339,6 +344,7 @@ function CoopBossBattleGame({
   // dependency.
   const soundEnabledRef = useRef(soundEnabled)
   soundEnabledRef.current = soundEnabled
+  const scheduleTimeout = useManagedTimeouts()
   const { state: sessionState, error, result, poll, togglePause, exit } = useGameSessionState<StatePayload>({
     sessionId,
     enabled: ready,
@@ -377,7 +383,7 @@ function CoopBossBattleGame({
           }
           if (data.bossHealth < (prev?.bossHealth ?? Infinity)) {
             setLastHitBoss(true)
-            window.setTimeout(() => setLastHitBoss(false), 350)
+            scheduleTimeout(() => setLastHitBoss(false), 350)
           }
           return data
         })
@@ -389,7 +395,7 @@ function CoopBossBattleGame({
       cancelled = true
       clearInterval(interval)
     }
-  }, [ready, liveSessionId, sessionState?.status])
+  }, [ready, liveSessionId, sessionState?.status, scheduleTimeout])
 
   useEffect(() => {
     if (liveBattle?.victory && !victorySoundPlayed.current) {

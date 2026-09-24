@@ -287,6 +287,16 @@ const EXPECTED_V2_FILES = [
   'app/gameroom-v2/live/play/[id]/page.tsx',
   'app/gameroom-v2/live/play/[id]/LivePlayClient.tsx',
   'scripts/verify-gameroom-v2-live-classroom.ts',
+  'supabase/migrations/083_gameroom_v2_security_hardening.sql',
+  'lib/gameRoomV2/security/limits.ts',
+  'lib/gameRoomV2/requireStudentAccess.ts',
+  'scripts/verify-gameroom-v2-security.ts',
+  'supabase/migrations/084_gameroom_v2_usage_counts_batch.sql',
+  'lib/gameRoomV2/gameplay/coalesce.ts',
+  'lib/gameRoomV2/questionSetUsage.ts',
+  'lib/gameRoomV2/questionSetUsageRows.ts',
+  'components/gameRoomV2/gameplay/useManagedTimeouts.ts',
+  'scripts/verify-gameroom-v2-performance.ts',
 ]
 for (const file of EXPECTED_V2_FILES) {
   const full = join(ROOT, file)

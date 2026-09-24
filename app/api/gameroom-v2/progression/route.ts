@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireStudent } from '@/lib/require-student'
+import { requireGameV2Student } from '@/lib/gameRoomV2/requireStudentAccess'
 import { levelForXp } from '@/lib/gameRoomV2/progression/levels'
 import { ACHIEVEMENTS, getAchievement } from '@/lib/gameRoomV2/progression/achievements'
 import { dailyChallengeForDate } from '@/lib/gameRoomV2/progression/dailyChallenge'
@@ -15,7 +15,7 @@ import { getGameEngineV2 } from '@/lib/gameRoomV2/registry'
 // lib/gameRoomV2/rewards/rewardService.ts, never by this route or any
 // client-side code.
 export async function GET() {
-  const guard = await requireStudent()
+  const guard = await requireGameV2Student()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
   const { supabase, student } = guard
 

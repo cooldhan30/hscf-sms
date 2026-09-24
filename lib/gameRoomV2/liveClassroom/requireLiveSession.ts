@@ -1,8 +1,9 @@
 import 'server-only'
 import { auth } from '@clerk/nextjs/server'
-import { requireStudent } from '@/lib/require-student'
+import { requireGameV2Student } from '@/lib/gameRoomV2/requireStudentAccess'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export interface LiveSessionRow {
   id: string
@@ -28,9 +29,11 @@ export interface LiveSessionRow {
 // Every HOST route (start/pause/resume/end, the teacher's own lobby
 // view) authenticates through this -- mirrors requireGameV2Session's
 // "wrap the role guard, then load/validate the row, scoped to the
-// caller" shape. RLS ("gamev2_live_sessions: host teacher manage own")
-// is the real enforcement boundary; this guard just gives a clean
-// 404 instead of a raw RLS-empty-result.
+// caller" shape. RLS ("gamev2_live_sessions: host teacher read own")
+// is the real enforcement boundary for the lookup; this guard just
+// gives a clean 404 instead of a raw RLS-empty-result. Since migration
+// 083 the host can no longer UPDATE the row directly -- every lifecycle
+// change goes through the ownership-checked SECURITY DEFINER RPCs.
 export async function requireLiveSessionHost(
   liveSessionId: unknown
 ): Promise<
@@ -64,14 +67,18 @@ export async function requireLiveSessionHost(
 // view) authenticates through this -- requires the caller to already
 // HAVE a sms_gamev2_live_participants row for this live session (i.e.
 // they've already joined via /join, which is the only route that
-// creates that row). RLS ("gamev2_live_participants: student manage
-// own") scopes the participant lookup to the caller's own row.
+// creates that row). RLS ("gamev2_live_participants: student read
+// own") scopes the participant lookup to the caller's own row. Students
+// can no longer write participant rows at all (migration 083) -- the
+// heartbeat/leave routes write through `admin`, always scoped to the
+// participant id this guard resolved for the caller.
 export async function requireLiveSessionParticipant(
   liveSessionId: unknown
 ): Promise<
   | {
       ok: true
       supabase: ReturnType<typeof createClient>
+      admin: ReturnType<typeof createAdminClient>
       studentId: string
       liveSession: LiveSessionRow
       participant: { id: string; connected: boolean; last_seen_at: string; session_id: string | null }
@@ -82,13 +89,13 @@ export async function requireLiveSessionParticipant(
     return { ok: false, status: 400, error: 'liveSessionId is required' }
   }
 
-  const guard = await requireStudent()
+  const guard = await requireGameV2Student()
   if (!guard.ok) {
     return { ok: false, status: guard.status, error: guard.error }
   }
   const { supabase, student } = guard
 
-  const { data: liveSession } = await supabase.from('sms_gamev2_live_sessions').select('*').eq('id', liveSessionId).single()
+  const { data: liveSession } = await supabase.from('sms_gamev2_live_sessions').select('*').eq('id', liveSessionId).maybeSingle()
   if (!liveSession) {
     return { ok: false, status: 404, error: 'Live session not found' }
   }
@@ -104,7 +111,7 @@ export async function requireLiveSessionParticipant(
     return { ok: false, status: 403, error: 'You have not joined this live session' }
   }
 
-  return { ok: true, supabase, studentId: student.id, liveSession: liveSession as LiveSessionRow, participant }
+  return { ok: true, supabase, admin: createAdminClient(), studentId: student.id, liveSession: liveSession as LiveSessionRow, participant }
 }
 
 // A route BOTH the host teacher AND every joined participant read
