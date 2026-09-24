@@ -45,7 +45,7 @@ export function CoopArena({
   return (
     <div className="w-full rounded-3xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 bg-white dark:bg-gamev2ink-900 p-4 sm:p-6 space-y-5">
       {/* Boss -- identical visual language to solo BossArena.tsx */}
-      <div>
+      <div role="group" aria-label={`${battle.boss.name} health: ${Math.max(0, battle.bossHealth)} of ${battle.bossMaxHealth}, phase ${battle.boss.phases[battle.bossPhaseIndex]?.name ?? ''}`}>
         <div className="flex items-center justify-between mb-1">
           <span className="font-extrabold text-sm text-gamev2ink-900 dark:text-white">{battle.boss.name}</span>
           <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gamev2coral-100 dark:bg-gamev2coral-500/20 text-gamev2coral-700 dark:text-gamev2coral-300">
@@ -84,7 +84,7 @@ export function CoopArena({
       {/* Class progress -- the "class progress" / "team progress"
           requirement, framed as the whole class's shared achievement,
           never any one student's. */}
-      <div>
+      <div role="group" aria-label={`Class progress: ${Math.round((battle.totalDamageDealt / battle.bossMaxHealth) * 100)} percent`}>
         <div className="flex items-center justify-between mb-1">
           <span className="font-extrabold text-sm text-gamev2ink-900 dark:text-white">Class Progress</span>
           <span className="text-xs font-bold text-gamev2spark-600 dark:text-gamev2spark-400 tabular-nums">

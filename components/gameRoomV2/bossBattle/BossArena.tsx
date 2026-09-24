@@ -29,7 +29,7 @@ export function BossArena({
   return (
     <div className="w-full rounded-3xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 bg-white dark:bg-gamev2ink-900 p-4 sm:p-6 space-y-5">
       {/* Boss */}
-      <div>
+      <div role="group" aria-label={`${state.boss.name} health: ${Math.max(0, state.bossHealth)} of ${state.bossMaxHealth}, phase ${state.boss.phases[state.bossPhaseIndex].name}`}>
         <div className="flex items-center justify-between mb-1">
           <span className="font-extrabold text-sm text-gamev2ink-900 dark:text-white">{state.boss.name}</span>
           <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gamev2coral-100 dark:bg-gamev2coral-500/20 text-gamev2coral-700 dark:text-gamev2coral-300">
@@ -70,7 +70,7 @@ export function BossArena({
       </div>
 
       {/* Player */}
-      <div>
+      <div role="group" aria-label={`${player.label} health: ${Math.max(0, player.health)} of ${player.maxHealth}`}>
         <div className="flex items-center justify-between mb-1">
           <span className="font-extrabold text-sm text-gamev2ink-900 dark:text-white">{player.label}</span>
           {player.shieldCharges > 0 && (

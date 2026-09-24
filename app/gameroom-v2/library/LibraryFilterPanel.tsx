@@ -73,11 +73,12 @@ export function LibraryFilterPanel({
   return (
     <div className="flex flex-wrap gap-2">
       <div className="relative flex-1 min-w-[200px]">
-        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gamev2ink-400 w-4 h-4" />
+        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gamev2ink-400 w-4 h-4" aria-hidden />
         <input
           value={value.search}
           onChange={(e) => set('search', e.target.value)}
           placeholder="Search by title, topic, or tags..."
+          aria-label="Search question sets by title, topic, or tags"
           className="w-full pl-9 pr-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm font-tamil"
         />
       </div>

@@ -41,7 +41,9 @@ export function CompatibilityResults({ questionTypes }: { questionTypes: GameRoo
           >
             <span
               className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5 ${
-                compatible ? 'bg-gamev2mint-500 text-white' : 'bg-gamev2ink-200 dark:bg-gamev2ink-700 text-gamev2ink-500 dark:text-gamev2ink-400'
+                // gamev2ink-950, not white -- white-on-mint-500 fails
+                // even the 3:1 WCAG minimum for a meaningful UI icon.
+                compatible ? 'bg-gamev2mint-500 text-gamev2ink-950' : 'bg-gamev2ink-200 dark:bg-gamev2ink-700 text-gamev2ink-500 dark:text-gamev2ink-400'
               }`}
             >
               {compatible ? <FiCheck className="w-3.5 h-3.5" /> : <FiX className="w-3.5 h-3.5" />}

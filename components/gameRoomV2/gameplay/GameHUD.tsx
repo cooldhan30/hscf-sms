@@ -78,7 +78,11 @@ export function GameHUD({
           type="button"
           onClick={handleExit}
           aria-label="Exit game"
-          className="p-2 rounded-xl text-gamev2ink-400 hover:text-gamev2coral-500 hover:bg-gamev2coral-50 dark:hover:bg-gamev2coral-500/10 transition-colors"
+          // min-w/h-11 (44px) -- the padding alone (p-2 + a 20px icon =
+          // 36px) fell short of the widely-recommended 44x44px minimum
+          // touch target; the icon itself stays the same visual size,
+          // only the tappable area grows.
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-gamev2ink-400 hover:text-gamev2coral-500 hover:bg-gamev2coral-50 dark:hover:bg-gamev2coral-500/10 transition-colors"
         >
           <FiX className="w-5 h-5" />
         </button>
@@ -115,7 +119,7 @@ export function GameHUD({
             onClick={onToggleSound}
             aria-label={soundEnabled ? 'Mute sound' : 'Unmute sound'}
             aria-pressed={!soundEnabled}
-            className="p-2 rounded-xl text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white hover:bg-gamev2ink-100 dark:hover:bg-gamev2ink-800 transition-colors"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white hover:bg-gamev2ink-100 dark:hover:bg-gamev2ink-800 transition-colors"
           >
             {soundEnabled ? <FiVolume2 className="w-4 h-4" /> : <FiVolumeX className="w-4 h-4" />}
           </button>
@@ -123,7 +127,7 @@ export function GameHUD({
             type="button"
             onClick={handleTogglePause}
             aria-label={paused ? 'Resume game' : 'Pause game'}
-            className="p-2 rounded-xl text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white hover:bg-gamev2ink-100 dark:hover:bg-gamev2ink-800 transition-colors"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white hover:bg-gamev2ink-100 dark:hover:bg-gamev2ink-800 transition-colors"
           >
             {paused ? <FiPlay className="w-4 h-4" /> : <FiPause className="w-4 h-4" />}
           </button>

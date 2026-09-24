@@ -108,7 +108,7 @@ export function GameV2Modal({
               <button
                 onClick={onClose}
                 aria-label="Close"
-                className="p-2 rounded-xl text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white hover:bg-gamev2ink-100 dark:hover:bg-gamev2ink-800 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gamev2spark-400"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white hover:bg-gamev2ink-100 dark:hover:bg-gamev2ink-800 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gamev2spark-400"
               >
                 <FiX className="w-5 h-5" />
               </button>

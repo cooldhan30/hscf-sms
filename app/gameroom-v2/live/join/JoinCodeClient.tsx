@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { GameV2Card, GameV2Button } from '@/components/gameRoomV2'
 import { normalizeJoinCode } from '@/lib/gameRoomV2/liveClassroom'
@@ -16,6 +16,7 @@ export function JoinCodeClient() {
   const router = useRouter()
   const [code, setCode] = useState('')
   const [joining, setJoining] = useState(false)
+  const inputId = useId()
 
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault()
@@ -45,7 +46,14 @@ export function JoinCodeClient() {
       <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400 mt-1">Enter the code your teacher shared.</p>
 
       <form onSubmit={handleJoin} className="mt-6 space-y-4">
+        {/* sr-only label, not just a placeholder -- placeholder text
+            disappears once typing starts and isn't reliably treated as
+            the field's accessible name by every screen reader. */}
+        <label htmlFor={inputId} className="sr-only">
+          Join code
+        </label>
         <input
+          id={inputId}
           type="text"
           value={code}
           onChange={(e) => setCode(e.target.value)}

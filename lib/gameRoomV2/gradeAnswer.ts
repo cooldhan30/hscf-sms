@@ -11,6 +11,7 @@ import type {
   CategorizePayload,
   AudioChoicePayload,
 } from './domain'
+import { normalizeForComparison } from './domain/textNormalize'
 
 // The ONE place grading happens, for every question type. This is the
 // concrete mechanism behind "the game should not need to understand
@@ -49,8 +50,14 @@ export function gradeAnswer(questionType: GameRoomQuestionType, payload: unknown
     case 'TEXT_INPUT': {
       const v = p as unknown as TextInputPayload
       if (typeof submittedAnswer !== 'string') return false
-      const normalized = submittedAnswer.trim().toLowerCase()
-      return (v.acceptedAnswers ?? []).some((a) => a.trim().toLowerCase() === normalized)
+      // normalizeForComparison (NFC + strip zero-width joiners) matters
+      // for Tamil specifically: some keyboards/IMEs insert a ZWJ around
+      // certain conjuncts, producing a string that renders IDENTICALLY
+      // to the teacher's stored answer but fails a raw === comparison.
+      // .toLowerCase() is kept for English content mixed into the same
+      // field -- it's a safe no-op on Tamil script (no case there).
+      const normalized = normalizeForComparison(submittedAnswer.trim().toLowerCase())
+      return (v.acceptedAnswers ?? []).some((a) => normalizeForComparison(a.trim().toLowerCase()) === normalized)
     }
     case 'FILL_BLANK': {
       const v = p as unknown as FillBlankPayload
@@ -59,8 +66,8 @@ export function gradeAnswer(questionType: GameRoomQuestionType, payload: unknown
       if (submittedAnswer.length !== blanks.length) return false
       return submittedAnswer.every((ans, i) => {
         if (typeof ans !== 'string') return false
-        const normalized = ans.trim().toLowerCase()
-        return (blanks[i] ?? []).some((a) => a.trim().toLowerCase() === normalized)
+        const normalized = normalizeForComparison(ans.trim().toLowerCase())
+        return (blanks[i] ?? []).some((a) => normalizeForComparison(a.trim().toLowerCase()) === normalized)
       })
     }
     case 'MATCH': {

@@ -134,6 +134,7 @@ function TextInput({ disabled, onSubmit }: { disabled: boolean; onSubmit: (a: un
         onChange={(e) => setValue(e.target.value)}
         disabled={disabled}
         lang="ta"
+        aria-label="Your answer"
         className="flex-1 px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil text-lg"
         placeholder="Type your answer..."
       />
@@ -288,6 +289,7 @@ function FillBlankInput({ blankCount, disabled, onSubmit }: { blankCount: number
           onChange={(e) => setAnswers(answers.map((a, idx) => (idx === i ? e.target.value : a)))}
           disabled={disabled}
           lang="ta"
+          aria-label={`Blank ${i + 1}`}
           placeholder={`Blank ${i + 1}`}
           className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil text-lg"
         />

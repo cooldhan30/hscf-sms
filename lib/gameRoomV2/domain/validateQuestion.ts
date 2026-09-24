@@ -11,6 +11,7 @@ import type {
   CategorizePayload,
   AudioChoicePayload,
 } from './questionTypes'
+import { normalizeForComparison } from './textNormalize'
 
 // Prevents malformed sets from ever being saved (per the Question Set
 // Builder's explicit "Validate" workflow step). Runs identically on the
@@ -48,7 +49,12 @@ export function validateQuestionPayload(
       const v = p as Partial<MultipleChoicePayload>
       const options = Array.isArray(v.options) ? v.options.filter((o) => typeof o === 'string' && o.trim()) : []
       if (options.length < 2) problems.push('Multiple choice needs at least 2 answer choices.')
-      const uniqueOptions = new Set(options.map((o) => o.trim()))
+      // normalizeForComparison so two options that render IDENTICALLY
+      // (e.g. one typed with a zero-width joiner a Tamil keyboard/IME
+      // inserted, one without) are correctly caught as duplicates,
+      // rather than silently passing as "unique" because their raw
+      // Unicode differs invisibly.
+      const uniqueOptions = new Set(options.map((o) => normalizeForComparison(o.trim())))
       if (uniqueOptions.size !== options.length) problems.push('Answer choices must be unique.')
       if (!v.correctAnswer || !v.correctAnswer.trim()) {
         problems.push('Multiple choice needs a correct answer selected.')

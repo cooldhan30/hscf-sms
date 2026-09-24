@@ -51,7 +51,12 @@ export function AnswerOption({
     >
       <span>{label}</span>
       {state === 'correct' && (
-        <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gamev2mint-500 text-white flex items-center justify-center">
+        // Dark ink icon, not white -- white-on-mint-500 measures ~2.0:1,
+        // below even the 3:1 WCAG minimum for a meaningful UI icon (a
+        // low-vision student could lose the ONE non-color signal this
+        // component's own header comment relies on). gamev2ink-950 on
+        // mint-500 measures ~8.8:1.
+        <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gamev2mint-500 text-gamev2ink-950 flex items-center justify-center">
           <FiCheck className="w-4 h-4" aria-hidden />
         </span>
       )}
