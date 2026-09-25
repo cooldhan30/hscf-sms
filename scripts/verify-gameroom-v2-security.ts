@@ -296,6 +296,14 @@ assert(
   Boolean(liveInsert && /sms_teacher_owns_class/.test(liveInsert.body) && /status\s*=\s*'LOBBY'/.test(liveInsert.body)),
   'sms_gamev2_live_sessions: a host can only create a LOBBY session for a class they teach'
 )
+// 42P17 guard (found live in production, fixed in 086): a policy on one
+// live table must never subquery either live table directly -- that
+// re-enters RLS recursively. Cross-table checks go through the
+// SECURITY DEFINER sms_gamev2_is_live_* helpers instead.
+for (const table of ['sms_gamev2_live_sessions', 'sms_gamev2_live_participants']) {
+  const recursive = effectivePolicies(table).filter((p) => /FROM\s+sms_gamev2_live_(sessions|participants)\b/i.test(p.body))
+  assert(recursive.length === 0, `${table}: no policy subqueries a live table directly (no RLS infinite recursion)${recursive.length ? ` (found: ${recursive.map((p) => p.name).join(', ')})` : ''}`)
+}
 const participantInsertable = effectivePolicies('sms_gamev2_live_participants').filter((p) => !isAdminPolicy(p) && p.command !== 'SELECT')
 assert(participantInsertable.length === 0, 'sms_gamev2_live_participants: a student cannot insert themselves into a live session (join route is the only path)')
 
