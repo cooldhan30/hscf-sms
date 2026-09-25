@@ -56,6 +56,7 @@ export default async function EditQuestionSetPage({ params }: { params: { id: st
     estimatedDurationMinutes: questionSet.estimated_duration_minutes ? String(questionSet.estimated_duration_minutes) : '',
     tags: questionSet.tags ?? [],
     visibility: (questionSet.visibility as QuestionSetVisibility) ?? 'PRIVATE',
+    published: Boolean(questionSet.published),
   }
 
   const questions: DraftQuestion[] = (questionRows ?? []).map((q) => ({

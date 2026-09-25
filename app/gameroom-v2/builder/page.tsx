@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
+import Link from 'next/link'
 import { FiLock } from 'react-icons/fi'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
 import { GameV2Error } from '@/components/gameRoomV2'
@@ -54,9 +55,9 @@ export default async function QuestionSetBuilderPage() {
     <div className="min-h-screen bg-stone-50 dark:bg-gamev2ink-950 px-4 sm:px-6 py-8">
       <div className="max-w-5xl mx-auto space-y-6">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-gamev2spark-600 dark:text-gamev2spark-400">
-            Internal preview
-          </p>
+          <Link href="/gameroom-v2/library" className="text-xs font-bold uppercase tracking-wide text-gamev2spark-600 dark:text-gamev2spark-400 hover:underline">
+            ← Question Set Library
+          </Link>
           <h1 className="text-2xl font-black text-gamev2ink-900 dark:text-white mt-0.5">Question Set Builder</h1>
           <p className="text-gamev2ink-500 dark:text-gamev2ink-400 mt-1 max-w-lg">
             Create content once, then play it through any compatible game engine -- a question set is independent of

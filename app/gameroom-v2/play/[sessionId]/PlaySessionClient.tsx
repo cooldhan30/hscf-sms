@@ -73,7 +73,9 @@ export function PlaySessionClient({ sessionId }: { sessionId: string }) {
 
   if (engineId === null) return <GameV2Loading label="Loading game..." />
 
-  const goToLibrary = () => router.push('/gameroom-v2/library')
+  // /gameroom/v2 resolves to the right V2 home for the caller's role --
+  // students used to be sent to the teacher-only Library here.
+  const goToLibrary = () => router.push('/gameroom/v2')
   const Engine = ENGINE_COMPONENTS[engineId]
 
   if (Engine) {

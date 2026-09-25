@@ -16,6 +16,10 @@ export interface SetMetadata {
   estimatedDurationMinutes: string
   tags: string[]
   visibility: QuestionSetVisibility
+  // Lets students start this set on their own from the GameRoom home.
+  // Separate from `visibility` (teacher-to-teacher sharing). Live
+  // Classroom never needs it -- a hosted set is always playable.
+  published: boolean
 }
 
 export function emptyMetadata(): SetMetadata {
@@ -31,6 +35,7 @@ export function emptyMetadata(): SetMetadata {
     estimatedDurationMinutes: '',
     tags: [],
     visibility: 'PRIVATE',
+    published: false,
   }
 }
 
@@ -181,6 +186,21 @@ export function MetadataStep({ value, onChange }: { value: SetMetadata; onChange
           ))}
         </div>
       </Field>
+
+      <label className="flex items-start gap-3 px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={value.published}
+          onChange={(e) => set('published', e.target.checked)}
+          className="mt-1 w-5 h-5 accent-gamev2ink-600"
+        />
+        <span>
+          <span className="block font-bold text-gamev2ink-800 dark:text-gamev2ink-100">Students can play this on their own</span>
+          <span className="block text-xs text-gamev2ink-400 dark:text-gamev2ink-500 mt-0.5">
+            Shows this set on the GameRoom home for students in its class (or every student, if it isn&apos;t assigned to a class). You can always host it live either way.
+          </span>
+        </span>
+      </label>
     </div>
   )
 }

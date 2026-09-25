@@ -2,6 +2,7 @@ import 'server-only'
 import { auth } from '@clerk/nextjs/server'
 import { createClient } from '@/lib/supabase/server'
 import type { SmsProfile } from '@/types/database'
+import { isGameRoomV2Released } from '@/lib/gameRoomV2/release'
 
 // GameRoom V2's access gate. There is no feature-flag system anywhere
 // in this codebase (confirmed by repo-wide search during the V2
@@ -39,6 +40,16 @@ export async function requireGameV2Access(): Promise<
 
   if (profile.role === 'admin') {
     return { ok: true, supabase, profile: profile as SmsProfile, isAdmin: true }
+  }
+
+  // Released: any active student or teacher (other roles have no V2
+  // experience). The tester allowlist below only applies again if V2 is
+  // rolled back via GAMEROOM_V2_ENABLED=false (see release.ts).
+  if (isGameRoomV2Released()) {
+    if (profile.role !== 'student' && profile.role !== 'teacher') {
+      return { ok: false, status: 403, error: 'GameRoom is available to students and teachers' }
+    }
+    return { ok: true, supabase, profile: profile as SmsProfile, isAdmin: false }
   }
 
   // RLS ("gamev2_testers: self read") already scopes this to the

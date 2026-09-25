@@ -280,10 +280,11 @@ assert(
   !questionPolicies.some((p) => /sms_gamev2_testers/.test(p.body)),
   'sms_gamev2_questions: the "tester read published set" answer-key leak is gone'
 )
-const setTesterPolicies = effectivePolicies('sms_gamev2_question_sets').filter((p) => /sms_gamev2_testers/.test(p.body))
+const publishedReadPolicies = effectivePolicies('sms_gamev2_question_sets').filter((p) => /published\s*=\s*true/.test(p.body))
 assert(
-  setTesterPolicies.length > 0 && setTesterPolicies.every((p) => p.command === 'SELECT' && /sms_current_role\(\)\s*=\s*'student'/.test(p.body)),
-  'sms_gamev2_question_sets: the tester read-published policy applies to STUDENT testers only (teachers cannot see other teachers\' PRIVATE sets)'
+  publishedReadPolicies.length > 0 &&
+    publishedReadPolicies.every((p) => p.command === 'SELECT' && /sms_current_role\(\)\s*=\s*'student'/.test(p.body)),
+  'sms_gamev2_question_sets: the read-published policy is SELECT-only and STUDENT-only (teachers cannot see other teachers\' PRIVATE sets)'
 )
 const livePolicies = effectivePolicies('sms_gamev2_live_sessions').filter((p) => !isAdminPolicy(p))
 assert(

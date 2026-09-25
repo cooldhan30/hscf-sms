@@ -5,6 +5,7 @@ import { FiLock, FiPlus } from 'react-icons/fi'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
 import { fetchQuestionSetUsageCounts } from '@/lib/gameRoomV2/questionSetUsage'
 import { GameV2Button, GameV2Error } from '@/components/gameRoomV2'
+import { GameRoomModeSwitch } from '@/components/gameRoomMode/GameRoomModeSwitch'
 import { LibraryClient } from './LibraryClient'
 import type { LibrarySet } from './LibrarySetCard'
 
@@ -105,19 +106,23 @@ export default async function QuestionSetLibraryPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-gamev2spark-600 dark:text-gamev2spark-400">
-              Internal preview
-            </p>
+            <Link href="/teacher" className="text-xs font-bold uppercase tracking-wide text-gamev2spark-600 dark:text-gamev2spark-400 hover:underline">
+              ← Dashboard · Game Room
+            </Link>
             <h1 className="text-2xl font-black text-gamev2ink-900 dark:text-white mt-0.5">Question Set Library</h1>
             <p className="text-gamev2ink-500 dark:text-gamev2ink-400 mt-1 max-w-lg">
-              Discover and reuse content -- yours, shared by the school, or public.
+              Discover and reuse content -- yours, shared by the school, or public. Pick a set to play it or host it live.
             </p>
           </div>
-          <Link href="/gameroom-v2/builder/new">
-            <GameV2Button variant="spark">
-              <FiPlus className="w-4 h-4" /> Create New Set
-            </GameV2Button>
-          </Link>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Temporary migration fallback. Remove Classic GameRoom only after GameRoom V2 production stabilization. */}
+            {teacher && <GameRoomModeSwitch to="classic" />}
+            <Link href="/gameroom-v2/builder/new">
+              <GameV2Button variant="spark">
+                <FiPlus className="w-4 h-4" /> Create New Set
+              </GameV2Button>
+            </Link>
+          </div>
         </div>
 
         <LibraryClient initialSets={enrichedSets} currentProfileId={profile.id} recentSetIds={recentSetIds} classes={classOptions} />

@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { FiCompass, FiAward, FiChevronRight } from 'react-icons/fi'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { FiCompass, FiAward, FiChevronRight, FiPlay, FiUsers } from 'react-icons/fi'
+import { GameRoomModeSwitch } from '@/components/gameRoomMode/GameRoomModeSwitch'
 import {
   GameTile,
   GameV2Card,
@@ -71,6 +74,13 @@ function SectionHeader({ tamilTitle, title, subtitle }: { tamilTitle?: string; t
   )
 }
 
+interface PlayableSet {
+  id: string
+  title: string
+  tamilTitle: string | null
+  questionCount: number
+}
+
 export interface HomeProgressionData {
   xp: number
   coins: number
@@ -87,8 +97,50 @@ export function HomeScreenClient({
   progression: HomeProgressionData
   previewLockedAchievements: { id: string; name: string; icon: string }[]
 }) {
+  const router = useRouter()
   const [infoEngine, setInfoEngine] = useState<GameEngine | null>(null)
   const [challengeMessage, setChallengeMessage] = useState<string | null>(null)
+  const [playableSets, setPlayableSets] = useState<PlayableSet[] | null>(null)
+  const [startingSetId, setStartingSetId] = useState<string | null>(null)
+  const [startError, setStartError] = useState<string | null>(null)
+
+  // Loads the sets this student may play on their own with the chosen
+  // engine (published, in one of their classes, compatible).
+  useEffect(() => {
+    if (!infoEngine || infoEngine.status !== 'ACTIVE') return
+    let cancelled = false
+    setPlayableSets(null)
+    setStartError(null)
+    fetch(`/api/gameroom-v2/student/question-sets?engineId=${encodeURIComponent(infoEngine.id)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setPlayableSets(Array.isArray(data?.questionSets) ? data.questionSets : [])
+      })
+      .catch(() => {
+        if (!cancelled) setPlayableSets([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [infoEngine])
+
+  async function handlePlay(setId: string) {
+    if (!infoEngine) return
+    setStartingSetId(setId)
+    setStartError(null)
+    const res = await fetch('/api/gameroom-v2/sessions/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questionSetId: setId, engineId: infoEngine.id }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data.sessionId) {
+      setStartingSetId(null)
+      setStartError(data.error || 'Could not start the game')
+      return
+    }
+    router.push(`/gameroom-v2/play/${data.sessionId}`)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -112,12 +164,9 @@ export function HomeScreenClient({
     []
   )
 
-  // No real gameplay exists yet for ANY engine (every registry entry is
-  // status COMING_SOON) -- clicking a tile can only ever show what it
-  // is, never launch something that doesn't exist. This is the actual
-  // enforcement of "do not create fake functionality": there is no
-  // silent no-op button here, there's a real info popover explaining
-  // the honest current status.
+  // An ACTIVE engine's popover lists the sets the student can play with
+  // it; a COMING_SOON engine's popover only explains that it isn't
+  // playable yet -- there is never a silent no-op button.
   function handleSelectEngine(engine: GameEngine) {
     setInfoEngine(engine)
   }
@@ -137,13 +186,20 @@ export function HomeScreenClient({
               aria-hidden
             />
             <div className="relative">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-gamev2spark-400">
-                Tamizhi GameRoom · Internal Preview
-              </p>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-gamev2spark-400">Tamizhi GameRoom</p>
+                <GameRoomModeSwitch to="classic" tone="dark" />
+              </div>
               <h1 className="text-3xl sm:text-4xl font-black text-white mt-1">Welcome back, {studentName}! 👋</h1>
               <p className="text-gamev2ink-200 mt-2 max-w-lg">
-                Pick a world, jump into a game, or continue where you left off.
+                Pick a game below, or join your class&apos;s live game with a code from your teacher.
               </p>
+              <Link
+                href="/gameroom-v2/live/join"
+                className="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-2xl font-extrabold bg-gamev2spark-400 text-gamev2ink-950 hover:bg-gamev2spark-300 transition-colors"
+              >
+                <FiUsers className="w-5 h-5" /> Join a Live Classroom game
+              </Link>
             </div>
           </div>
         </header>
@@ -259,9 +315,40 @@ export function HomeScreenClient({
               </span>
             </div>
             <p className="text-sm text-gamev2ink-600 dark:text-gamev2ink-300 mt-3">{infoEngine.description}</p>
-            <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500 mt-3">
-              This game isn&apos;t playable yet -- it&apos;s being built as part of GameRoom V2.
-            </p>
+            {infoEngine.status === 'ACTIVE' ? (
+              <div className="mt-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500 mb-2">Choose a question set</p>
+                {playableSets === null && <p className="text-sm text-gamev2ink-400">Loading...</p>}
+                {playableSets?.length === 0 && (
+                  <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400">
+                    Your teacher hasn&apos;t shared any sets for this game yet. Ask them, or join their live game with a code.
+                  </p>
+                )}
+                <ul className="space-y-2 max-h-64 overflow-y-auto">
+                  {playableSets?.map((s) => (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        disabled={startingSetId !== null}
+                        onClick={() => handlePlay(s.id)}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 min-h-[44px] rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 hover:border-gamev2ink-500 text-left disabled:opacity-60"
+                      >
+                        <span className="min-w-0">
+                          <span className="block font-bold text-gamev2ink-800 dark:text-gamev2ink-100 truncate">{s.title}</span>
+                          {s.tamilTitle && <span className="block font-tamil text-sm leading-relaxed text-gamev2ink-500 dark:text-gamev2ink-400 truncate">{s.tamilTitle}</span>}
+                          <span className="block text-xs text-gamev2ink-400">{s.questionCount} questions</span>
+                        </span>
+                        <FiPlay className="w-5 h-5 flex-shrink-0 text-gamev2ink-500" aria-hidden />
+                        <span className="sr-only">{startingSetId === s.id ? 'Starting' : 'Play'}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {startError && <p className="text-sm text-gamev2coral-600 mt-2">{startError}</p>}
+              </div>
+            ) : (
+              <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500 mt-3">This game is coming soon.</p>
+            )}
             <button
               type="button"
               onClick={() => setInfoEngine(null)}

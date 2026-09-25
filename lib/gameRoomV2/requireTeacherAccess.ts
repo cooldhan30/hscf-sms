@@ -2,6 +2,7 @@ import 'server-only'
 import { auth } from '@clerk/nextjs/server'
 import { createClient } from '@/lib/supabase/server'
 import type { SmsProfile, SmsTeacher } from '@/types/database'
+import { isGameRoomV2Released } from '@/lib/gameRoomV2/release'
 
 // Combines the V2 access gate (admin, or an sms_gamev2_testers row --
 // see requireAccess.ts) with an actual teacher-role check, for routes
@@ -37,16 +38,20 @@ export async function requireGameV2Teacher(): Promise<
     return { ok: false, status: 403, error: 'Teacher access required' }
   }
 
-  // RLS ("gamev2_testers: self read") already scopes this to the
-  // caller's own row.
-  const { data: testerRow } = await supabase
-    .from('sms_gamev2_testers')
-    .select('profile_id')
-    .eq('profile_id', userId)
-    .maybeSingle()
+  // Tester allowlist only while V2 is rolled back (see release.ts); the
+  // teacher-role check above and the teacher-record check below always apply.
+  if (!isGameRoomV2Released()) {
+    // RLS ("gamev2_testers: self read") already scopes this to the
+    // caller's own row.
+    const { data: testerRow } = await supabase
+      .from('sms_gamev2_testers')
+      .select('profile_id')
+      .eq('profile_id', userId)
+      .maybeSingle()
 
-  if (!testerRow) {
-    return { ok: false, status: 403, error: 'GameRoom V2 is not yet available for your account' }
+    if (!testerRow) {
+      return { ok: false, status: 403, error: 'GameRoom V2 is not yet available for your account' }
+    }
   }
 
   const { data: teacher } = await supabase.from('sms_teachers').select('*').eq('profile_id', userId).single()

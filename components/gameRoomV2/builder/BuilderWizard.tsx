@@ -74,7 +74,7 @@ export function BuilderWizard({ initial }: { initial?: BuilderInitialData }) {
       estimatedDurationMinutes: metadata.estimatedDurationMinutes || null,
       tags: metadata.tags,
       visibility: metadata.visibility,
-      published: false,
+      published: metadata.published,
       questions: questions.map((q) => ({
         // Lets the server update an existing question in place instead
         // of deleting and recreating it (which would cascade-delete

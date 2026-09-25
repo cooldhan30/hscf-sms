@@ -23,7 +23,11 @@ const baseNavItems: SidebarItem[] = [
   // typed nickname, so scores/history can be aggregated across sessions
   // for the same actual person (see
   // supabase/migrations/057_game_room_student_identity.sql).
-  { label: 'Game Room', href: '/student/game-room', icon: <FiPlayCircle className={iconClass} /> },
+  // Opens the GameRoom mode selector (new GameRoom vs Classic). Classic
+  // itself still lives at /student/game-room.
+  // Temporary migration fallback. Remove Classic GameRoom only after
+  // GameRoom V2 production stabilization.
+  { label: 'Game Room', href: '/gameroom', icon: <FiPlayCircle className={iconClass} /> },
 ]
 
 // Tamil Theni is the first nav item conditioned on something other than

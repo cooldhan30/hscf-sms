@@ -12,7 +12,8 @@ const navItems: SidebarItem[] = [
   { label: 'Reports', href: '/teacher/reports', icon: <FiBarChart2 className={iconClass} /> },
   { label: 'Resources', href: '/teacher/resources', icon: <FiFolder className={iconClass} /> },
   { label: 'Story Generator', href: '/teacher/story-generator', icon: <FiFeather className={iconClass} /> },
-  { label: 'Game Room', href: '/teacher/game-room', icon: <FiPlayCircle className={iconClass} /> },
+  // GameRoom mode selector (new vs Classic); Classic stays at /teacher/game-room.
+  { label: 'Game Room', href: '/gameroom', icon: <FiPlayCircle className={iconClass} /> },
   { label: 'Announcements', href: '/teacher/announcements', icon: <FiClipboard className={iconClass} /> },
   { label: 'Meetings', href: '/teacher/meetings', icon: <FiVideo className={iconClass} /> },
   { label: 'Chat', href: '/teacher/chat', icon: <FiMessageCircle className={iconClass} /> },
