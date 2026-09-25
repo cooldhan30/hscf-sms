@@ -33,7 +33,9 @@ export async function GET() {
   const [{ data: questionSets, error }, { data: favoriteRows }, { data: recentUsageRows }] = await Promise.all([
     supabase
       .from('sms_gamev2_question_sets')
-      .select('*, class:sms_classes(id, name), creator:sms_profiles(first_name, last_name)')
+      // Explicit FK hints -- unhinted embeds are ambiguous (favorites/live
+      // sessions are junction tables to profiles/classes) -> PGRST201.
+      .select('*, class:sms_classes!class_id(id, name), creator:sms_profiles!created_by(first_name, last_name)')
       .order('updated_at', { ascending: false }),
     // RLS ("gamev2_favorites: teacher manage own") already scopes this
     // to the caller's own favorites.

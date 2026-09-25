@@ -85,12 +85,12 @@ export function HostLiveModal({
 
   return (
     <GameV2Modal open={open} onClose={onClose} title="Host Live">
-      <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400 mb-4">
+      <p className="text-sm text-stone-500 dark:text-stone-400 mb-4">
         Which class is &quot;{setTitle}&quot; for? Students in that class will be able to join with the code.
       </p>
 
       <label className="block mb-4">
-        <span className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500">Question count (optional)</span>
+        <span className="text-xs font-bold uppercase tracking-wide text-stone-400 dark:text-stone-500">Question count (optional)</span>
         <input
           type="number"
           min={1}
@@ -98,18 +98,18 @@ export function HostLiveModal({
           value={questionCount}
           onChange={(e) => setQuestionCount(e.target.value)}
           placeholder="Use every question in the set"
-          className="mt-1 w-full px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm"
+          className="mt-1 w-full px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm"
         />
       </label>
 
       {engineId === 'racing' && (
         <label className="block mb-4">
-          <span className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500">Race difficulty</span>
-          <p className="text-[11px] text-gamev2ink-400 dark:text-gamev2ink-500 mb-1">Every racer shares this setting, so the race is a fair comparison.</p>
+          <span className="text-xs font-bold uppercase tracking-wide text-stone-400 dark:text-stone-500">Race difficulty</span>
+          <p className="text-[11px] text-stone-400 dark:text-stone-500 mb-1">Every racer shares this setting, so the race is a fair comparison.</p>
           <select
             value={raceDifficulty}
             onChange={(e) => setRaceDifficulty(e.target.value as RacingDifficulty)}
-            className="w-full px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm"
+            className="w-full px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm"
           >
             {RACING_DIFFICULTY_SETTINGS.map((d) => (
               <option key={d.id} value={d.id}>
@@ -123,12 +123,12 @@ export function HostLiveModal({
       {engineId === 'boss-battle' && (
         <>
           <label className="block mb-4">
-            <span className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500">Boss</span>
-            <p className="text-[11px] text-gamev2ink-400 dark:text-gamev2ink-500 mb-1">The whole class cooperatively fights this one boss together.</p>
+            <span className="text-xs font-bold uppercase tracking-wide text-stone-400 dark:text-stone-500">Boss</span>
+            <p className="text-[11px] text-stone-400 dark:text-stone-500 mb-1">The whole class cooperatively fights this one boss together.</p>
             <select
               value={bossId}
               onChange={(e) => setBossId(e.target.value as BossId)}
-              className="w-full px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm"
+              className="w-full px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm"
             >
               {BOSSES.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -138,11 +138,11 @@ export function HostLiveModal({
             </select>
           </label>
           <label className="block mb-4">
-            <span className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500">Difficulty</span>
+            <span className="text-xs font-bold uppercase tracking-wide text-stone-400 dark:text-stone-500">Difficulty</span>
             <select
               value={bossDifficulty}
               onChange={(e) => setBossDifficulty(e.target.value as BossBattleDifficulty)}
-              className="w-full px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm"
+              className="w-full px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm"
             >
               {BOSS_BATTLE_DIFFICULTY_SETTINGS.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -166,10 +166,10 @@ export function HostLiveModal({
               type="button"
               disabled={creating}
               onClick={() => handleHost(c.id)}
-              className="text-left rounded-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 hover:border-gamev2spark-400 p-4 transition-colors disabled:opacity-50"
+              className="text-left rounded-2xl border border-stone-200 dark:border-stone-800 hover:border-primary-400 p-4 transition-colors disabled:opacity-50"
             >
-              <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100">{c.name}</p>
-              {c.grade_level && <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500">{c.grade_level}</p>}
+              <p className="font-bold text-stone-800 dark:text-stone-100">{c.name}</p>
+              {c.grade_level && <p className="text-xs text-stone-400 dark:text-stone-500">{c.grade_level}</p>}
             </button>
           ))}
         </div>

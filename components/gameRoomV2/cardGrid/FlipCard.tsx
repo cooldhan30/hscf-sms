@@ -56,7 +56,7 @@ export function FlipCard({
       >
         {/* Front face -- the label side */}
         <div
-          className={`absolute inset-0 flex items-center justify-center rounded-2xl border-2 bg-white dark:bg-gamev2ink-900 px-2 py-2 text-center font-tamil font-bold text-sm sm:text-base text-gamev2ink-800 dark:text-gamev2ink-100 transition-colors ${STATE_RING[state]} [backface-visibility:hidden]`}
+          className={`absolute inset-0 flex items-center justify-center rounded-2xl border-2 bg-white dark:bg-gamev2ink-900 px-2 py-2 text-center font-tamil leading-relaxed font-bold text-sm sm:text-base text-gamev2ink-800 dark:text-gamev2ink-100 transition-colors ${STATE_RING[state]} [backface-visibility:hidden]`}
         >
           {label}
         </div>

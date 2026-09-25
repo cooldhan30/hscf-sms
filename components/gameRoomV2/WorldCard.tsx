@@ -47,7 +47,7 @@ export function WorldCard({ world, onClick }: { world: LearningWorld; onClick?: 
           }}
           aria-hidden
         />
-        <span className="relative text-5xl text-white/90 font-tamil" aria-hidden>
+        <span className="relative text-5xl text-white/90 font-tamil leading-relaxed" aria-hidden>
           {style.glyph}
         </span>
       </div>

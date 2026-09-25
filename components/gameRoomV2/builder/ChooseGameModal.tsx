@@ -1,50 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { FiUser, FiUsers } from 'react-icons/fi'
+import { FiUsers } from 'react-icons/fi'
 import { GameV2Modal, GameV2Empty, GameV2StatusPill } from '@/components/gameRoomV2'
+import { engineIcon } from '@/components/gameRoomV2/shell/ui'
 import { checkEngineCompatibility, type GameRoomQuestionType } from '@/lib/gameRoomV2/domain'
 import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
-import { toast } from '@/lib/toast'
 import { HostLiveModal } from '@/components/gameRoomV2/liveClassroom/HostLiveModal'
 
-const ENGINE_ICON: Record<string, string> = {
-  'classic-quiz': '❓',
-  'tower-defense': '🏰',
-  'boss-battle': '⚔️',
-  'racing': '🏁',
-  'treasure-quest': '🗺️',
-  'word-ninja': '🥷',
-  'space-mission': '🚀',
-  'kingdom-builder': '🏯',
-  'mystery-mansion': '🕵️',
-  'crossword': '📝',
-  'matching': '🧩',
-  'memory': '🃏',
-}
-
-// "CHOOSE YOUR GAME" -- shown after choosing to play a question set,
-// either from the Library card's "Play" button or the Builder
-// wizard's own "Play or Host Live" step. Lists ONLY engines compatible
-// with this set's question types (checkEngineCompatibility, the same
-// calculation the Builder's CompatibilityResults panel uses) -- an
-// incompatible engine never appears here at all, since there's nothing
-// useful a teacher could do by picking one. Most of the 12 registered
-// engines are ACTIVE and genuinely playable today (see
-// lib/gameRoomV2/registry.ts); a still-COMING_SOON engine stays inert
-// with a "Coming Soon" badge and neither button is clickable for it.
-//
-// Every compatible, playable engine offers TWO equally-weighted paths,
-// never one primary + one secondary link -- a teacher should never have
-// to guess which one is "the real button": "Play Solo" starts a REAL
-// session for the teacher's own account only (via
-// /api/gameroom-v2/sessions/start, routing to /gameroom-v2/play/[id]) --
-// useful for previewing the game or letting one student play
-// individually; "Host Live" opens HostLiveModal to create a Live
-// Classroom session with a join code for the whole class. Neither
-// button is a fabricated/disabled placeholder -- if a button is shown
-// enabled, clicking it launches something real.
+// "Choose a game" for a teacher's question set (Library card / Builder
+// wizard). Lists ONLY engines compatible with the set's question types
+// (checkEngineCompatibility). Live-capable engines offer "Host Live",
+// which creates a Live Classroom session with a join code. Solo play is
+// a student action (sessions/start is student-only), so teachers see
+// which games their students can play on their own instead of a button
+// that would fail -- to try the questions yourself, use Preview.
 export function ChooseGameModal({
   open,
   onClose,
@@ -58,84 +28,50 @@ export function ChooseGameModal({
   questionTypes: GameRoomQuestionType[]
   setTitle: string
 }) {
-  const router = useRouter()
-  const [starting, setStarting] = useState<string | null>(null)
   const [hostingEngineId, setHostingEngineId] = useState<string | null>(null)
   const compatible = checkEngineCompatibility(GAME_ENGINES_V2, questionTypes).filter((r) => r.compatible)
 
-  async function handlePlaySolo(engineId: string) {
-    setStarting(engineId)
-    const res = await fetch('/api/gameroom-v2/sessions/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ questionSetId, engineId }),
-    })
-    const data = await res.json().catch(() => ({}))
-    setStarting(null)
-
-    if (!res.ok) {
-      toast.error(data.error || 'Failed to start game')
-      return
-    }
-    router.push(`/gameroom-v2/play/${data.sessionId}`)
-  }
-
   return (
-    <GameV2Modal open={open} onClose={onClose} title="Choose Your Game">
-      <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400 mb-1">
-        Playable games for &quot;{setTitle}&quot;, based on its question types.
-      </p>
-      <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500 mb-4 flex items-center gap-3">
-        <span className="flex items-center gap-1">
-          <FiUser className="w-3.5 h-3.5" /> Play Solo — just you, right now
-        </span>
-        <span className="flex items-center gap-1">
-          <FiUsers className="w-3.5 h-3.5" /> Host Live — a join code for your whole class
-        </span>
+    <GameV2Modal open={open} onClose={onClose} title="Choose a Game" size="large">
+      <p className="text-sm text-stone-500 dark:text-stone-400 mb-4">
+        Games that can play &quot;{setTitle}&quot;. Host a live game for your class, or let students play it on their own.
       </p>
       {compatible.length === 0 ? (
-        <GameV2Empty title="No compatible games yet" description="This set's question types aren't supported by any registered game engine." />
+        <GameV2Empty title="No compatible games yet" description="This set's question types aren't supported by any game yet." />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {compatible.map(({ engine }) => {
             const isPlayable = engine.status === 'ACTIVE' || engine.status === 'BETA'
             const supportsLive = isPlayable && engine.compatibility.liveClassroomSupport
+            const Icon = engineIcon(engine.id)
             return (
-              <div
-                key={engine.id}
-                className={`rounded-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 p-4 text-center ${!isPlayable ? 'opacity-70' : ''}`}
-              >
-                <p className="text-3xl mb-2" aria-hidden>
-                  {ENGINE_ICON[engine.id] ?? '🎮'}
-                </p>
-                <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100 text-sm">{engine.name}</p>
-                <div className="mt-1.5 flex items-center justify-center gap-2">
-                  <GameV2StatusPill status={starting === engine.id ? 'ACTIVE' : engine.status} />
-                  {isPlayable && <span className="text-[11px] font-bold text-gamev2ink-400 dark:text-gamev2ink-500">~{engine.estimatedDurationMinutes} min</span>}
+              <div key={engine.id} className={`rounded-2xl border border-stone-200 dark:border-stone-800 p-4 ${!isPlayable ? 'opacity-70' : ''}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-300 flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-5 h-5" aria-hidden />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-stone-800 dark:text-stone-100">{engine.name}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <GameV2StatusPill status={engine.status} />
+                      {isPlayable && engine.estimatedDurationMinutes && (
+                        <span className="text-xs text-stone-500 dark:text-stone-400">~{engine.estimatedDurationMinutes} min</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-
-                {isPlayable && (
-                  <div className={`mt-3 grid gap-2 ${supportsLive ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {isPlayable &&
+                  (supportsLive ? (
                     <button
                       type="button"
-                      disabled={starting !== null}
-                      onClick={() => handlePlaySolo(engine.id)}
-                      className="flex items-center justify-center gap-1 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 px-2 py-2 text-xs font-bold text-gamev2ink-700 dark:text-gamev2ink-200 hover:border-gamev2ink-400 dark:hover:border-gamev2ink-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      onClick={() => setHostingEngineId(engine.id)}
+                      className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 min-h-[44px] rounded-xl bg-primary-700 hover:bg-primary-800 dark:bg-primary-600 dark:hover:bg-primary-700 text-white text-sm font-semibold transition-colors"
                     >
-                      <FiUser className="w-3.5 h-3.5" /> {starting === engine.id ? 'Starting...' : 'Play Solo'}
+                      <FiUsers className="w-4 h-4" aria-hidden /> Host Live
                     </button>
-                    {supportsLive && (
-                      <button
-                        type="button"
-                        disabled={starting !== null}
-                        onClick={() => setHostingEngineId(engine.id)}
-                        className="flex items-center justify-center gap-1 rounded-xl border-2 border-gamev2spark-400 dark:border-gamev2spark-500 bg-gamev2spark-50 dark:bg-gamev2spark-500/10 px-2 py-2 text-xs font-bold text-gamev2spark-700 dark:text-gamev2spark-300 hover:bg-gamev2spark-100 dark:hover:bg-gamev2spark-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        <FiUsers className="w-3.5 h-3.5" /> Host Live
-                      </button>
-                    )}
-                  </div>
-                )}
+                  ) : (
+                    <p className="mt-3 text-xs text-stone-500 dark:text-stone-400">Students can play this on their own.</p>
+                  ))}
               </div>
             )
           })}

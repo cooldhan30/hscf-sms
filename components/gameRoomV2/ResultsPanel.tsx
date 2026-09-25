@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { FiAward } from 'react-icons/fi'
 import { GameV2Card } from './GameV2Card'
 import { GameV2Button } from './GameV2Button'
 import { useGameV2Motion } from './useGameV2Motion'
@@ -32,37 +33,37 @@ export function ResultsPanel({
         initial={reduced ? { opacity: 0 } : { scale: 0.5, opacity: 0 }}
         animate={reduced ? { opacity: 1 } : { scale: 1, opacity: 1 }}
         transition={celebrate}
-        className="text-6xl mb-2"
+        className="mx-auto mb-3 w-14 h-14 rounded-full bg-gold-50 dark:bg-gold-900/30 text-gold-700 dark:text-gold-300 flex items-center justify-center"
         aria-hidden
       >
-        🏆
+        <FiAward className="w-7 h-7" />
       </motion.div>
-      <h2 className="text-2xl font-extrabold text-gamev2ink-900 dark:text-white">Session Complete!</h2>
+      <h2 className="text-2xl font-bold text-primary-900 dark:text-white">Game complete</h2>
 
       <div className="mt-6 flex items-center justify-center gap-8">
         <div>
-          <p className="text-4xl font-black text-gamev2ink-800 dark:text-white tabular-nums">{score}</p>
-          <p className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500 mt-1">
+          <p className="text-4xl font-bold text-stone-800 dark:text-white tabular-nums">{score}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-stone-400 dark:text-stone-500 mt-1">
             Score
           </p>
         </div>
         <div>
-          <p className="text-4xl font-black text-gamev2mint-600 dark:text-gamev2mint-400 tabular-nums">{accuracy}%</p>
-          <p className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500 mt-1">
+          <p className="text-4xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{accuracy}%</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-stone-400 dark:text-stone-500 mt-1">
             Accuracy
           </p>
         </div>
         {rank != null && (
           <div>
-            <p className="text-4xl font-black text-gamev2spark-600 dark:text-gamev2spark-400 tabular-nums">#{rank}</p>
-            <p className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500 mt-1">
+            <p className="text-4xl font-bold text-primary-600 dark:text-primary-400 tabular-nums">#{rank}</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-stone-400 dark:text-stone-500 mt-1">
               Rank
             </p>
           </div>
         )}
       </div>
 
-      <p className="mt-4 text-sm text-gamev2ink-500 dark:text-gamev2ink-400">
+      <p className="mt-4 text-sm text-stone-500 dark:text-stone-400">
         {correctCount} of {totalQuestions} correct
       </p>
 

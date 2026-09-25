@@ -9,13 +9,18 @@ import { LibrarySetCard, type LibrarySet } from './LibrarySetCard'
 import { AssignModal } from './AssignModal'
 import { PreviewModal } from './PreviewModal'
 import { toast } from '@/lib/toast'
+import { TopicLibraryClient } from '@/components/gameRoomV2/learning/TopicLibraryClient'
+import type { TopicSummary } from '@/lib/gameRoomV2/builtin/summaries'
 
-type Tab = 'my-sets' | 'school' | 'public' | 'favorites' | 'recent'
+export type LibraryTab = 'builtin' | 'my-sets' | 'shared' | 'favorites' | 'recent'
+type Tab = LibraryTab
 
+// Built-in Tamil content is kept clearly separate from teachers' own and
+// shared sets: it is read-only and listed by topic.
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'my-sets', label: 'My Sets' },
-  { id: 'school', label: 'School Library' },
-  { id: 'public', label: 'Public Library' },
+  { id: 'builtin', label: 'Built-in Tamil Content' },
+  { id: 'my-sets', label: 'My Question Sets' },
+  { id: 'shared', label: 'Shared Question Sets' },
   { id: 'favorites', label: 'Favorites' },
   { id: 'recent', label: 'Recently Used' },
 ]
@@ -25,15 +30,19 @@ export function LibraryClient({
   currentProfileId,
   recentSetIds,
   classes,
+  builtinTopics,
+  initialTab = 'builtin',
 }: {
   initialSets: LibrarySet[]
   currentProfileId: string
   recentSetIds: string[]
   classes: { id: string; name: string }[]
+  builtinTopics: TopicSummary[]
+  initialTab?: Tab
 }) {
   const router = useRouter()
   const [sets, setSets] = useState(initialSets)
-  const [tab, setTab] = useState<Tab>('my-sets')
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [filters, setFilters] = useState<LibraryFilterState>(EMPTY_LIBRARY_FILTERS)
   const [previewId, setPreviewId] = useState<string | null>(null)
   const [playSet, setPlaySet] = useState<LibrarySet | null>(null)
@@ -51,10 +60,8 @@ export function LibraryClient({
     switch (tab) {
       case 'my-sets':
         return sets.filter((s) => s.created_by === currentProfileId)
-      case 'school':
+      case 'shared':
         return sets.filter((s) => s.created_by !== currentProfileId && (s.visibility === 'SCHOOL' || s.visibility === 'PUBLIC'))
-      case 'public':
-        return sets.filter((s) => s.visibility === 'PUBLIC')
       case 'favorites':
         return sets.filter((s) => s.isFavorite)
       case 'recent':
@@ -125,19 +132,28 @@ export function LibraryClient({
     }
   }
 
+  const builtinGames = useMemo(() => {
+    const seen = new Map<string, string>()
+    builtinTopics.forEach((t) => t.engines.forEach((e) => seen.set(e.engineId, e.name)))
+    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }))
+  }, [builtinTopics])
   const previewSet = sets.find((s) => s.id === previewId) ?? null
   const hasActiveFilters = Object.values(filters).some((v) => v !== '')
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-2 flex-wrap" role="tablist" aria-label="Question set collections">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
+            role="tab"
+            aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
-            className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
-              tab === t.id ? 'bg-gamev2ink-800 text-white' : 'text-gamev2ink-500 dark:text-gamev2ink-400 hover:bg-gamev2ink-100 dark:hover:bg-gamev2ink-800'
+            className={`px-3 py-1.5 min-h-[40px] rounded-lg text-sm font-semibold transition-colors ${
+              tab === t.id
+                ? 'bg-primary-800 text-white'
+                : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
             }`}
           >
             {t.label}
@@ -145,15 +161,31 @@ export function LibraryClient({
         ))}
       </div>
 
+      {tab === 'builtin' ? (
+        <div className="space-y-3">
+          <p className="text-sm text-stone-500 dark:text-stone-400">
+            Ready-made Tamil topics, available to every student automatically. Read-only: open a topic to preview it, host it live, or duplicate
+            it into My Question Sets to edit.
+          </p>
+          <TopicLibraryClient topics={builtinTopics} games={builtinGames} />
+        </div>
+      ) : (
+        <>
       <LibraryFilterPanel value={filters} onChange={setFilters} creators={creators} />
 
       {filtered.length === 0 ? (
         <GameV2Card>
           <GameV2Empty
-            title={sets.length === 0 ? 'No question sets yet' : 'No sets match your filters'}
-            description={sets.length === 0 ? 'Create one in the Question Set Builder to get started.' : 'Try a different search or clear your filters.'}
-            actionLabel={sets.length === 0 ? 'Create New Set' : hasActiveFilters ? 'Clear Filters' : undefined}
-            onAction={sets.length === 0 ? () => router.push('/gameroom-v2/builder/new') : () => setFilters(EMPTY_LIBRARY_FILTERS)}
+            title={tabFiltered.length === 0 ? (tab === 'my-sets' ? "You haven't created any question sets yet" : 'Nothing here yet') : 'No sets match your filters'}
+            description={
+              tabFiltered.length === 0
+                ? tab === 'my-sets'
+                  ? 'Create one in the Question Set Builder, or duplicate built-in Tamil content to customise it.'
+                  : 'Sets will appear here as you and other teachers use the library.'
+                : 'Try a different search or clear your filters.'
+            }
+            actionLabel={tabFiltered.length === 0 ? (tab === 'my-sets' ? 'Create Question Set' : undefined) : hasActiveFilters ? 'Clear Filters' : undefined}
+            onAction={tabFiltered.length === 0 ? () => router.push('/gameroom-v2/builder/new') : () => setFilters(EMPTY_LIBRARY_FILTERS)}
           />
         </GameV2Card>
       ) : (
@@ -172,6 +204,9 @@ export function LibraryClient({
             />
           ))}
         </div>
+      )}
+
+        </>
       )}
 
       {previewSet && (

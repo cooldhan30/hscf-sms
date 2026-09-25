@@ -35,7 +35,7 @@ export function RoomView({ state, onEnterRoom }: { state: ExplorationState; onEn
           {room.emoji}
         </div>
         <h3 className="font-extrabold text-lg text-gamev2ink-900 dark:text-white">
-          {room.name} <span className="font-tamil text-sm text-gamev2ink-400 dark:text-gamev2ink-500">· {room.tamilName}</span>
+          {room.name} <span className="font-tamil leading-relaxed text-sm text-gamev2ink-400 dark:text-gamev2ink-500">· {room.tamilName}</span>
         </h3>
         <p className="text-sm text-gamev2ink-600 dark:text-gamev2ink-300 mt-1">{room.description}</p>
       </motion.div>

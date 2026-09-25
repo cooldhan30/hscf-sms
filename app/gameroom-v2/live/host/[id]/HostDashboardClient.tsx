@@ -139,27 +139,27 @@ export function HostDashboardClient({ liveSessionId }: { liveSessionId: string }
   return (
     <div className="space-y-6">
       {lobby.stale && lobby.status !== 'ENDED' && (
-        <GameV2Card padding="md" className="text-center border-2 border-gamev2coral-300 dark:border-gamev2coral-600">
-          <p className="text-sm font-bold text-gamev2coral-600 dark:text-gamev2coral-300">
+        <GameV2Card padding="md" className="text-center border border-red-300 dark:border-red-600">
+          <p className="text-sm font-bold text-red-600 dark:text-red-300">
             This session has been open a long time and may be stale. If you&apos;re not actively using it, consider ending it.
           </p>
         </GameV2Card>
       )}
 
       <GameV2Card padding="lg" className="text-center">
-        <p className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500 mb-2">Join Code</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-stone-400 dark:text-stone-500 mb-2">Join Code</p>
         <button onClick={copyJoinCode} className="inline-flex items-center gap-3 group">
-          <span className="text-5xl font-black tracking-[0.2em] text-gamev2ink-900 dark:text-white tabular-nums">{lobby.joinCode}</span>
-          <FiCopy className="w-5 h-5 text-gamev2ink-300 group-hover:text-gamev2spark-500" />
+          <span className="text-5xl font-bold tracking-[0.2em] text-primary-900 dark:text-white tabular-nums">{lobby.joinCode}</span>
+          <FiCopy className="w-5 h-5 text-stone-300 group-hover:text-primary-500" />
         </button>
-        <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400 mt-3 flex items-center justify-center gap-1.5">
+        <p className="text-sm text-stone-500 dark:text-stone-400 mt-3 flex items-center justify-center gap-1.5">
           <FiUsers className="w-4 h-4" /> {connectedCount} student{connectedCount === 1 ? '' : 's'} in the lobby
         </p>
       </GameV2Card>
 
       <GameV2Card>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-extrabold text-gamev2ink-900 dark:text-white">
+          <h2 className="font-bold text-primary-900 dark:text-white">
             {lobby.status === 'LOBBY' && 'Waiting to Start'}
             {lobby.status === 'ACTIVE' && 'Live'}
             {lobby.status === 'PAUSED' && 'Paused'}
@@ -192,23 +192,23 @@ export function HostDashboardClient({ liveSessionId }: { liveSessionId: string }
         {lobby.status === 'LOBBY' ? (
           <ul className="space-y-2">
             {lobby.participants.map((p) => (
-              <li key={p.id} className="flex items-center justify-between rounded-xl bg-gamev2ink-50 dark:bg-gamev2ink-800/50 px-3 py-2">
-                <span className="font-bold text-sm text-gamev2ink-800 dark:text-gamev2ink-100">{p.nickname}</span>
-                <span className={`text-xs font-bold ${p.connected ? 'text-gamev2mint-600 dark:text-gamev2mint-400' : 'text-gamev2ink-400'}`}>
+              <li key={p.id} className="flex items-center justify-between rounded-xl bg-stone-50 dark:bg-stone-800/50 px-3 py-2">
+                <span className="font-bold text-sm text-stone-800 dark:text-stone-100">{p.nickname}</span>
+                <span className={`text-xs font-bold ${p.connected ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400'}`}>
                   {p.connected ? 'Connected' : 'Disconnected'}
                 </span>
               </li>
             ))}
-            {lobby.participants.length === 0 && <p className="text-sm text-gamev2ink-400 dark:text-gamev2ink-500 text-center py-4">Share the join code above to get started.</p>}
+            {lobby.participants.length === 0 && <p className="text-sm text-stone-400 dark:text-stone-500 text-center py-4">Share the join code above to get started.</p>}
           </ul>
         ) : (
           <ul className="space-y-2">
             {results.map((r, i) => (
-              <li key={r.participantId} className="flex items-center justify-between rounded-xl bg-gamev2ink-50 dark:bg-gamev2ink-800/50 px-3 py-2">
-                <span className="font-bold text-sm text-gamev2ink-800 dark:text-gamev2ink-100">
+              <li key={r.participantId} className="flex items-center justify-between rounded-xl bg-stone-50 dark:bg-stone-800/50 px-3 py-2">
+                <span className="font-bold text-sm text-stone-800 dark:text-stone-100">
                   #{i + 1} {r.nickname}
                 </span>
-                <span className="text-sm font-bold text-gamev2spark-600 dark:text-gamev2spark-400 tabular-nums">
+                <span className="text-sm font-bold text-primary-600 dark:text-primary-400 tabular-nums">
                   {r.score} pts &middot; {r.correctCount}/{r.answeredCount}
                 </span>
               </li>

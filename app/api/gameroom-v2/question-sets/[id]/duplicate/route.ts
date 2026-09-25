@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { stripSystemTags } from '@/lib/gameRoomV2/builtin/protection'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
 
 // POST /api/gameroom-v2/question-sets/[id]/duplicate -- makes a fully
@@ -55,7 +56,8 @@ export async function POST(_request: Request, { params }: { params: { id: string
         topic: source.topic,
         difficulty: source.difficulty,
         estimated_duration_minutes: source.estimated_duration_minutes,
-        tags: source.tags,
+        // System markers (e.g. the built-in content tags) never carry over.
+        tags: stripSystemTags(source.tags ?? []),
         language: source.language,
         visibility: 'PRIVATE',
         published: false,

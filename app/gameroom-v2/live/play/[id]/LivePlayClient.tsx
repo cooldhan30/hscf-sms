@@ -128,7 +128,7 @@ export function LivePlayClient({ liveSessionId }: { liveSessionId: string }) {
 
   function handleExit() {
     fetch(`/api/gameroom-v2/live/${liveSessionId}/leave`, { method: 'POST' }).catch(() => {})
-    router.push('/gameroom-v2/home')
+    router.push('/gameroom-v2')
   }
 
   if (error && !state) return <GameV2Error description={error} onRetry={refresh} />

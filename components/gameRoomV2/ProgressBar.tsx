@@ -23,15 +23,15 @@ export function GameV2ProgressBar({
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0
 
   const fillClasses = {
-    ink: 'bg-gamev2ink-600 dark:bg-gamev2ink-400',
-    spark: 'bg-gamev2spark-500',
-    mint: 'bg-gamev2mint-500',
+    ink: 'bg-primary-600 dark:bg-primary-500',
+    spark: 'bg-primary-600 dark:bg-primary-500',
+    mint: 'bg-emerald-500',
   }
 
   return (
     <div className="w-full">
       {label && (
-        <div className="flex items-center justify-between text-xs font-bold text-gamev2ink-500 dark:text-gamev2ink-400 mb-1.5">
+        <div className="flex items-center justify-between text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5">
           <span>{label}</span>
           <span className="tabular-nums">
             {value}/{max}
@@ -44,7 +44,7 @@ export function GameV2ProgressBar({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label={label ?? 'Progress'}
-        className="h-3 rounded-full bg-gamev2ink-100 dark:bg-gamev2ink-800 overflow-hidden"
+        className="h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden"
       >
         <motion.div
           className={`h-full rounded-full ${fillClasses[tone]}`}

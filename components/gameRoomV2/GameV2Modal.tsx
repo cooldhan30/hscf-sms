@@ -82,7 +82,7 @@ export function GameV2Modal({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-gamev2ink-950/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -94,21 +94,21 @@ export function GameV2Modal({
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className={`w-full ${MAX_WIDTH[size]} max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-gamev2ink-900 shadow-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800`}
+            className={`w-full ${MAX_WIDTH[size]} max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-stone-900 shadow-xl border border-stone-200 dark:border-stone-800`}
             initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.9, y: 20 }}
             animate={reduced ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
             exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.9, y: 20 }}
             transition={reduced ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 26 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b-2 border-gamev2ink-100 dark:border-gamev2ink-800">
-              <h2 id={titleId} className="text-lg font-extrabold text-gamev2ink-900 dark:text-white">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-stone-200 dark:border-stone-800">
+              <h2 id={titleId} className="text-lg font-bold text-primary-900 dark:text-white">
                 {title}
               </h2>
               <button
                 onClick={onClose}
                 aria-label="Close"
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white hover:bg-gamev2ink-100 dark:hover:bg-gamev2ink-800 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gamev2spark-400"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-300"
               >
                 <FiX className="w-5 h-5" />
               </button>

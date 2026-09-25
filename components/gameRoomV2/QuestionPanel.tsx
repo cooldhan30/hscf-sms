@@ -20,7 +20,7 @@ export function QuestionPanel({
   return (
     <GameV2Card padding="lg" className="max-w-xl w-full mx-auto">
       {category && (
-        <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-gamev2spark-100 text-gamev2spark-700 dark:bg-gamev2spark-500/20 dark:text-gamev2spark-300 mb-3">
+        <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-300 mb-3">
           {category}
         </span>
       )}
@@ -32,7 +32,7 @@ export function QuestionPanel({
           rather than relying on the body default -- Tamil vowel signs
           and conjuncts need visibly more vertical room than Latin text
           at the same font-size or they read as cramped/clipped. */}
-      <p className="font-tamil text-2xl sm:text-3xl font-extrabold text-gamev2ink-900 dark:text-white leading-[1.6] tracking-wide text-center">
+      <p className="font-tamil text-2xl sm:text-3xl font-bold text-primary-900 dark:text-white leading-[1.6] tracking-wide text-center">
         {prompt}
       </p>
       <div className="mt-6 space-y-3">{children}</div>

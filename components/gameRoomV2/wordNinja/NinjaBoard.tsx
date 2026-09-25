@@ -34,7 +34,7 @@ export function NinjaBoard({
             key={lane.category}
             className="rounded-2xl border-2 border-dashed border-gamev2ink-300 dark:border-gamev2ink-700 bg-white/60 dark:bg-gamev2ink-900/60 py-2 px-1 text-center"
           >
-            <span className="text-xs sm:text-sm font-bold font-tamil text-gamev2ink-700 dark:text-gamev2ink-200">{lane.category}</span>
+            <span className="text-xs sm:text-sm font-bold font-tamil leading-relaxed text-gamev2ink-700 dark:text-gamev2ink-200">{lane.category}</span>
           </div>
         ))}
       </div>
@@ -50,7 +50,7 @@ export function NinjaBoard({
               animate={{ opacity: 1, x: 0 }}
               exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.5 }}
               transition={reduced ? { duration: 0 } : { duration: 0.25 }}
-              className={`relative mx-auto mb-3 block px-5 py-2.5 rounded-2xl font-tamil font-extrabold text-lg sm:text-xl border-2 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gamev2spark-400 ${
+              className={`relative mx-auto mb-3 block px-5 py-2.5 rounded-2xl font-tamil leading-relaxed font-extrabold text-lg sm:text-xl border-2 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gamev2spark-400 ${
                 selectedWordId === word.id
                   ? 'border-gamev2spark-500 bg-gamev2spark-100 dark:bg-gamev2spark-500/20 text-gamev2ink-900 dark:text-white'
                   : word.missed
@@ -84,7 +84,7 @@ export function NinjaBoard({
             <button
               key={lane.category}
               onClick={() => onSlash(selectedWordId, lane.category)}
-              className="rounded-2xl bg-gamev2spark-500 hover:bg-gamev2spark-400 text-gamev2ink-950 font-bold font-tamil text-xs sm:text-sm py-2.5 px-1 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gamev2spark-300"
+              className="rounded-2xl bg-gamev2spark-500 hover:bg-gamev2spark-400 text-gamev2ink-950 font-bold font-tamil leading-relaxed text-xs sm:text-sm py-2.5 px-1 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gamev2spark-300"
             >
               {lane.category}
             </button>

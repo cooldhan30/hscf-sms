@@ -36,7 +36,7 @@ export function GameV2ConfirmDialog({
   return (
     <GameV2Modal open={open} onClose={onClose} title={title}>
       <div className="space-y-5">
-        <div className="text-sm text-gamev2ink-600 dark:text-gamev2ink-300">{message}</div>
+        <div className="text-sm text-stone-600 dark:text-stone-300">{message}</div>
         <div className="grid grid-cols-2 gap-3">
           <GameV2Button variant="ghost" size="md" disabled={confirming} onClick={onClose}>
             {cancelLabel}

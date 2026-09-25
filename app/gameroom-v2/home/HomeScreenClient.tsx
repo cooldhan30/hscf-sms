@@ -1,364 +1,257 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { FiCompass, FiAward, FiChevronRight, FiPlay, FiUsers } from 'react-icons/fi'
-import { GameRoomModeSwitch } from '@/components/gameRoomMode/GameRoomModeSwitch'
-import {
-  GameTile,
-  GameV2Card,
-  GameV2Badge,
-  GameV2Empty,
-  WorldCard,
-  StudentStatusBar,
-  type GameTileAccent,
-} from '@/components/gameRoomV2'
-import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
-import { LEARNING_WORLDS, type GameEngine } from '@/lib/gameRoomV2/domain'
+import { FiStar, FiTrendingUp, FiTarget, FiCheckCircle, FiUsers, FiBarChart2, FiArrowRight, FiPlayCircle, FiAward, FiCalendar } from 'react-icons/fi'
+import { PageHeader, SectionCard, StatCard, ProgressBar, TopicStatusBadge, engineIcon, primaryLinkButton, secondaryLinkButton } from '@/components/gameRoomV2/shell/ui'
+import { QuickPlay } from '@/components/gameRoomV2/learning/QuickPlay'
+import { useStartGame } from '@/components/gameRoomV2/learning/useStartGame'
+import type { TopicSummary } from '@/lib/gameRoomV2/builtin/summaries'
+import type { StudentLearning } from '@/lib/gameRoomV2/builtin/studentLearning'
+import type { LearningBoard } from '@/lib/gameRoomV2/builtin/types'
 
-const TILE_ACCENTS: GameTileAccent[] = ['ink', 'coral', 'mint', 'cyan', 'magenta', 'lime']
-const ENGINE_ICON: Record<string, string> = {
-  'classic-quiz': '❓',
-  'tower-defense': '🏰',
-  'boss-battle': '⚔️',
-  'racing': '🏁',
-  'treasure-quest': '🗺️',
-  'word-ninja': '🥷',
-  'space-mission': '🚀',
-  'kingdom-builder': '🏯',
-  'mystery-mansion': '🕵️',
-  'crossword': '📝',
-  'matching': '🧩',
-  'memory': '🃏',
+export interface HomeDailyChallenge {
+  name: string
+  description: string
+  progress: number
+  goal: number
+  completed: boolean
 }
 
-// Featured = the flagship "big arcade" engines that carry the visual
-// identity of the platform; the rest (including the lightweight
-// crossword/matching/memory activities) live in the full Game Library
-// below. Both sections read from the SAME registry array -- there's no
-// separate "featured" data source to drift out of sync.
-const FEATURED_ENGINE_IDS = ['tower-defense', 'racing', 'boss-battle', 'treasure-quest']
-
-function GameGrid({ engines, onSelect }: { engines: GameEngine[]; onSelect: (engine: GameEngine) => void }) {
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-      {engines.map((engine, i) => (
-        <GameTile
-          key={engine.id}
-          title={engine.name}
-          tamilTitle={engine.tamilName}
-          icon={<span>{ENGINE_ICON[engine.id] ?? '🎮'}</span>}
-          accent={TILE_ACCENTS[i % TILE_ACCENTS.length]}
-          status={engine.status}
-          onClick={() => onSelect(engine)}
-        />
-      ))}
-    </div>
-  )
-}
-
-function SectionHeader({ tamilTitle, title, subtitle }: { tamilTitle?: string; title: string; subtitle?: string }) {
-  return (
-    <div className="flex items-end justify-between gap-3 flex-wrap">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-black text-gamev2ink-900 dark:text-white">{title}</h2>
-        {tamilTitle && (
-          <p className="font-tamil text-base text-gamev2ink-500 dark:text-gamev2ink-400 leading-relaxed">
-            {tamilTitle}
-          </p>
-        )}
-        {subtitle && <p className="text-sm text-gamev2ink-400 dark:text-gamev2ink-500 mt-0.5">{subtitle}</p>}
-      </div>
-    </div>
-  )
-}
-
-interface PlayableSet {
-  id: string
-  title: string
-  tamilTitle: string | null
-  questionCount: number
-}
-
-export interface HomeProgressionData {
-  xp: number
-  coins: number
-  currentDailyStreak: number
-  earnedAchievements: { id: string; name: string; icon: string }[]
-}
-
+// The student GameRoom home: a Tamil learning dashboard. Topic first
+// ("what do I practise?"), game second ("how do I want to play?").
+// Everything shown comes from the student's own gameplay records.
 export function HomeScreenClient({
-  studentName,
-  progression,
-  previewLockedAchievements,
+  firstName,
+  level,
+  learning,
+  topics,
+  boards,
+  featuredTopicKeys,
+  games,
+  dailyChallenge,
+  earnedAchievements,
+  totalAchievements,
 }: {
-  studentName: string
-  progression: HomeProgressionData
-  previewLockedAchievements: { id: string; name: string; icon: string }[]
+  firstName: string
+  level: number
+  learning: StudentLearning
+  topics: TopicSummary[]
+  boards: LearningBoard[]
+  featuredTopicKeys: string[]
+  games: { id: string; name: string; topicCount: number }[]
+  dailyChallenge: HomeDailyChallenge | null
+  earnedAchievements: { id: string; name: string }[]
+  totalAchievements: number
 }) {
-  const router = useRouter()
-  const [infoEngine, setInfoEngine] = useState<GameEngine | null>(null)
-  const [challengeMessage, setChallengeMessage] = useState<string | null>(null)
-  const [playableSets, setPlayableSets] = useState<PlayableSet[] | null>(null)
-  const [startingSetId, setStartingSetId] = useState<string | null>(null)
-  const [startError, setStartError] = useState<string | null>(null)
-
-  // Loads the sets this student may play on their own with the chosen
-  // engine (published, in one of their classes, compatible).
-  useEffect(() => {
-    if (!infoEngine || infoEngine.status !== 'ACTIVE') return
-    let cancelled = false
-    setPlayableSets(null)
-    setStartError(null)
-    fetch(`/api/gameroom-v2/student/question-sets?engineId=${encodeURIComponent(infoEngine.id)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) setPlayableSets(Array.isArray(data?.questionSets) ? data.questionSets : [])
-      })
-      .catch(() => {
-        if (!cancelled) setPlayableSets([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [infoEngine])
-
-  async function handlePlay(setId: string) {
-    if (!infoEngine) return
-    setStartingSetId(setId)
-    setStartError(null)
-    const res = await fetch('/api/gameroom-v2/sessions/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ questionSetId: setId, engineId: infoEngine.id }),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok || !data.sessionId) {
-      setStartingSetId(null)
-      setStartError(data.error || 'Could not start the game')
-      return
-    }
-    router.push(`/gameroom-v2/play/${data.sessionId}`)
-  }
-
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/gameroom-v2/analytics/student-challenge')
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled && typeof data?.message === 'string') setChallengeMessage(data.message)
-      })
-      .catch(() => {
-        // இன்றைய சவால் is a nice-to-have suggestion, not gameplay-
-        // critical -- a fetch failure just leaves the section showing
-        // its existing empty state rather than an error banner.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const featuredEngines = useMemo(
-    () => FEATURED_ENGINE_IDS.map((id) => GAME_ENGINES_V2.find((e) => e.id === id)).filter((e): e is GameEngine => Boolean(e)),
-    []
-  )
-
-  // An ACTIVE engine's popover lists the sets the student can play with
-  // it; a COMING_SOON engine's popover only explains that it isn't
-  // playable yet -- there is never a silent no-op button.
-  function handleSelectEngine(engine: GameEngine) {
-    setInfoEngine(engine)
-  }
+  const { start, starting } = useStartGame()
+  const topicByKey = new Map(topics.map((t) => [t.key, t]))
+  const statuses = Object.fromEntries(Object.entries(learning.topicProgress).map(([k, p]) => [k, p.status]))
+  const lastActivity = learning.recentActivity[0]
+  const lastTopic = lastActivity ? topicByKey.get(lastActivity.topicKey) : undefined
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100 dark:from-gamev2ink-950 dark:to-gamev2ink-900 px-4 sm:px-6 py-8">
-      <div className="max-w-6xl mx-auto space-y-12">
-        {/* ============ HEADER / ARCADE MARQUEE ============ */}
-        <header className="relative rounded-3xl overflow-hidden border-2 border-gamev2ink-100 dark:border-gamev2ink-800 shadow-xl">
-          <div className="relative bg-gradient-to-br from-gamev2ink-700 via-gamev2ink-800 to-gamev2ink-950 px-6 sm:px-10 py-8 sm:py-12">
-            <div
-              className="absolute inset-0 opacity-10"
-              style={{
-                backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.9) 1.5px, transparent 1.5px)',
-                backgroundSize: '22px 22px',
-              }}
-              aria-hidden
-            />
-            <div className="relative">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-gamev2spark-400">Tamizhi GameRoom</p>
-                <GameRoomModeSwitch to="classic" tone="dark" />
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-black text-white mt-1">Welcome back, {studentName}! 👋</h1>
-              <p className="text-gamev2ink-200 mt-2 max-w-lg">
-                Pick a game below, or join your class&apos;s live game with a code from your teacher.
-              </p>
-              <Link
-                href="/gameroom-v2/live/join"
-                className="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-2xl font-extrabold bg-gamev2spark-400 text-gamev2ink-950 hover:bg-gamev2spark-300 transition-colors"
-              >
-                <FiUsers className="w-5 h-5" /> Join a Live Classroom game
-              </Link>
-            </div>
-          </div>
-        </header>
+    <div className="max-w-5xl mx-auto space-y-6">
+      <PageHeader
+        title={firstName ? `Game Room -- welcome, ${firstName}` : 'Game Room'}
+        tamilTitle="விளையாட்டு அறை"
+        description="Pick a Tamil topic, then choose a game to practise it."
+        actions={
+          <>
+            <Link href="/gameroom-v2/live/join" className={secondaryLinkButton}>
+              <FiUsers className="w-4 h-4" aria-hidden /> Join Live Game
+            </Link>
+            <Link href="/gameroom-v2/progress" className={secondaryLinkButton}>
+              <FiBarChart2 className="w-4 h-4" aria-hidden /> My Progress
+            </Link>
+          </>
+        }
+      />
 
-        {/* ============ STUDENT XP / LEVEL / COINS ============ */}
-        <StudentStatusBar name={studentName} xp={progression.xp} coins={progression.coins} dailyStreak={progression.currentDailyStreak} />
-
-        {/* ============ CONTINUE PLAYING ============ */}
-        <section className="space-y-4">
-          <SectionHeader title="Continue Playing" />
-          <GameV2Card>
-            <GameV2Empty
-              title="No games in progress"
-              description="Once you start a game, you can pick up right where you left off here."
-            />
-          </GameV2Card>
-        </section>
-
-        {/* ============ TODAY'S CHALLENGE ============ */}
-        <section className="space-y-4">
-          <SectionHeader title="Today's Challenge" tamilTitle="இன்றைய சவால்" />
-          <GameV2Card className="bg-gradient-to-br from-gamev2spark-50 to-white dark:from-gamev2spark-500/10 dark:to-gamev2ink-900">
-            {challengeMessage ? (
-              <p className="text-gamev2ink-800 dark:text-gamev2ink-100 font-semibold">{challengeMessage}</p>
-            ) : (
-              <GameV2Empty
-                title="Play a game to get your first challenge"
-                description="Once you've answered a few questions, இன்றைய சவால் will suggest a concept worth practicing."
-              />
-            )}
-          </GameV2Card>
-        </section>
-
-        {/* ============ FEATURED GAMES ============ */}
-        <section className="space-y-4">
-          <SectionHeader title="Featured Games" subtitle="The big arcade experiences." />
-          <GameGrid engines={featuredEngines} onSelect={handleSelectEngine} />
-        </section>
-
-        {/* ============ LEARNING WORLDS ============ */}
-        <section className="space-y-4">
-          <SectionHeader title="Learning Worlds" subtitle="Six worlds, each with its own identity." />
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {LEARNING_WORLDS.map((world) => (
-              <WorldCard key={world.id} world={world} onClick={() => {}} />
-            ))}
-          </div>
-        </section>
-
-        {/* ============ FULL GAME LIBRARY ============ */}
-        <section className="space-y-4">
-          <SectionHeader
-            title="Game Library"
-            subtitle={`${GAME_ENGINES_V2.length} games and activities -- ${GAME_ENGINES_V2.filter((e) => e.status === 'ACTIVE').length} playable now, the rest coming soon.`}
-          />
-          <GameGrid engines={GAME_ENGINES_V2} onSelect={handleSelectEngine} />
-        </section>
-
-        {/* ============ ACHIEVEMENTS PREVIEW ============ */}
-        <section className="space-y-4">
-          <SectionHeader title="Achievements" />
-          <GameV2Card>
-            <div className="flex flex-wrap gap-5">
-              {progression.earnedAchievements.map((a) => (
-                <GameV2Badge key={a.id} icon={a.icon} label={a.name} />
-              ))}
-              {previewLockedAchievements.map((a) => (
-                <GameV2Badge key={a.id} icon={a.icon} label={a.name} locked />
-              ))}
-            </div>
-            <p className="text-sm text-gamev2ink-400 dark:text-gamev2ink-500 mt-4">
-              {progression.earnedAchievements.length > 0
-                ? `You've earned ${progression.earnedAchievements.length} achievement${progression.earnedAchievements.length === 1 ? '' : 's'} so far -- keep playing to unlock more.`
-                : 'Play a game to start earning achievements -- every badge unlocks the moment you actually accomplish it.'}
-            </p>
-          </GameV2Card>
-        </section>
-
-        {/* ============ RECENT ACCOMPLISHMENTS ============ */}
-        <section className="space-y-4">
-          <SectionHeader title="Recent Accomplishments" />
-          <GameV2Card>
-            <GameV2Empty
-              icon={FiAward}
-              title="Nothing here yet"
-              description="Finish a game to see your accomplishments show up in this list."
-            />
-          </GameV2Card>
-        </section>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={FiStar} value={`Level ${level}`} label={`${learning.stats.xp.toLocaleString()} XP`} />
+        <StatCard icon={FiTrendingUp} value={learning.stats.dailyStreak} label="Day streak" />
+        <StatCard icon={FiCheckCircle} value={`${learning.topicsMastered}/${topics.length}`} label="Topics mastered" />
+        <StatCard icon={FiTarget} value={learning.overallAccuracy === null ? '--' : `${learning.overallAccuracy}%`} label="Recent accuracy" />
       </div>
 
-      {infoEngine && (
-        <div
-          className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-gamev2ink-950/60 backdrop-blur-sm p-4"
-          onClick={() => setInfoEngine(null)}
-        >
-          <div
-            className="w-full max-w-sm rounded-3xl bg-white dark:bg-gamev2ink-900 border-2 border-gamev2ink-100 dark:border-gamev2ink-800 shadow-2xl p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-4xl mb-2" aria-hidden>
-                  {ENGINE_ICON[infoEngine.id] ?? '🎮'}
-                </p>
-                <h3 className="text-lg font-extrabold text-gamev2ink-900 dark:text-white">{infoEngine.name}</h3>
-                {infoEngine.tamilName && (
-                  <p className="font-tamil text-sm text-gamev2ink-500 dark:text-gamev2ink-400">{infoEngine.tamilName}</p>
-                )}
-              </div>
-              <span className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-gamev2ink-100 dark:bg-gamev2ink-800 text-gamev2ink-600 dark:text-gamev2ink-300">
-                <FiCompass className="w-3 h-3" /> {infoEngine.status.replace('_', ' ')}
-              </span>
-            </div>
-            <p className="text-sm text-gamev2ink-600 dark:text-gamev2ink-300 mt-3">{infoEngine.description}</p>
-            {infoEngine.status === 'ACTIVE' ? (
-              <div className="mt-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500 mb-2">Choose a question set</p>
-                {playableSets === null && <p className="text-sm text-gamev2ink-400">Loading...</p>}
-                {playableSets?.length === 0 && (
-                  <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400">
-                    Your teacher hasn&apos;t shared any sets for this game yet. Ask them, or join their live game with a code.
-                  </p>
-                )}
-                <ul className="space-y-2 max-h-64 overflow-y-auto">
-                  {playableSets?.map((s) => (
-                    <li key={s.id}>
-                      <button
-                        type="button"
-                        disabled={startingSetId !== null}
-                        onClick={() => handlePlay(s.id)}
-                        className="w-full flex items-center justify-between gap-3 px-4 py-3 min-h-[44px] rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 hover:border-gamev2ink-500 text-left disabled:opacity-60"
-                      >
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SectionCard title="Recommended for You">
+          <ul className="space-y-3">
+            {learning.recommendations.map((r) => {
+              const topic = topicByKey.get(r.topicKey)
+              const game = topic?.engines[0]
+              return (
+                <li key={r.topicKey} className="flex items-center justify-between gap-3">
+                  <Link href={`/gameroom-v2/topics/${r.topicKey}`} className="min-w-0 group">
+                    <p className="font-medium font-tamil leading-relaxed text-stone-800 dark:text-stone-100 group-hover:text-primary-700 dark:group-hover:text-primary-400 break-words">{r.title}</p>
+                    <p className="text-sm text-stone-500 dark:text-stone-400">{r.reason}</p>
+                  </Link>
+                  {game && (
+                    <button
+                      type="button"
+                      disabled={starting !== null}
+                      onClick={() => start(game.setId, game.engineId, `rec:${r.topicKey}`)}
+                      className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-lg bg-primary-700 hover:bg-primary-800 dark:bg-primary-600 text-white text-sm font-semibold disabled:opacity-50"
+                      aria-label={`Play ${topic?.tamilTitle} now`}
+                    >
+                      <FiPlayCircle className="w-4 h-4" aria-hidden /> {starting === `rec:${r.topicKey}` ? '...' : 'Play'}
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+          <p className="text-xs text-stone-400 dark:text-stone-500 mt-4">Based on your recent games and scores.</p>
+        </SectionCard>
+
+        <SectionCard title="Continue Learning">
+          {learning.inProgress.length === 0 && !lastTopic ? (
+            <p className="text-sm text-stone-500 dark:text-stone-400">
+              Nothing in progress yet. Start with a Learning Board below -- your games will show up here.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {learning.inProgress.map((s) => {
+                const Icon = engineIcon(s.engineId)
+                const topic = topics.find((t) => t.engines.some((e) => e.setId === s.questionSetId))
+                return (
+                  <li key={s.id}>
+                    <Link href={`/gameroom-v2/play/${s.id}`} className="flex items-center justify-between gap-3 -mx-2 px-2 py-1.5 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-800/60">
+                      <span className="flex items-center gap-3 min-w-0">
+                        <Icon className="w-5 h-5 text-primary-700 dark:text-primary-400 flex-shrink-0" aria-hidden />
                         <span className="min-w-0">
-                          <span className="block font-bold text-gamev2ink-800 dark:text-gamev2ink-100 truncate">{s.title}</span>
-                          {s.tamilTitle && <span className="block font-tamil text-sm leading-relaxed text-gamev2ink-500 dark:text-gamev2ink-400 truncate">{s.tamilTitle}</span>}
-                          <span className="block text-xs text-gamev2ink-400">{s.questionCount} questions</span>
+                          <span className="block font-medium font-tamil leading-relaxed text-stone-800 dark:text-stone-100 truncate">{topic?.tamilTitle ?? 'Your game'}</span>
+                          <span className="block text-sm text-stone-500 dark:text-stone-400">
+                            Resume -- {s.answered}/{s.total} answered
+                          </span>
                         </span>
-                        <FiPlay className="w-5 h-5 flex-shrink-0 text-gamev2ink-500" aria-hidden />
-                        <span className="sr-only">{startingSetId === s.id ? 'Starting' : 'Play'}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                {startError && <p className="text-sm text-gamev2coral-600 mt-2">{startError}</p>}
-              </div>
-            ) : (
-              <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500 mt-3">This game is coming soon.</p>
-            )}
-            <button
-              type="button"
-              onClick={() => setInfoEngine(null)}
-              className="mt-5 w-full inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl font-bold text-gamev2ink-700 dark:text-gamev2ink-200 border-2 border-gamev2ink-200 dark:border-gamev2ink-700 hover:bg-gamev2ink-50 dark:hover:bg-gamev2ink-800 transition-colors"
-            >
-              Got it <FiChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+                      </span>
+                      <FiArrowRight className="w-4 h-4 text-stone-400 flex-shrink-0" aria-hidden />
+                    </Link>
+                  </li>
+                )
+              })}
+              {lastTopic && (
+                <li>
+                  <Link href={`/gameroom-v2/topics/${lastTopic.key}`} className="flex items-center justify-between gap-3 -mx-2 px-2 py-1.5 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-800/60">
+                    <span className="min-w-0">
+                      <span className="block font-medium font-tamil leading-relaxed text-stone-800 dark:text-stone-100 truncate">{lastTopic.tamilTitle}</span>
+                      <span className="block text-sm text-stone-500 dark:text-stone-400">Last played -- {lastActivity!.accuracy}% accuracy</span>
+                    </span>
+                    <TopicStatusBadge status={statuses[lastTopic.key] ?? 'new'} />
+                  </Link>
+                </li>
+              )}
+            </ul>
+          )}
+        </SectionCard>
+      </div>
+
+      <SectionCard title="Learning Boards" action={{ href: '/gameroom-v2/boards', label: 'View all' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {boards.map((b) => {
+            const p = learning.boardProgress.find((x) => x.boardId === b.id)!
+            return (
+              <Link
+                key={b.id}
+                href={`/gameroom-v2/boards/${b.id}`}
+                className="flex flex-col p-4 rounded-xl border border-stone-200 dark:border-stone-800 hover:border-primary-300 dark:hover:border-primary-800 transition-colors"
+              >
+                <p className="font-semibold text-stone-800 dark:text-stone-100">{b.title}</p>
+                <p className="font-tamil text-sm leading-relaxed text-stone-500 dark:text-stone-400">{b.tamilTitle}</p>
+                <div className="mt-3">
+                  <ProgressBar percent={p.percent} label={`${b.title} progress`} />
+                </div>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5">
+                  {p.mastered}/{p.total} mastered{p.practicing > 0 ? ` · ${p.practicing} in progress` : ''}
+                </p>
+              </Link>
+            )
+          })}
         </div>
-      )}
+      </SectionCard>
+
+      <SectionCard title="Quick Play">
+        <QuickPlay topics={topics} statuses={statuses} />
+      </SectionCard>
+
+      <SectionCard title="Popular Topics" action={{ href: '/gameroom-v2/topics', label: 'All topics' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {featuredTopicKeys.map((key) => {
+            const t = topicByKey.get(key)
+            if (!t) return null
+            return (
+              <Link
+                key={key}
+                href={`/gameroom-v2/topics/${key}`}
+                className="flex items-center justify-between gap-3 p-3 rounded-xl border border-stone-200 dark:border-stone-800 hover:border-primary-300 dark:hover:border-primary-800 transition-colors"
+              >
+                <span className="min-w-0">
+                  <span className="block font-tamil font-semibold leading-relaxed text-stone-800 dark:text-stone-100 truncate">{t.tamilTitle}</span>
+                  <span className="block text-xs text-stone-500 dark:text-stone-400">{t.englishTitle}</span>
+                </span>
+                <TopicStatusBadge status={statuses[key] ?? 'new'} />
+              </Link>
+            )
+          })}
+        </div>
+      </SectionCard>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SectionCard title="Games">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {games.map((g) => {
+              const Icon = engineIcon(g.id)
+              return (
+                <Link
+                  key={g.id}
+                  href={`/gameroom-v2/topics?game=${g.id}`}
+                  className="flex items-center gap-2 p-2.5 min-h-[44px] rounded-lg border border-stone-200 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-800/60 text-sm font-medium text-stone-700 dark:text-stone-200"
+                >
+                  <Icon className="w-4 h-4 text-primary-700 dark:text-primary-400 flex-shrink-0" aria-hidden />
+                  <span className="truncate">{g.name}</span>
+                </Link>
+              )
+            })}
+          </div>
+          <p className="text-xs text-stone-400 dark:text-stone-500 mt-3">Pick a game to see the topics you can play with it.</p>
+        </SectionCard>
+
+        <div className="space-y-6">
+          {dailyChallenge && (
+            <SectionCard title="Daily Challenge">
+              <div className="flex items-start gap-3">
+                <FiCalendar className="w-5 h-5 text-primary-700 dark:text-primary-400 mt-0.5 flex-shrink-0" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-stone-800 dark:text-stone-100">{dailyChallenge.name}</p>
+                  <p className="text-sm text-stone-500 dark:text-stone-400">{dailyChallenge.description}</p>
+                  <div className="mt-3">
+                    <ProgressBar percent={(dailyChallenge.progress / dailyChallenge.goal) * 100} label="Daily challenge progress" />
+                  </div>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5">
+                    {dailyChallenge.completed ? 'Completed today' : `${Math.min(dailyChallenge.progress, dailyChallenge.goal)}/${dailyChallenge.goal}`}
+                  </p>
+                </div>
+              </div>
+            </SectionCard>
+          )}
+          <SectionCard title="Achievements" action={{ href: '/gameroom-v2/progress', label: 'View all' }}>
+            <div className="flex items-center gap-3">
+              <FiAward className="w-5 h-5 text-gold-600 dark:text-gold-400 flex-shrink-0" aria-hidden />
+              <p className="text-sm text-stone-600 dark:text-stone-300">
+                {earnedAchievements.length} of {totalAchievements} earned
+                {earnedAchievements.length > 0 ? ` -- latest: ${earnedAchievements[0].name}` : ' -- finish a game to earn your first.'}
+              </p>
+            </div>
+          </SectionCard>
+        </div>
+      </div>
+
+      <div className="flex justify-center">
+        <Link href="/gameroom-v2/topics" className={primaryLinkButton}>
+          Browse all Tamil topics <FiArrowRight className="w-4 h-4" aria-hidden />
+        </Link>
+      </div>
     </div>
   )
 }

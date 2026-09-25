@@ -40,7 +40,7 @@ function Select({ value, onChange, options, placeholder }: { value: string; onCh
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm text-gamev2ink-700 dark:text-gamev2ink-200"
+      className="px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm text-stone-700 dark:text-stone-200"
     >
       <option value="">{placeholder}</option>
       {options.map((o) => (
@@ -73,13 +73,13 @@ export function LibraryFilterPanel({
   return (
     <div className="flex flex-wrap gap-2">
       <div className="relative flex-1 min-w-[200px]">
-        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gamev2ink-400 w-4 h-4" aria-hidden />
+        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4" aria-hidden />
         <input
           value={value.search}
           onChange={(e) => set('search', e.target.value)}
           placeholder="Search by title, topic, or tags..."
           aria-label="Search question sets by title, topic, or tags"
-          className="w-full pl-9 pr-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm font-tamil"
+          className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm font-tamil leading-relaxed"
         />
       </div>
       <Select value={value.level} onChange={(v) => set('level', v)} options={GRADE_LEVEL_OPTIONS as unknown as { value: string; label: string }[]} placeholder="Any Level" />
@@ -106,7 +106,7 @@ export function LibraryFilterPanel({
         value={value.sort}
         onChange={(e) => set('sort', e.target.value as LibrarySortOption)}
         aria-label="Sort by"
-        className="px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm font-bold text-gamev2ink-700 dark:text-gamev2ink-200"
+        className="px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm font-bold text-stone-700 dark:text-stone-200"
       >
         {SORT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>

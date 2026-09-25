@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isBuiltinSetId, BUILTIN_READ_ONLY_ERROR } from '@/lib/gameRoomV2/builtin/protection'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
 import { requireString, optionalString } from '@/lib/validation'
 import {
@@ -25,7 +26,8 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
   const { data: questionSet, error: setError } = await supabase
     .from('sms_gamev2_question_sets')
-    .select('*, class:sms_classes(id, name), creator:sms_profiles(first_name, last_name)')
+    // Explicit FK hints -- see question-sets/route.ts (PGRST201).
+    .select('*, class:sms_classes!class_id(id, name), creator:sms_profiles!created_by(first_name, last_name)')
     .eq('id', params.id)
     .single()
 
@@ -72,6 +74,11 @@ interface IncomingQuestion {
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const guard = await requireGameV2Teacher()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
+  // Canonical built-in Tamil content is read-only for everyone (admins
+  // included); teachers customise it via Duplicate.
+  if (isBuiltinSetId(params.id)) {
+    return NextResponse.json({ error: BUILTIN_READ_ONLY_ERROR }, { status: 403 })
+  }
   const { supabase, isAdmin } = guard
 
   const body = await request.json().catch(() => null)
@@ -250,6 +257,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
   const guard = await requireGameV2Teacher()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
+  // Canonical built-in Tamil content is read-only for everyone (admins
+  // included); teachers customise it via Duplicate.
+  if (isBuiltinSetId(params.id)) {
+    return NextResponse.json({ error: BUILTIN_READ_ONLY_ERROR }, { status: 403 })
+  }
   const { supabase } = guard
 
   const { data, error } = await supabase.from('sms_gamev2_question_sets').delete().eq('id', params.id).select('id')

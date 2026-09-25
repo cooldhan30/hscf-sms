@@ -54,22 +54,22 @@ export function AssignModal({
   return (
     <GameV2Modal open={open} onClose={onClose} title="Assign to a Class">
       {classes.length === 0 ? (
-        <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400">You don&apos;t have any classes to assign to.</p>
+        <p className="text-sm text-stone-500 dark:text-stone-400">You don&apos;t have any classes to assign to.</p>
       ) : (
         <div className="space-y-4">
-          <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400">
+          <p className="text-sm text-stone-500 dark:text-stone-400">
             Attach &quot;{setTitle}&quot; to one of your classes -- this is the set&apos;s CONTENT, not a specific
             game, so any compatible game engine can play it.
           </p>
           {currentClass && (
-            <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500">
+            <p className="text-xs text-stone-400 dark:text-stone-500">
               Currently assigned to <span className="font-bold">{currentClass.name}</span>.
             </p>
           )}
           <select
             value={classId}
             onChange={(e) => setClassId(e.target.value)}
-            className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900"
+            className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900"
           >
             {classes.map((c) => (
               <option key={c.id} value={c.id}>
@@ -78,11 +78,11 @@ export function AssignModal({
             ))}
           </select>
           {willReassign && (
-            <p className="text-sm text-gamev2spark-700 dark:text-gamev2spark-300 bg-gamev2spark-50 dark:bg-gamev2spark-500/10 rounded-xl px-3 py-2">
+            <p className="text-sm text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-500/10 rounded-xl px-3 py-2">
               This set can only be assigned to one class at a time -- assigning it here will move it away from &quot;{currentClass?.name}&quot;.
             </p>
           )}
-          {error && <p className="text-sm text-gamev2coral-600 dark:text-gamev2coral-400">{error}</p>}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <GameV2Button variant="spark" fullWidth disabled={saving} onClick={handleAssign}>
             {saving ? 'Assigning...' : willReassign ? 'Move to This Class' : 'Assign'}
           </GameV2Button>

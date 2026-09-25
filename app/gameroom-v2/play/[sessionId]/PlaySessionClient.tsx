@@ -55,13 +55,16 @@ const GameSessionRuntime = dynamic(() => import('@/components/gameRoomV2/gamepla
 export function PlaySessionClient({ sessionId }: { sessionId: string }) {
   const router = useRouter()
   const [engineId, setEngineId] = useState<string | null>(null)
+  const [questionSetId, setQuestionSetId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     fetch(`/api/gameroom-v2/sessions/${sessionId}/state`, { method: 'POST' })
       .then((res) => res.json())
       .then((data) => {
-        if (!cancelled) setEngineId(data?.engineId ?? '')
+        if (cancelled) return
+        setEngineId(data?.engineId ?? '')
+        setQuestionSetId(typeof data?.questionSetId === 'string' ? data.questionSetId : null)
       })
       .catch(() => {
         if (!cancelled) setEngineId('')
@@ -73,14 +76,27 @@ export function PlaySessionClient({ sessionId }: { sessionId: string }) {
 
   if (engineId === null) return <GameV2Loading label="Loading game..." />
 
-  // /gameroom/v2 resolves to the right V2 home for the caller's role --
-  // students used to be sent to the teacher-only Library here.
-  const goToLibrary = () => router.push('/gameroom/v2')
+  // Leaving a game (finished or not) goes to the results page: saved
+  // score, XP, topic/board progress and Recommended Next.
+  const goToResults = () => router.push(`/gameroom-v2/results/${sessionId}`)
+  // "Play again" starts a fresh session on the same set + engine through
+  // the normal, server-validated start route.
+  const playAgain = async () => {
+    if (!questionSetId || !engineId) return goToResults()
+    const res = await fetch('/api/gameroom-v2/sessions/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questionSetId, engineId }),
+    }).catch(() => null)
+    const data = res ? await res.json().catch(() => ({})) : {}
+    if (res?.ok && data.sessionId) router.push(`/gameroom-v2/play/${data.sessionId}`)
+    else goToResults()
+  }
   const Engine = ENGINE_COMPONENTS[engineId]
 
   if (Engine) {
-    return <Engine sessionId={sessionId} onExit={goToLibrary} onPlayAgain={goToLibrary} />
+    return <Engine sessionId={sessionId} onExit={goToResults} onPlayAgain={playAgain} />
   }
 
-  return <GameSessionRuntime sessionId={sessionId} onExit={goToLibrary} />
+  return <GameSessionRuntime sessionId={sessionId} onExit={goToResults} onPlayAgain={playAgain} />
 }

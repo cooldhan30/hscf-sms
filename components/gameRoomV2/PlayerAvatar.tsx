@@ -67,7 +67,7 @@ export function PlayerAvatar({
   return (
     <div className="relative inline-flex">
       <div
-        className={`rounded-2xl flex items-center justify-center font-extrabold font-tamil ${bg} ${text} ${sizeClasses[size]}`}
+        className={`rounded-2xl flex items-center justify-center font-extrabold font-tamil leading-relaxed ${bg} ${text} ${sizeClasses[size]}`}
         aria-hidden
       >
         {initial}

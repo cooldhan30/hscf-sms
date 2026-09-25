@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isBuiltinSetId, BUILTIN_READ_ONLY_ERROR } from '@/lib/gameRoomV2/builtin/protection'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
 import { requireString } from '@/lib/validation'
 
@@ -20,6 +21,11 @@ import { requireString } from '@/lib/validation'
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const guard = await requireGameV2Teacher()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
+  // Canonical built-in Tamil content is read-only for everyone (admins
+  // included); teachers customise it via Duplicate.
+  if (isBuiltinSetId(params.id)) {
+    return NextResponse.json({ error: BUILTIN_READ_ONLY_ERROR }, { status: 403 })
+  }
   const { supabase, profile } = guard
 
   const body = await request.json().catch(() => null)

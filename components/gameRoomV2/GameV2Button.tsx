@@ -35,34 +35,32 @@ export const GameV2Button = forwardRef<HTMLButtonElement, GameV2ButtonProps>(
     const { soundEnabled } = useSoundPreference()
 
     const variantClasses = {
-      primary:
-        'bg-gamev2ink-700 text-white shadow-[0_4px_0_0_theme(colors.gamev2ink.900)] hover:bg-gamev2ink-600 active:shadow-[0_1px_0_0_theme(colors.gamev2ink.900)] dark:bg-gamev2ink-600 dark:shadow-[0_4px_0_0_theme(colors.gamev2ink.950)]',
-      spark:
-        'bg-gamev2spark-500 text-gamev2ink-950 shadow-[0_4px_0_0_theme(colors.gamev2spark.700)] hover:bg-gamev2spark-400 active:shadow-[0_1px_0_0_theme(colors.gamev2spark.700)]',
+      // Same tokens as the main app's buttons (teal primary, stone-bordered
+      // secondary) so GameRoom controls match the rest of the app.
+      primary: 'bg-primary-700 text-white hover:bg-primary-800 dark:bg-primary-600 dark:hover:bg-primary-700',
+      spark: 'bg-primary-700 text-white hover:bg-primary-800 dark:bg-primary-600 dark:hover:bg-primary-700',
       ghost:
-        'bg-white dark:bg-gamev2ink-900 text-gamev2ink-800 dark:text-gamev2ink-100 border-2 border-gamev2ink-200 dark:border-gamev2ink-700 hover:border-gamev2ink-400 dark:hover:border-gamev2ink-500',
-      danger:
-        'bg-gamev2coral-500 text-white shadow-[0_4px_0_0_theme(colors.gamev2coral.600)] hover:bg-gamev2coral-400 active:shadow-[0_1px_0_0_theme(colors.gamev2coral.600)]',
+        'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 border border-stone-300 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800',
+      danger: 'bg-red-600 text-white hover:bg-red-700',
     }
 
     const sizeClasses = {
-      md: 'px-5 py-3 text-base min-h-[48px]',
-      lg: 'px-7 py-4 text-lg min-h-[56px]',
-      xl: 'px-9 py-5 text-xl min-h-[64px]',
+      md: 'px-4 py-2.5 text-sm min-h-[44px]',
+      lg: 'px-5 py-3 text-base min-h-[48px]',
+      xl: 'px-6 py-3.5 text-lg min-h-[52px]',
     }
 
     return (
       <motion.button
         ref={ref}
         disabled={disabled}
-        whileHover={disabled || reduced ? undefined : { y: -2 }}
-        whileTap={disabled || reduced ? undefined : { y: 2 }}
+        whileTap={disabled || reduced ? undefined : { scale: 0.98 }}
         transition={spring}
         onClick={(e) => {
           if (sound) playSound('button', soundEnabled)
           onClick?.(e)
         }}
-        className={`inline-flex items-center justify-center gap-2 rounded-2xl font-extrabold tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gamev2spark-400 focus-visible:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none ${variantClasses[variant]} ${sizeClasses[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
+        className={`inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-300 disabled:opacity-50 disabled:cursor-not-allowed ${variantClasses[variant]} ${sizeClasses[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
         {...props}
       >
         {children}

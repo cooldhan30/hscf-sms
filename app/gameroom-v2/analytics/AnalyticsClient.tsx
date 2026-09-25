@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/gameRoomV2/shell/ui'
 import { useEffect, useState } from 'react'
 import { FiUsers, FiTarget, FiTrendingUp, FiAlertCircle } from 'react-icons/fi'
 import { GameV2Card, GameV2Empty, GameV2Loading, GameV2ProgressBar } from '@/components/gameRoomV2'
@@ -100,12 +101,12 @@ export function AnalyticsClient({ questionSets }: { questionSets: QuestionSetOpt
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-gamev2ink-900 dark:text-white">Learning Analytics</h1>
-        <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400 mt-1">
-          Educational performance, tracked separately from game scores.
-        </p>
-      </div>
+      <PageHeader
+        title="Learning Analytics"
+        description="Educational performance on your question sets, tracked separately from game scores."
+        backHref="/gameroom-v2"
+        backLabel="Game Room"
+      />
 
       {questionSets.length === 0 ? (
         <GameV2Card>
@@ -116,7 +117,7 @@ export function AnalyticsClient({ questionSets }: { questionSets: QuestionSetOpt
           <select
             value={selectedSetId ?? ''}
             onChange={(e) => setSelectedSetId(e.target.value)}
-            className="w-full sm:w-auto px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-bold"
+            className="w-full sm:w-auto px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 font-bold"
           >
             {questionSets.map((s) => (
               <option key={s.id} value={s.id}>
@@ -154,7 +155,7 @@ export function AnalyticsClient({ questionSets }: { questionSets: QuestionSetOpt
 
                   {report.dimensionMastery.length > 0 && (
                     <GameV2Card>
-                      <h2 className="font-extrabold text-gamev2ink-900 dark:text-white mb-4">Mastery by Dimension</h2>
+                      <h2 className="font-bold text-primary-900 dark:text-white mb-4">Mastery by Dimension</h2>
                       <div className="space-y-4">
                         {report.dimensionMastery.map((d) => (
                           <div key={d.key}>
@@ -172,7 +173,7 @@ export function AnalyticsClient({ questionSets }: { questionSets: QuestionSetOpt
 
                   {report.conceptMastery.length > 0 && (
                     <GameV2Card>
-                      <h2 className="font-extrabold text-gamev2ink-900 dark:text-white mb-4">Topic Mastery</h2>
+                      <h2 className="font-bold text-primary-900 dark:text-white mb-4">Topic Mastery</h2>
                       <div className="space-y-4">
                         {report.conceptMastery.map((c) => (
                           <div key={c.key}>
@@ -190,8 +191,8 @@ export function AnalyticsClient({ questionSets }: { questionSets: QuestionSetOpt
 
                   {report.conceptsNeedingAttention.length > 0 && (
                     <GameV2Card>
-                      <h2 className="font-extrabold text-gamev2ink-900 dark:text-white mb-1">Students Needing Practice</h2>
-                      <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500 mb-4">
+                      <h2 className="font-bold text-primary-900 dark:text-white mb-1">Students Needing Practice</h2>
+                      <p className="text-xs text-stone-400 dark:text-stone-500 mb-4">
                         Below 70% accuracy, with at least 3 attempts on the concept.
                       </p>
                       <div className="space-y-5">
@@ -199,14 +200,14 @@ export function AnalyticsClient({ questionSets }: { questionSets: QuestionSetOpt
                           const gloss = getConceptSuggestionByTamilName(c.concept)
                           return (
                             <div key={c.concept}>
-                              <p className="font-bold text-sm text-gamev2ink-800 dark:text-gamev2ink-100 font-tamil">
-                                {c.concept} {gloss ? <span className="text-gamev2ink-400 font-normal">({gloss.englishName})</span> : null}
+                              <p className="font-bold text-sm text-stone-800 dark:text-stone-100 font-tamil leading-relaxed">
+                                {c.concept} {gloss ? <span className="text-stone-400 font-normal">({gloss.englishName})</span> : null}
                               </p>
                               <ul className="mt-2 space-y-1.5">
                                 {c.studentsNeedingPractice.map((s) => (
                                   <li key={s.studentId} className="flex items-center justify-between text-sm">
-                                    <span className="text-gamev2ink-700 dark:text-gamev2ink-200">{s.studentName}</span>
-                                    <span className="text-gamev2coral-600 dark:text-gamev2coral-400 font-bold tabular-nums">
+                                    <span className="text-stone-700 dark:text-stone-200">{s.studentName}</span>
+                                    <span className="text-red-600 dark:text-red-400 font-bold tabular-nums">
                                       {s.accuracyPct}% ({s.correctCount}/{s.totalCount})
                                     </span>
                                   </li>
@@ -221,15 +222,15 @@ export function AnalyticsClient({ questionSets }: { questionSets: QuestionSetOpt
 
                   {report.commonMistakes.length > 0 && (
                     <GameV2Card>
-                      <h2 className="font-extrabold text-gamev2ink-900 dark:text-white mb-1">Common Mistakes</h2>
-                      <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500 mb-4">
+                      <h2 className="font-bold text-primary-900 dark:text-white mb-1">Common Mistakes</h2>
+                      <p className="text-xs text-stone-400 dark:text-stone-500 mb-4">
                         Confusions shared by 3 or more students.
                       </p>
                       <ul className="space-y-2">
                         {report.commonMistakes.map((m) => (
-                          <li key={m.pairKey} className="flex items-center justify-between text-sm rounded-xl bg-gamev2ink-50 dark:bg-gamev2ink-800/50 p-3">
-                            <span className="font-tamil font-bold text-gamev2ink-800 dark:text-gamev2ink-100">{m.pairKey}</span>
-                            <span className="text-gamev2ink-500 dark:text-gamev2ink-400">
+                          <li key={m.pairKey} className="flex items-center justify-between text-sm rounded-xl bg-stone-50 dark:bg-stone-800/50 p-3">
+                            <span className="font-tamil leading-relaxed font-bold text-stone-800 dark:text-stone-100">{m.pairKey}</span>
+                            <span className="text-stone-500 dark:text-stone-400">
                               {m.studentIds.length} students, {m.occurrenceCount} times
                             </span>
                           </li>
@@ -250,9 +251,9 @@ export function AnalyticsClient({ questionSets }: { questionSets: QuestionSetOpt
 function StatCard({ icon: Icon, label, value }: { icon: typeof FiUsers; label: string; value: string }) {
   return (
     <GameV2Card padding="sm" className="text-center">
-      <Icon className="w-5 h-5 mx-auto text-gamev2spark-600 dark:text-gamev2spark-400 mb-2" />
-      <p className="text-2xl font-black text-gamev2ink-900 dark:text-white tabular-nums">{value}</p>
-      <p className="text-xs font-bold text-gamev2ink-400 dark:text-gamev2ink-500 mt-0.5">{label}</p>
+      <Icon className="w-5 h-5 mx-auto text-primary-600 dark:text-primary-400 mb-2" />
+      <p className="text-2xl font-bold text-primary-900 dark:text-white tabular-nums">{value}</p>
+      <p className="text-xs font-bold text-stone-400 dark:text-stone-500 mt-0.5">{label}</p>
     </GameV2Card>
   )
 }

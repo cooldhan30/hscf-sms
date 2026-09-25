@@ -10,6 +10,7 @@ export function skillsForQuestionSet(set: { subject: string | null; topic: strin
   const skills = new Set<string>()
   if (set.subject) skills.add(set.subject)
   if (set.topic) skills.add(set.topic)
-  set.tags.forEach((t) => skills.add(t))
+  // 'sys:' tags are internal markers (built-in content sync), not skills.
+  set.tags.filter((t) => !t.startsWith('sys:')).forEach((t) => skills.add(t))
   return Array.from(skills)
 }

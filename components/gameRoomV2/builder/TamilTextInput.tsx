@@ -28,7 +28,7 @@ export function TamilTextInput({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       lang="ta"
-      className={`w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-gamev2ink-900 dark:text-white font-tamil text-lg leading-[1.6] tracking-wide focus:outline-none focus:ring-4 focus:ring-gamev2spark-300 focus:border-gamev2spark-400 ${className}`}
+      className={`w-full px-4 py-3 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-tamil text-lg leading-[1.6] tracking-wide focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent ${className}`}
     />
   )
 }
@@ -53,7 +53,7 @@ export function TamilTextArea({
       placeholder={placeholder}
       rows={rows}
       lang="ta"
-      className={`w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-gamev2ink-900 dark:text-white font-tamil text-lg leading-[1.7] tracking-wide focus:outline-none focus:ring-4 focus:ring-gamev2spark-300 focus:border-gamev2spark-400 resize-y ${className}`}
+      className={`w-full px-4 py-3 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-tamil text-lg leading-[1.7] tracking-wide focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent resize-y ${className}`}
     />
   )
 }

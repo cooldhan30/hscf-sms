@@ -10,11 +10,9 @@ export function isNewGameRoomReleased(): boolean {
   return isGameRoomV2Released()
 }
 
-// Temporary migration fallback. Remove Classic GameRoom only after
-// GameRoom V2 production stabilization.
-//
-// Role-aware destinations for the GameRoom mode selector (/gameroom).
-// Classic keeps its original, bookmarked role routes untouched.
+// Role-aware destinations for the /gameroom entry point. The legacy
+// ("Classic") GameRoom keeps its original role routes untouched as an
+// emergency rollback target only (docs/gameroom-v2-rollback.md).
 export type GameRoomRole = 'student' | 'teacher' | 'admin' | null
 
 export async function currentGameRoomRole(): Promise<{ userId: string | null; role: GameRoomRole }> {
@@ -33,7 +31,7 @@ export function classicGameRoomPath(role: GameRoomRole): string | null {
 }
 
 export function newGameRoomPath(role: GameRoomRole): string | null {
-  if (role === 'student') return '/gameroom-v2/home'
-  if (role === 'teacher' || role === 'admin') return '/gameroom-v2/library'
+  // One role-aware GameRoom home for students, teachers and admins.
+  if (role === 'student' || role === 'teacher' || role === 'admin') return '/gameroom-v2'
   return null
 }

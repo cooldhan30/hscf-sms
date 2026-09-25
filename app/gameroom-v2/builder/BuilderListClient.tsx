@@ -75,23 +75,23 @@ export function BuilderListClient({ questionSets, currentProfileId }: { question
               <GameV2Card key={set.id} padding="md">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-tamil text-lg font-extrabold text-gamev2ink-900 dark:text-white truncate">
+                    <p className="font-tamil leading-relaxed text-lg font-bold text-primary-900 dark:text-white truncate">
                       {set.tamil_title || set.title}
                     </p>
                     {set.english_title && set.tamil_title && (
-                      <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400">{set.english_title}</p>
+                      <p className="text-sm text-stone-500 dark:text-stone-400">{set.english_title}</p>
                     )}
                   </div>
-                  <span className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold bg-gamev2ink-100 dark:bg-gamev2ink-800 text-gamev2ink-500 dark:text-gamev2ink-400" title={set.visibility}>
+                  <span className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400" title={set.visibility}>
                     <VisIcon className="w-3 h-3" /> {set.visibility}
                   </span>
                 </div>
 
                 {set.description && (
-                  <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400 mt-2 line-clamp-2">{set.description}</p>
+                  <p className="text-sm text-stone-500 dark:text-stone-400 mt-2 line-clamp-2">{set.description}</p>
                 )}
 
-                <div className="flex items-center gap-2 mt-3 text-xs text-gamev2ink-400 dark:text-gamev2ink-500">
+                <div className="flex items-center gap-2 mt-3 text-xs text-stone-400 dark:text-stone-500">
                   <span>{set.question_count} question{set.question_count === 1 ? '' : 's'}</span>
                   <span aria-hidden>&middot;</span>
                   <span>{compatibleCount} game{compatibleCount === 1 ? '' : 's'} compatible</span>
@@ -109,8 +109,8 @@ export function BuilderListClient({ questionSets, currentProfileId }: { question
                   <span
                     className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold ${
                       set.published
-                        ? 'bg-gamev2mint-100 text-gamev2mint-700 dark:bg-gamev2mint-500/20 dark:text-gamev2mint-300'
-                        : 'bg-gamev2ink-100 text-gamev2ink-500 dark:bg-gamev2ink-800 dark:text-gamev2ink-400'
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                        : 'bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400'
                     }`}
                   >
                     {set.published ? 'Published' : 'Draft'}
@@ -127,7 +127,7 @@ export function BuilderListClient({ questionSets, currentProfileId }: { question
                       onClick={() => setConfirmDelete(set)}
                       disabled={deletingId === set.id}
                       aria-label="Delete"
-                      className="p-2.5 rounded-xl text-gamev2coral-500 hover:bg-gamev2coral-50 dark:hover:bg-gamev2coral-500/10 disabled:opacity-40"
+                      className="p-2.5 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-40"
                     >
                       <FiTrash2 className="w-4 h-4" />
                     </button>
@@ -153,7 +153,7 @@ export function BuilderListClient({ questionSets, currentProfileId }: { question
                 &quot;{confirmDelete.title}&quot; ({confirmDelete.question_count} question{confirmDelete.question_count === 1 ? '' : 's'}) will be permanently deleted. This cannot be undone.
               </p>
               {confirmDelete.visibility !== 'PRIVATE' && (
-                <p className="mt-2 font-bold text-gamev2coral-600 dark:text-gamev2coral-400">
+                <p className="mt-2 font-bold text-red-600 dark:text-red-400">
                   This set is shared ({confirmDelete.visibility === 'SCHOOL' ? 'School' : 'Public'}) -- other teachers may be relying on it.
                 </p>
               )}

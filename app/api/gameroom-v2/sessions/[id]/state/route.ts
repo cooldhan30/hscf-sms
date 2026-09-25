@@ -40,6 +40,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const base = {
     status: currentSession.status,
     engineId: currentSession.engine_id,
+    // Lets "Play again" start a fresh session on the same set.
+    questionSetId: currentSession.question_set_id,
     currentIndex: currentSession.current_index,
     totalQuestions: currentSession.question_order.length,
     score: currentSession.score,

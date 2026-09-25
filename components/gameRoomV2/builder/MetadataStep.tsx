@@ -48,9 +48,9 @@ const VISIBILITY_INFO: Record<QuestionSetVisibility, { label: string; descriptio
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-sm font-bold text-gamev2ink-700 dark:text-gamev2ink-200 mb-1.5">
+      <label className="block text-sm font-bold text-stone-700 dark:text-stone-200 mb-1.5">
         {label}
-        {required && <span className="text-gamev2coral-500 ml-0.5">*</span>}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       {children}
     </div>
@@ -67,7 +67,7 @@ export function MetadataStep({ value, onChange }: { value: SetMetadata; onChange
       <Field label="Title (internal name, for your own list)" required>
         <TamilTextInput value={value.title} onChange={(v) => set('title', v)} placeholder="e.g. Thinai Grammar Set 3" />
         {!value.title.trim() && (
-          <p className="text-xs text-gamev2coral-500 dark:text-gamev2coral-400 mt-1">A title is required before you can save this set.</p>
+          <p className="text-xs text-red-500 dark:text-red-400 mt-1">A title is required before you can save this set.</p>
         )}
       </Field>
 
@@ -81,7 +81,7 @@ export function MetadataStep({ value, onChange }: { value: SetMetadata; onChange
             value={value.englishTitle}
             onChange={(e) => set('englishTitle', e.target.value)}
             placeholder="Thinai Challenge"
-            className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-gamev2ink-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-gamev2spark-300"
+            className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-primary-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-primary-300"
           />
         </Field>
       </div>
@@ -95,7 +95,7 @@ export function MetadataStep({ value, onChange }: { value: SetMetadata; onChange
           <select
             value={value.level}
             onChange={(e) => set('level', e.target.value)}
-            className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-gamev2ink-900 dark:text-white"
+            className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-primary-900 dark:text-white"
           >
             <option value="">Not set</option>
             {GRADE_LEVEL_OPTIONS.map((l) => (
@@ -114,8 +114,8 @@ export function MetadataStep({ value, onChange }: { value: SetMetadata; onChange
                 onClick={() => set('difficulty', value.difficulty === d ? '' : d)}
                 className={`flex-1 px-3 py-3 rounded-2xl font-bold border-2 capitalize transition-colors ${
                   value.difficulty === d
-                    ? 'border-gamev2spark-500 bg-gamev2spark-50 dark:bg-gamev2spark-500/10 text-gamev2spark-700 dark:text-gamev2spark-300'
-                    : 'border-gamev2ink-200 dark:border-gamev2ink-700 text-gamev2ink-500 dark:text-gamev2ink-400'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300'
+                    : 'border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400'
                 }`}
               >
                 {d}
@@ -132,7 +132,7 @@ export function MetadataStep({ value, onChange }: { value: SetMetadata; onChange
             value={value.subject}
             onChange={(e) => set('subject', e.target.value)}
             placeholder="e.g. Grammar"
-            className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-gamev2ink-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-gamev2spark-300"
+            className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-primary-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-primary-300"
           />
         </Field>
         <Field label="Topic">
@@ -141,7 +141,7 @@ export function MetadataStep({ value, onChange }: { value: SetMetadata; onChange
             value={value.topic}
             onChange={(e) => set('topic', e.target.value)}
             placeholder="e.g. Thinai"
-            className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-gamev2ink-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-gamev2spark-300"
+            className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-primary-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-primary-300"
           />
         </Field>
       </div>
@@ -153,7 +153,7 @@ export function MetadataStep({ value, onChange }: { value: SetMetadata; onChange
           value={value.estimatedDurationMinutes}
           onChange={(e) => set('estimatedDurationMinutes', e.target.value)}
           placeholder="10"
-          className="w-full sm:w-40 px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-gamev2ink-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-gamev2spark-300"
+          className="w-full sm:w-40 px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-primary-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-primary-300"
         />
       </Field>
 
@@ -163,7 +163,7 @@ export function MetadataStep({ value, onChange }: { value: SetMetadata; onChange
           value={value.tags.join(', ')}
           onChange={(e) => set('tags', e.target.value.split(',').map((t) => t.trim()).filter(Boolean))}
           placeholder="grammar, thinai, beginner"
-          className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-gamev2ink-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-gamev2spark-300"
+          className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-primary-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-primary-300"
         />
       </Field>
 
@@ -176,27 +176,27 @@ export function MetadataStep({ value, onChange }: { value: SetMetadata; onChange
               onClick={() => set('visibility', v)}
               className={`text-left px-4 py-3 rounded-2xl border-2 transition-colors ${
                 value.visibility === v
-                  ? 'border-gamev2ink-600 bg-gamev2ink-50 dark:bg-gamev2ink-800'
-                  : 'border-gamev2ink-200 dark:border-gamev2ink-700'
+                  ? 'border-stone-600 bg-stone-50 dark:bg-stone-800'
+                  : 'border-stone-200 dark:border-stone-700'
               }`}
             >
-              <p className="font-bold text-gamev2ink-800 dark:text-gamev2ink-100">{VISIBILITY_INFO[v].label}</p>
-              <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500 mt-0.5">{VISIBILITY_INFO[v].description}</p>
+              <p className="font-bold text-stone-800 dark:text-stone-100">{VISIBILITY_INFO[v].label}</p>
+              <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">{VISIBILITY_INFO[v].description}</p>
             </button>
           ))}
         </div>
       </Field>
 
-      <label className="flex items-start gap-3 px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 cursor-pointer">
+      <label className="flex items-start gap-3 px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 cursor-pointer">
         <input
           type="checkbox"
           checked={value.published}
           onChange={(e) => set('published', e.target.checked)}
-          className="mt-1 w-5 h-5 accent-gamev2ink-600"
+          className="mt-1 w-5 h-5 accent-stone-600"
         />
         <span>
-          <span className="block font-bold text-gamev2ink-800 dark:text-gamev2ink-100">Students can play this on their own</span>
-          <span className="block text-xs text-gamev2ink-400 dark:text-gamev2ink-500 mt-0.5">
+          <span className="block font-bold text-stone-800 dark:text-stone-100">Students can play this on their own</span>
+          <span className="block text-xs text-stone-400 dark:text-stone-500 mt-0.5">
             Shows this set on the GameRoom home for students in its class (or every student, if it isn&apos;t assigned to a class). You can always host it live either way.
           </span>
         </span>

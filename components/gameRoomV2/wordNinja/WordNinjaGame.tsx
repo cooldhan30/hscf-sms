@@ -161,7 +161,7 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain }: { sessionId: s
 
       {sessionState.question && (
         <GameV2Card padding="sm" className="w-full text-center">
-          <p className="font-tamil text-lg font-extrabold text-gamev2ink-900 dark:text-white">{sessionState.question.prompt}</p>
+          <p className="font-tamil leading-relaxed text-lg font-extrabold text-gamev2ink-900 dark:text-white">{sessionState.question.prompt}</p>
         </GameV2Card>
       )}
 

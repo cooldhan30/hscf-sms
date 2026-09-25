@@ -15,9 +15,9 @@ export function GameV2Loading({ label = 'Loading...' }: { label?: string }) {
   const { reduced } = useGameV2Motion()
 
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-gamev2ink-500 dark:text-gamev2ink-400">
+    <div className="flex flex-col items-center justify-center gap-3 py-16 text-stone-500 dark:text-stone-400">
       <motion.div
-        className="w-12 h-12 rounded-2xl border-4 border-gamev2ink-200 dark:border-gamev2ink-700 border-t-gamev2spark-500"
+        className="w-10 h-10 rounded-full border-4 border-stone-200 dark:border-stone-700 border-t-primary-600"
         animate={reduced ? undefined : { rotate: 360 }}
         transition={reduced ? undefined : { repeat: Infinity, duration: 0.8, ease: 'linear' }}
         role="status"
@@ -46,11 +46,11 @@ export function GameV2Empty({
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center px-4">
-      <div className="w-16 h-16 rounded-2xl bg-gamev2ink-100 dark:bg-gamev2ink-800 flex items-center justify-center text-gamev2ink-400 dark:text-gamev2ink-500">
-        <Icon className="w-7 h-7" aria-hidden />
+      <div className="w-12 h-12 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-400 dark:text-stone-500">
+        <Icon className="w-5 h-5" aria-hidden />
       </div>
-      <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100">{title}</p>
-      {description && <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400 max-w-xs">{description}</p>}
+      <p className="font-semibold text-stone-700 dark:text-stone-200">{title}</p>
+      {description && <p className="text-sm text-stone-500 dark:text-stone-400 max-w-sm">{description}</p>}
       {actionLabel && onAction && (
         <GameV2Button variant="ghost" size="md" onClick={onAction} className="mt-1">
           {actionLabel}
@@ -71,11 +71,11 @@ export function GameV2Error({
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center px-4">
-      <div className="w-16 h-16 rounded-2xl bg-gamev2coral-100 dark:bg-gamev2coral-500/20 flex items-center justify-center text-gamev2coral-600 dark:text-gamev2coral-400">
-        <FiAlertTriangle className="w-7 h-7" aria-hidden />
+      <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/40 flex items-center justify-center text-red-600 dark:text-red-400">
+        <FiAlertTriangle className="w-5 h-5" aria-hidden />
       </div>
-      <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100">{title}</p>
-      {description && <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400 max-w-xs">{description}</p>}
+      <p className="font-semibold text-stone-700 dark:text-stone-200">{title}</p>
+      {description && <p className="text-sm text-stone-500 dark:text-stone-400 max-w-sm">{description}</p>}
       {onRetry && (
         <GameV2Button variant="danger" size="md" onClick={onRetry} className="mt-1">
           Try Again

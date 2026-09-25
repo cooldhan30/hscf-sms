@@ -135,7 +135,7 @@ function TextInput({ disabled, onSubmit }: { disabled: boolean; onSubmit: (a: un
         disabled={disabled}
         lang="ta"
         aria-label="Your answer"
-        className="flex-1 px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil text-lg"
+        className="flex-1 px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil leading-relaxed text-lg"
         placeholder="Type your answer..."
       />
       <GameV2Button type="submit" size="md" disabled={disabled || !value.trim()}>
@@ -158,7 +158,7 @@ function OrderInput({ items, disabled, onSubmit }: { items: string[]; disabled: 
             type="button"
             disabled={disabled}
             onClick={() => setOrder(order.filter((_, idx) => idx !== i))}
-            className="px-3 py-2 rounded-xl bg-gamev2ink-800 text-white font-tamil font-bold"
+            className="px-3 py-2 rounded-xl bg-gamev2ink-800 text-white font-tamil leading-relaxed font-bold"
           >
             {item}
           </button>
@@ -171,7 +171,7 @@ function OrderInput({ items, disabled, onSubmit }: { items: string[]; disabled: 
             type="button"
             disabled={disabled}
             onClick={() => setOrder([...order, item])}
-            className="px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 font-tamil font-bold"
+            className="px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 font-tamil leading-relaxed font-bold"
           >
             {item}
           </button>
@@ -201,12 +201,12 @@ function CategorizeInput({
     <div className="space-y-3">
       {items.map((item) => (
         <div key={item} className="flex items-center justify-between gap-2">
-          <span className="font-tamil font-semibold">{item}</span>
+          <span className="font-tamil leading-relaxed font-semibold">{item}</span>
           <select
             value={assignments[item] ?? ''}
             disabled={disabled}
             onChange={(e) => setAssignments({ ...assignments, [item]: e.target.value })}
-            className="px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil"
+            className="px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil leading-relaxed"
           >
             <option value="">Choose...</option>
             {categories.map((c) => (
@@ -248,7 +248,7 @@ function MatchInput({ left, right, disabled, onSubmit }: { left: string[]; right
               type="button"
               disabled={disabled || Boolean(matches[item])}
               onClick={() => setSelectedLeft(item)}
-              className={`w-full px-3 py-2 rounded-xl border-2 font-tamil text-sm ${
+              className={`w-full px-3 py-2 rounded-xl border-2 font-tamil leading-relaxed text-sm ${
                 selectedLeft === item ? 'border-gamev2ink-600 bg-gamev2ink-50 dark:bg-gamev2ink-800' : 'border-gamev2ink-200 dark:border-gamev2ink-700'
               } ${matches[item] ? 'opacity-50' : ''}`}
             >
@@ -263,7 +263,7 @@ function MatchInput({ left, right, disabled, onSubmit }: { left: string[]; right
               type="button"
               disabled={disabled || !selectedLeft || Object.values(matches).includes(item)}
               onClick={() => pickRight(item)}
-              className="w-full px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 font-tamil text-sm disabled:opacity-40"
+              className="w-full px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 font-tamil leading-relaxed text-sm disabled:opacity-40"
             >
               {item}
             </button>
@@ -291,7 +291,7 @@ function FillBlankInput({ blankCount, disabled, onSubmit }: { blankCount: number
           lang="ta"
           aria-label={`Blank ${i + 1}`}
           placeholder={`Blank ${i + 1}`}
-          className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil text-lg"
+          className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil leading-relaxed text-lg"
         />
       ))}
       <GameV2Button fullWidth disabled={disabled || answers.some((a) => !a.trim())} onClick={() => onSubmit(answers)}>

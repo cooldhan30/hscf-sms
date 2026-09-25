@@ -1,12 +1,16 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import Link from 'next/link'
-import { FiLock, FiPlus } from 'react-icons/fi'
+import { FiPlus } from 'react-icons/fi'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
 import { fetchQuestionSetUsageCounts } from '@/lib/gameRoomV2/questionSetUsage'
-import { GameV2Button, GameV2Error } from '@/components/gameRoomV2'
-import { GameRoomModeSwitch } from '@/components/gameRoomMode/GameRoomModeSwitch'
-import { LibraryClient } from './LibraryClient'
+import { GameV2Error } from '@/components/gameRoomV2'
+import { GameRoomShell, GameRoomUnavailable } from '@/components/gameRoomV2/shell/GameRoomShell'
+import { PageHeader, primaryLinkButton } from '@/components/gameRoomV2/shell/ui'
+import { ensureBuiltinContent } from '@/lib/gameRoomV2/builtin/ensure'
+import { isBuiltinSetId } from '@/lib/gameRoomV2/builtin/catalog'
+import { allTopicSummaries } from '@/lib/gameRoomV2/builtin/summaries'
+import { LibraryClient, type LibraryTab } from './LibraryClient'
 import type { LibrarySet } from './LibrarySetCard'
 
 export const dynamic = 'force-dynamic'
@@ -17,7 +21,9 @@ export const dynamic = 'force-dynamic'
 // no nav link. Queries Supabase directly (server component), same
 // convention as every other page in this app, rather than the page
 // calling its own API route internally.
-export default async function QuestionSetLibraryPage() {
+const TABS: LibraryTab[] = ['builtin', 'my-sets', 'shared', 'favorites', 'recent']
+
+export default async function QuestionSetLibraryPage({ searchParams }: { searchParams: { tab?: string } }) {
   const { userId } = await auth()
   if (!userId) {
     redirect(`/login?next=${encodeURIComponent('/gameroom-v2/library')}`)
@@ -26,19 +32,16 @@ export default async function QuestionSetLibraryPage() {
   const access = await requireGameV2Teacher()
   if (!access.ok) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 px-4">
-        <div className="w-full max-w-md text-center">
-          <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-stone-200 dark:bg-stone-800 flex items-center justify-center">
-            <FiLock className="w-6 h-6 text-stone-500 dark:text-stone-400" />
-          </div>
-          <h1 className="text-xl font-bold text-stone-800 dark:text-stone-100 mb-1">Not available yet</h1>
-          <p className="text-sm text-stone-500 dark:text-stone-400">{access.error}</p>
-        </div>
-      </div>
+      <GameRoomShell>
+        <GameRoomUnavailable message={access.error} />
+      </GameRoomShell>
     )
   }
 
+  await ensureBuiltinContent()
+
   const { supabase, profile, teacher } = access
+  const initialTab: LibraryTab = TABS.includes(searchParams.tab as LibraryTab) ? (searchParams.tab as LibraryTab) : 'builtin'
 
   let enrichedSets: LibrarySet[] = []
   let recentSetIds: string[] = []
@@ -52,7 +55,10 @@ export default async function QuestionSetLibraryPage() {
       // plus other teachers' SCHOOL/PUBLIC sets.
       supabase
         .from('sms_gamev2_question_sets')
-        .select('*, creator:sms_profiles(first_name, last_name)')
+        // Explicit FK hint: sms_gamev2_favorites (profile_id, question_set_id)
+        // is a many-to-many junction to sms_profiles too, so an unhinted
+        // embed is ambiguous and PostgREST rejects the whole query (PGRST201).
+        .select('*, creator:sms_profiles!created_by(first_name, last_name)')
         .order('updated_at', { ascending: false }),
       supabase.from('sms_gamev2_favorites').select('question_set_id'),
       supabase
@@ -75,7 +81,9 @@ export default async function QuestionSetLibraryPage() {
       (questionSets ?? []).map((s) => s.id)
     )
 
-    enrichedSets = (questionSets ?? []).map((s) => ({
+    // Built-in Tamil content is listed by topic in its own tab (below),
+    // not mixed into My/Shared sets.
+    enrichedSets = (questionSets ?? []).filter((s) => !isBuiltinSetId(s.id)).map((s) => ({
       ...s,
       isFavorite: favoriteIds.has(s.id),
       usageCount: usageCountById.get(s.id) ?? 0,
@@ -87,46 +95,48 @@ export default async function QuestionSetLibraryPage() {
     classOptions = ((classes ?? []) as { class: { id: string; name: string } | null }[])
       .map((c) => c.class)
       .filter((c): c is { id: string; name: string } => Boolean(c))
-  } catch {
-    loadError = 'Something went wrong loading your question sets. Please refresh the page.'
+  } catch (err) {
+    // Server log keeps the real cause (PostgREST code/message); the user
+    // sees only a safe message plus a reference code.
+    const e = err as { code?: string; message?: string }
+    console.error('[gameroom-v2/library] failed to load question sets', { code: e?.code, message: e?.message })
+    loadError = `We couldn't load your question sets. Please refresh the page.${e?.code ? ` (ref: ${e.code})` : ''}`
   }
 
   if (loadError) {
     return (
-      <div className="min-h-screen bg-stone-50 dark:bg-gamev2ink-950 px-4 sm:px-6 py-8">
-        <div className="max-w-6xl mx-auto">
+      <GameRoomShell>
+        <div className="max-w-5xl mx-auto">
           <GameV2Error description={loadError} />
         </div>
-      </div>
+      </GameRoomShell>
     )
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-gamev2ink-950 px-4 sm:px-6 py-8">
+    <GameRoomShell>
       <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <Link href="/teacher" className="text-xs font-bold uppercase tracking-wide text-gamev2spark-600 dark:text-gamev2spark-400 hover:underline">
-              ← Dashboard · Game Room
+        <PageHeader
+          title="Question Set Library"
+          description="Built-in Tamil content, your own sets, and sets shared by other teachers. Preview, host live, duplicate or edit."
+          backHref="/gameroom-v2"
+          backLabel="Game Room"
+          actions={
+            <Link href="/gameroom-v2/builder/new" className={primaryLinkButton}>
+              <FiPlus className="w-4 h-4" aria-hidden /> Create Question Set
             </Link>
-            <h1 className="text-2xl font-black text-gamev2ink-900 dark:text-white mt-0.5">Question Set Library</h1>
-            <p className="text-gamev2ink-500 dark:text-gamev2ink-400 mt-1 max-w-lg">
-              Discover and reuse content -- yours, shared by the school, or public. Pick a set to play it or host it live.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Temporary migration fallback. Remove Classic GameRoom only after GameRoom V2 production stabilization. */}
-            {teacher && <GameRoomModeSwitch to="classic" />}
-            <Link href="/gameroom-v2/builder/new">
-              <GameV2Button variant="spark">
-                <FiPlus className="w-4 h-4" /> Create New Set
-              </GameV2Button>
-            </Link>
-          </div>
-        </div>
+          }
+        />
 
-        <LibraryClient initialSets={enrichedSets} currentProfileId={profile.id} recentSetIds={recentSetIds} classes={classOptions} />
+        <LibraryClient
+          initialSets={enrichedSets}
+          currentProfileId={profile.id}
+          recentSetIds={recentSetIds}
+          classes={classOptions}
+          builtinTopics={allTopicSummaries()}
+          initialTab={initialTab}
+        />
       </div>
-    </div>
+    </GameRoomShell>
   )
 }

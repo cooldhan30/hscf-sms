@@ -120,10 +120,10 @@ export function BuilderWizard({ initial }: { initial?: BuilderInitialData }) {
             disabled={i > stepIndex && !savedId}
             className={`flex-shrink-0 px-3 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${
               i === stepIndex
-                ? 'bg-gamev2ink-800 text-white'
+                ? 'bg-primary-800 text-white'
                 : i < stepIndex || savedId
-                  ? 'text-gamev2ink-600 dark:text-gamev2ink-300 hover:bg-gamev2ink-100 dark:hover:bg-gamev2ink-800'
-                  : 'text-gamev2ink-300 dark:text-gamev2ink-700 cursor-not-allowed'
+                  ? 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+                  : 'text-stone-300 dark:text-stone-700 cursor-not-allowed'
             }`}
           >
             {i + 1}. {s}
@@ -143,12 +143,12 @@ export function BuilderWizard({ initial }: { initial?: BuilderInitialData }) {
         <div className="space-y-4">
           {questions.length === 0 ? (
             <GameV2Card>
-              <p className="text-center text-gamev2ink-400 dark:text-gamev2ink-500 py-8">No questions to preview yet.</p>
+              <p className="text-center text-stone-400 dark:text-stone-500 py-8">No questions to preview yet.</p>
             </GameV2Card>
           ) : (
             questions.map((q, i) => (
               <div key={q.localId}>
-                <p className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500 mb-1.5">
+                <p className="text-xs font-bold uppercase tracking-wide text-stone-400 dark:text-stone-500 mb-1.5">
                   Question {i + 1}
                 </p>
                 <QuestionPreviewCard question={q} />
@@ -161,16 +161,16 @@ export function BuilderWizard({ initial }: { initial?: BuilderInitialData }) {
       {step === 'Validate & Save' && (
         <div className="space-y-4">
           <GameV2Card>
-            <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100 mb-3">Validation</p>
+            <p className="font-bold text-stone-800 dark:text-stone-100 mb-3">Validation</p>
             {!metadataValid && (
-              <p className="text-sm text-gamev2coral-600 dark:text-gamev2coral-400 mb-2">Title is required (Metadata step).</p>
+              <p className="text-sm text-red-600 dark:text-red-400 mb-2">Title is required (Metadata step).</p>
             )}
             {validationProblems.length === 0 && metadataValid ? (
-              <p className="text-sm text-gamev2mint-600 dark:text-gamev2mint-400 flex items-center gap-1.5">
+              <p className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                 <FiCheck className="w-4 h-4" /> Everything looks good -- ready to save.
               </p>
             ) : (
-              <ul className="text-sm text-gamev2coral-600 dark:text-gamev2coral-400 list-disc list-inside space-y-1">
+              <ul className="text-sm text-red-600 dark:text-red-400 list-disc list-inside space-y-1">
                 {validationProblems.map((p, i) => (
                   <li key={i}>{p}</li>
                 ))}
@@ -181,7 +181,7 @@ export function BuilderWizard({ initial }: { initial?: BuilderInitialData }) {
           {questionTypes.length > 0 && <CompatibilityResults questionTypes={questionTypes} />}
 
           {saveError && (
-            <p className="text-sm text-gamev2coral-600 dark:text-gamev2coral-400 bg-gamev2coral-50 dark:bg-gamev2coral-500/10 rounded-xl px-4 py-3">
+            <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 rounded-xl px-4 py-3">
               {saveError}
             </p>
           )}
@@ -200,8 +200,8 @@ export function BuilderWizard({ initial }: { initial?: BuilderInitialData }) {
       {step === 'Use It' && savedId && (
         <div className="space-y-4">
           <GameV2Card>
-            <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100 mb-1">Saved!</p>
-            <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400">
+            <p className="font-bold text-stone-800 dark:text-stone-100 mb-1">Saved!</p>
+            <p className="text-sm text-stone-500 dark:text-stone-400">
               &quot;{metadata.title}&quot; is saved. Play it yourself, host it live for your class, or keep editing.
             </p>
           </GameV2Card>

@@ -43,7 +43,7 @@ export function QuestionTypeEditor({
       return <AudioChoiceEditor payload={question.payload} onChange={onChange} />
     default:
       return (
-        <p className="text-sm text-gamev2ink-400 dark:text-gamev2ink-500">
+        <p className="text-sm text-stone-400 dark:text-stone-500">
           &quot;{question.questionType}&quot; has no authoring support yet.
         </p>
       )
@@ -51,7 +51,7 @@ export function QuestionTypeEditor({
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <label className="block text-xs font-bold uppercase tracking-wide text-gamev2ink-500 dark:text-gamev2ink-400 mb-1.5">{children}</label>
+  return <label className="block text-xs font-bold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1.5">{children}</label>
 }
 
 function AddRemoveList({
@@ -77,7 +77,7 @@ function AddRemoveList({
             onClick={() => onRemove(i)}
             disabled={items.length <= minItems}
             aria-label="Remove"
-            className="p-2 rounded-xl text-gamev2coral-500 hover:bg-gamev2coral-50 dark:hover:bg-gamev2coral-500/10 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-2 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <FiTrash2 className="w-4 h-4" />
           </button>
@@ -119,7 +119,7 @@ function MultipleChoiceEditor({ payload, onChange }: { payload: Record<string, u
       <select
         value={correctAnswer}
         onChange={(e) => onChange({ options, correctAnswer: e.target.value })}
-        className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-gamev2ink-900 dark:text-white font-tamil"
+        className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-primary-900 dark:text-white font-tamil leading-relaxed"
       >
         <option value="">Select the correct choice...</option>
         {options
@@ -151,8 +151,8 @@ function TrueFalseEditor({ payload, onChange }: { payload: Record<string, unknow
             onClick={() => onChange({ correctAnswer: opt.value })}
             className={`flex-1 px-4 py-3 rounded-2xl font-bold border-2 transition-colors ${
               correctAnswer === opt.value
-                ? 'border-gamev2mint-500 bg-gamev2mint-50 dark:bg-gamev2mint-500/10 text-gamev2mint-700 dark:text-gamev2mint-300'
-                : 'border-gamev2ink-200 dark:border-gamev2ink-700 text-gamev2ink-600 dark:text-gamev2ink-300'
+                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                : 'border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300'
             }`}
           >
             {opt.label}
@@ -189,7 +189,7 @@ function ImageChoiceEditor({ payload, onChange }: { payload: Record<string, unkn
               value={options[i].imageUrl}
               onChange={(e) => setOption(i, 'imageUrl', e.target.value)}
               placeholder="Image URL"
-              className="flex-1 px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm"
+              className="flex-1 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm"
             />
             <TamilTextInput
               value={options[i].label ?? ''}
@@ -205,7 +205,7 @@ function ImageChoiceEditor({ payload, onChange }: { payload: Record<string, unkn
       <select
         value={correctAnswer}
         onChange={(e) => onChange({ options, correctAnswer: e.target.value })}
-        className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900"
+        className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900"
       >
         <option value="">Select the correct image...</option>
         {options
@@ -268,8 +268,8 @@ function FillBlankEditor({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400">
-        Type <code className="font-mono bg-gamev2ink-100 dark:bg-gamev2ink-800 px-1 rounded">___</code> in the question
+      <p className="text-sm text-stone-500 dark:text-stone-400">
+        Type <code className="font-mono bg-stone-100 dark:bg-stone-800 px-1 rounded">___</code> in the question
         text above wherever you want a blank. Found {blankCount} blank marker{blankCount === 1 ? '' : 's'}.
       </p>
       {syncedBlanks.map((answers, i) => (
@@ -315,7 +315,7 @@ function MatchEditor({ payload, onChange }: { payload: Record<string, unknown>; 
         {(i) => (
           <div className="flex items-center gap-2">
             <TamilTextInput value={pairs[i].left} onChange={(v) => setPair(i, 'left', v)} placeholder="Left" className="!py-2" />
-            <span className="text-gamev2ink-300 dark:text-gamev2ink-600" aria-hidden>
+            <span className="text-stone-300 dark:text-stone-600" aria-hidden>
               ↔
             </span>
             <TamilTextInput value={pairs[i].right} onChange={(v) => setPair(i, 'right', v)} placeholder="Right" className="!py-2" />
@@ -384,13 +384,13 @@ function OrderEditor({
                 key={i}
                 type="button"
                 onClick={() => toggleInOrder(item)}
-                className={`px-3 py-2 rounded-xl border-2 font-tamil font-semibold ${
+                className={`px-3 py-2 rounded-xl border-2 font-tamil leading-relaxed font-semibold ${
                   position !== -1
-                    ? 'border-gamev2ink-600 bg-gamev2ink-50 dark:bg-gamev2ink-800 text-gamev2ink-900 dark:text-white'
-                    : 'border-gamev2ink-200 dark:border-gamev2ink-700 text-gamev2ink-500 dark:text-gamev2ink-400'
+                    ? 'border-stone-600 bg-stone-50 dark:bg-stone-800 text-primary-900 dark:text-white'
+                    : 'border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400'
                 }`}
               >
-                {position !== -1 && <span className="text-xs font-black mr-1">{position + 1}.</span>}
+                {position !== -1 && <span className="text-xs font-bold mr-1">{position + 1}.</span>}
                 {item}
               </button>
             )
@@ -455,7 +455,7 @@ function CategorizeEditor({ payload, onChange }: { payload: Record<string, unkno
                 value={answerKey[items[i]] ?? ''}
                 onChange={(e) => onChange({ items, categories, answerKey: { ...answerKey, [items[i]]: e.target.value } })}
                 disabled={!items[i]?.trim()}
-                className="px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil disabled:opacity-40"
+                className="px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 font-tamil leading-relaxed disabled:opacity-40"
               >
                 <option value="">Category...</option>
                 {categories
@@ -487,7 +487,7 @@ function AudioChoiceEditor({ payload, onChange }: { payload: Record<string, unkn
         value={audioUrl}
         onChange={(e) => onChange({ audioUrl: e.target.value, options, correctAnswer })}
         placeholder="https://..."
-        className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm"
+        className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm"
       />
       {audioUrl.trim() && <audio controls src={audioUrl} className="w-full" />}
 
@@ -510,7 +510,7 @@ function AudioChoiceEditor({ payload, onChange }: { payload: Record<string, unkn
       <select
         value={correctAnswer}
         onChange={(e) => onChange({ audioUrl, options, correctAnswer: e.target.value })}
-        className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil"
+        className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 font-tamil leading-relaxed"
       >
         <option value="">Select the correct choice...</option>
         {options

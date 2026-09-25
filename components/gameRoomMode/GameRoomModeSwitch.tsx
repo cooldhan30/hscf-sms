@@ -1,39 +1,25 @@
 'use client'
 
 import Link from 'next/link'
-import { FiRepeat } from 'react-icons/fi'
+import { FiArrowRight } from 'react-icons/fi'
 
-// Temporary migration fallback. Remove Classic GameRoom only after
-// GameRoom V2 production stabilization.
+// Shown only on the legacy GameRoom pages (/student/game-room,
+// /teacher/game-room), which are kept as an emergency rollback target.
+// If someone lands there by an old bookmark while V2 is released, this
+// sends them to the current GameRoom. There is intentionally no link the
+// other way: V2 has no Classic switch.
 //
-// Shared by BOTH GameRooms, so it lives outside components/gameRoomV2 and
-// the legacy game-room paths (neither may import the other). Links go
-// through /gameroom/v2 and /gameroom/classic, which resolve the right
-// role-specific page server-side.
-export const GAMEROOM_MODE_STORAGE_KEY = 'gameroom-mode'
-export type GameRoomMode = 'v2' | 'classic'
+// Lives outside components/gameRoomV2 and the legacy game-room paths
+// because legacy files may not import V2 modules (and vice versa).
+export type GameRoomMode = 'v2'
 
-export function rememberGameRoomMode(mode: GameRoomMode) {
-  try {
-    window.localStorage.setItem(GAMEROOM_MODE_STORAGE_KEY, mode)
-  } catch {
-    // Private mode / blocked storage -- the preference is a convenience only.
-  }
-}
-
-export function GameRoomModeSwitch({ to, tone = 'light' }: { to: GameRoomMode; tone?: 'light' | 'dark' }) {
-  const label = to === 'classic' ? 'Switch to Classic' : 'Try the New GameRoom'
-  const toneClass =
-    tone === 'dark'
-      ? 'text-white/80 hover:text-white border-white/25 hover:border-white/50'
-      : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white border-stone-300 dark:border-stone-600 hover:border-stone-500'
+export function GameRoomModeSwitch({ to }: { to: GameRoomMode; tone?: 'light' | 'dark' }) {
   return (
     <Link
       href={`/gameroom/${to}`}
-      onClick={() => rememberGameRoomMode(to)}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full border text-xs font-bold transition-colors ${toneClass}`}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full border text-xs font-bold transition-colors text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white border-stone-300 dark:border-stone-600 hover:border-stone-500"
     >
-      <FiRepeat className="w-3.5 h-3.5" aria-hidden /> {label}
+      Open the current Game Room <FiArrowRight className="w-3.5 h-3.5" aria-hidden />
     </Link>
   )
 }

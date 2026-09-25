@@ -61,12 +61,12 @@ export function PreviewModal({ open, onClose, setId, setTitle }: { open: boolean
       ) : !questions ? (
         <GameV2Loading />
       ) : questions.length === 0 ? (
-        <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400 text-center py-8">This set has no questions yet.</p>
+        <p className="text-sm text-stone-500 dark:text-stone-400 text-center py-8">This set has no questions yet.</p>
       ) : (
         <div className="space-y-4 max-h-[60vh] overflow-y-auto">
           {questions.map((q, i) => (
             <div key={q.localId}>
-              <p className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500 mb-1.5">
+              <p className="text-xs font-bold uppercase tracking-wide text-stone-400 dark:text-stone-500 mb-1.5">
                 Question {i + 1}
               </p>
               <QuestionPreviewCard question={q} />

@@ -41,7 +41,7 @@ export function BossSetupPicker({ onStart }: { onStart: (bossId: BossId, difficu
             </span>
             <div className="min-w-0">
               <p className="font-extrabold text-sm text-gamev2ink-900 dark:text-white truncate">
-                {boss.name} <span className="font-tamil text-gamev2ink-400 dark:text-gamev2ink-500">· {boss.tamilName}</span>
+                {boss.name} <span className="font-tamil leading-relaxed text-gamev2ink-400 dark:text-gamev2ink-500">· {boss.tamilName}</span>
               </p>
               <p className="text-xs text-gamev2ink-500 dark:text-gamev2ink-400">{boss.description}</p>
             </div>

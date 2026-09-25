@@ -83,13 +83,13 @@ export function QuestionListStep({
       {/* Question list / reorder / duplicate / delete */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100">{questions.length} Question{questions.length === 1 ? '' : 's'}</p>
+          <p className="font-bold text-stone-800 dark:text-stone-100">{questions.length} Question{questions.length === 1 ? '' : 's'}</p>
           <div className="relative">
             <GameV2Button size="md" variant="spark" onClick={() => setAddPickerOpen((v) => !v)} className="!min-h-0 !py-2 !px-4">
               <FiPlus className="w-4 h-4" /> Add
             </GameV2Button>
             {addPickerOpen && (
-              <div className="absolute right-0 z-10 mt-2 w-56 rounded-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 bg-white dark:bg-gamev2ink-900 shadow-xl p-2">
+              <div className="absolute right-0 z-10 mt-2 w-56 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-xl p-2">
                 {GAME_ROOM_V2_QUESTION_TYPES.map((type) => {
                   const implemented = isImplementedQuestionType(type)
                   return (
@@ -98,10 +98,10 @@ export function QuestionListStep({
                       type="button"
                       disabled={!implemented}
                       onClick={() => addQuestion(type)}
-                      className="w-full text-left px-3 py-2 rounded-xl text-sm font-semibold text-gamev2ink-700 dark:text-gamev2ink-200 hover:bg-gamev2ink-50 dark:hover:bg-gamev2ink-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-between"
+                      className="w-full text-left px-3 py-2 rounded-xl text-sm font-semibold text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-between"
                     >
                       {TYPE_LABEL[type]}
-                      {!implemented && <span className="text-[10px] font-bold uppercase text-gamev2ink-400">Soon</span>}
+                      {!implemented && <span className="text-[10px] font-bold uppercase text-stone-400">Soon</span>}
                     </button>
                   )
                 })}
@@ -123,38 +123,38 @@ export function QuestionListStep({
                   key={q.localId}
                   className={`rounded-2xl border-2 p-3 ${
                     editingId === q.localId
-                      ? 'border-gamev2ink-600 bg-gamev2ink-50 dark:bg-gamev2ink-800'
-                      : 'border-gamev2ink-100 dark:border-gamev2ink-800 bg-white dark:bg-gamev2ink-900'
+                      ? 'border-stone-600 bg-stone-50 dark:bg-stone-800'
+                      : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900'
                   }`}
                 >
                   <button type="button" onClick={() => setEditingId(q.localId)} className="w-full text-left">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-[11px] font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-stone-400 dark:text-stone-500">
                           {i + 1}. {TYPE_LABEL[q.questionType]}
                         </p>
-                        <p className="font-tamil text-sm font-semibold text-gamev2ink-800 dark:text-gamev2ink-100 truncate">
-                          {q.prompt || <span className="italic text-gamev2ink-400">No question text yet</span>}
+                        <p className="font-tamil leading-relaxed text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+                          {q.prompt || <span className="italic text-stone-400">No question text yet</span>}
                         </p>
                       </div>
                       {problems.length > 0 && (
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gamev2coral-500 text-white text-xs font-bold flex items-center justify-center" title={problems.join('; ')}>
+                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center" title={problems.join('; ')}>
                           !
                         </span>
                       )}
                     </div>
                   </button>
                   <div className="flex items-center gap-1 mt-2">
-                    <button type="button" onClick={() => moveQuestion(q.localId, -1)} disabled={i === 0} aria-label="Move up" className="p-1.5 rounded-lg text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white disabled:opacity-20">
+                    <button type="button" onClick={() => moveQuestion(q.localId, -1)} disabled={i === 0} aria-label="Move up" className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-white disabled:opacity-20">
                       <FiChevronUp className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => moveQuestion(q.localId, 1)} disabled={i === questions.length - 1} aria-label="Move down" className="p-1.5 rounded-lg text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white disabled:opacity-20">
+                    <button type="button" onClick={() => moveQuestion(q.localId, 1)} disabled={i === questions.length - 1} aria-label="Move down" className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-white disabled:opacity-20">
                       <FiChevronDown className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => duplicateQuestion(q.localId)} aria-label="Duplicate" className="p-1.5 rounded-lg text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white">
+                    <button type="button" onClick={() => duplicateQuestion(q.localId)} aria-label="Duplicate" className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-white">
                       <FiCopy className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => deleteQuestion(q.localId)} aria-label="Delete" className="p-1.5 rounded-lg text-gamev2coral-500 hover:bg-gamev2coral-50 dark:hover:bg-gamev2coral-500/10">
+                    <button type="button" onClick={() => deleteQuestion(q.localId)} aria-label="Delete" className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">
                       <FiTrash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -165,7 +165,7 @@ export function QuestionListStep({
         )}
 
         {IMPLEMENTED_QUESTION_TYPES.length < GAME_ROOM_V2_QUESTION_TYPES.length && (
-          <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500">
+          <p className="text-xs text-stone-400 dark:text-stone-500">
             Pronunciation and Reading Fluency are planned but can&apos;t be authored yet.
           </p>
         )}
@@ -195,21 +195,21 @@ function QuestionEditorPanel({ question, onChange }: { question: DraftQuestion; 
   return (
     <GameV2Card padding="lg">
       <div className="flex items-center justify-between mb-4">
-        <span className="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-gamev2ink-100 dark:bg-gamev2ink-800 text-gamev2ink-600 dark:text-gamev2ink-300">
+        <span className="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300">
           {TYPE_LABEL[question.questionType]}
         </span>
         <div className="flex gap-1">
           <button
             type="button"
             onClick={() => setMode('edit')}
-            className={`px-3 py-1.5 rounded-xl text-sm font-bold flex items-center gap-1.5 ${mode === 'edit' ? 'bg-gamev2ink-800 text-white' : 'text-gamev2ink-500 dark:text-gamev2ink-400'}`}
+            className={`px-3 py-1.5 rounded-xl text-sm font-bold flex items-center gap-1.5 ${mode === 'edit' ? 'bg-primary-800 text-white' : 'text-stone-500 dark:text-stone-400'}`}
           >
             <FiEdit2 className="w-3.5 h-3.5" /> Edit
           </button>
           <button
             type="button"
             onClick={() => setMode('preview')}
-            className={`px-3 py-1.5 rounded-xl text-sm font-bold flex items-center gap-1.5 ${mode === 'preview' ? 'bg-gamev2ink-800 text-white' : 'text-gamev2ink-500 dark:text-gamev2ink-400'}`}
+            className={`px-3 py-1.5 rounded-xl text-sm font-bold flex items-center gap-1.5 ${mode === 'preview' ? 'bg-primary-800 text-white' : 'text-stone-500 dark:text-stone-400'}`}
           >
             <FiEye className="w-3.5 h-3.5" /> Preview
           </button>
@@ -221,7 +221,7 @@ function QuestionEditorPanel({ question, onChange }: { question: DraftQuestion; 
       ) : (
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wide text-gamev2ink-500 dark:text-gamev2ink-400 mb-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1.5">
               Question Text
             </label>
             <TamilTextArea value={question.prompt} onChange={(v) => onChange({ prompt: v })} placeholder="Type the question..." rows={2} />
@@ -230,7 +230,7 @@ function QuestionEditorPanel({ question, onChange }: { question: DraftQuestion; 
           <QuestionTypeEditor question={question} onChange={(payload) => onChange({ payload })} />
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wide text-gamev2ink-500 dark:text-gamev2ink-400 mb-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1.5">
               Explanation (optional -- shown after answering)
             </label>
             <TamilTextArea value={question.explanation} onChange={(v) => onChange({ explanation: v })} rows={2} />
@@ -238,7 +238,7 @@ function QuestionEditorPanel({ question, onChange }: { question: DraftQuestion; 
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wide text-gamev2ink-500 dark:text-gamev2ink-400 mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1.5">
                 Points
               </label>
               <input
@@ -246,11 +246,11 @@ function QuestionEditorPanel({ question, onChange }: { question: DraftQuestion; 
                 min={1}
                 value={question.points}
                 onChange={(e) => onChange({ points: Number(e.target.value) || 100 })}
-                className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900"
+                className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wide text-gamev2ink-500 dark:text-gamev2ink-400 mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1.5">
                 Image/Audio URL (optional)
               </label>
               <input
@@ -258,28 +258,28 @@ function QuestionEditorPanel({ question, onChange }: { question: DraftQuestion; 
                 value={question.mediaUrl ?? ''}
                 onChange={(e) => onChange({ mediaUrl: e.target.value || null })}
                 placeholder="From Resources, or your own hosted URL"
-                className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 text-sm"
+                className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm"
               />
             </div>
           </div>
 
-          <div className="rounded-2xl border-2 border-dashed border-gamev2ink-200 dark:border-gamev2ink-700 p-4 space-y-3">
-            <p className="text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500">
+          <div className="rounded-2xl border border-dashed border-stone-200 dark:border-stone-700 p-4 space-y-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-stone-400 dark:text-stone-500">
               Learning Analytics (optional)
             </p>
-            <p className="text-xs text-gamev2ink-400 dark:text-gamev2ink-500 -mt-2">
+            <p className="text-xs text-stone-400 dark:text-stone-500 -mt-2">
               Tag this question so teacher reports can track student progress by skill, separately from game
               scores. Leaving this blank is fine -- it just won&apos;t show up in dimension-specific reports.
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wide text-gamev2ink-500 dark:text-gamev2ink-400 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1.5">
                   Dimension
                 </label>
                 <select
                   value={question.dimension ?? ''}
                   onChange={(e) => onChange({ dimension: (e.target.value || null) as LearningDimension | null })}
-                  className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900"
+                  className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900"
                 >
                   <option value="">Not tagged</option>
                   {LEARNING_DIMENSIONS.map((d) => (
@@ -290,7 +290,7 @@ function QuestionEditorPanel({ question, onChange }: { question: DraftQuestion; 
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wide text-gamev2ink-500 dark:text-gamev2ink-400 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1.5">
                   Concepts (comma-separated)
                 </label>
                 <input
@@ -299,7 +299,7 @@ function QuestionEditorPanel({ question, onChange }: { question: DraftQuestion; 
                   value={question.conceptTags.join(', ')}
                   onChange={(e) => onChange({ conceptTags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) })}
                   placeholder="e.g. திணை, எண்"
-                  className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil"
+                  className="w-full px-4 py-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 font-tamil leading-relaxed"
                 />
                 <datalist id="gamev2-concept-suggestions">
                   {CONCEPT_SUGGESTIONS.map((c) => (
@@ -311,8 +311,8 @@ function QuestionEditorPanel({ question, onChange }: { question: DraftQuestion; 
           </div>
 
           {problems.length > 0 && (
-            <div className="rounded-xl bg-gamev2coral-50 dark:bg-gamev2coral-500/10 border border-gamev2coral-200 dark:border-gamev2coral-900 p-3">
-              <ul className="text-sm text-gamev2coral-700 dark:text-gamev2coral-300 list-disc list-inside space-y-0.5">
+            <div className="rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-900 p-3">
+              <ul className="text-sm text-red-700 dark:text-red-300 list-disc list-inside space-y-0.5">
                 {problems.map((p, i) => (
                   <li key={i}>{p}</li>
                 ))}
