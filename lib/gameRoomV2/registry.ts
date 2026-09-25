@@ -22,7 +22,7 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     id: 'classic-quiz',
     name: 'Classic Quiz',
     tamilName: 'வினாடி வினா',
-    description: 'A straightforward question-by-question quiz, closest in spirit to legacy GameRoom\'s quiz games.',
+    description: 'A straightforward question-by-question quiz -- read each question and pick the right answer.',
     icon: null,
     thumbnail: null,
     compatibility: {

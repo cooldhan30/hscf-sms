@@ -1,4 +1,4 @@
-import type { GameRoomQuestionType } from '@/lib/gameRoomV2/domain'
+import type { GameRoomQuestionType, QuestionSetDifficulty, QuestionSetVisibility } from '@/lib/gameRoomV2/domain'
 import type { LearningDimension } from '@/lib/gameRoomV2/analytics'
 
 // A question as the builder edits it client-side, before it's ever
@@ -76,5 +76,40 @@ function emptyPayloadFor(questionType: GameRoomQuestionType): Record<string, unk
       return { audioUrl: '', options: ['', ''], correctAnswer: '' }
     default:
       return {}
+  }
+}
+
+export interface SetMetadata {
+  title: string
+  description: string
+  tamilTitle: string
+  englishTitle: string
+  level: string
+  subject: string
+  topic: string
+  difficulty: QuestionSetDifficulty | ''
+  estimatedDurationMinutes: string
+  tags: string[]
+  visibility: QuestionSetVisibility
+  // Lets students start this set on their own from the GameRoom home.
+  // Separate from `visibility` (teacher-to-teacher sharing). Live
+  // Classroom never needs it -- a hosted set is always playable.
+  published: boolean
+}
+
+export function emptyMetadata(): SetMetadata {
+  return {
+    title: '',
+    description: '',
+    tamilTitle: '',
+    englishTitle: '',
+    level: '',
+    subject: '',
+    topic: '',
+    difficulty: '',
+    estimatedDurationMinutes: '',
+    tags: [],
+    visibility: 'PRIVATE',
+    published: false,
   }
 }

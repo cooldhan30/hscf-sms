@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { FiPlay, FiShuffle } from 'react-icons/fi'
 import type { TopicSummary } from '@/lib/gameRoomV2/builtin/summaries'
 import { useStartGame } from './useStartGame'
@@ -17,6 +17,7 @@ const selectClass =
 // random selection; not personalised or AI-driven.
 export function QuickPlay({ topics, statuses }: { topics: TopicSummary[]; statuses: Record<string, Status> }) {
   const { start, starting } = useStartGame()
+  const id = useId()
   const [difficulty, setDifficulty] = useState<Difficulty>('')
   const [topicKey, setTopicKey] = useState('')
   const [engineId, setEngineId] = useState('')
@@ -40,9 +41,12 @@ export function QuickPlay({ topics, statuses }: { topics: TopicSummary[]; status
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <label className="block">
-          <span className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">Difficulty</span>
+        <div>
+          <label htmlFor={`${id}-difficulty`} className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+            Difficulty
+          </label>
           <select
+            id={`${id}-difficulty`}
             className={selectClass}
             value={difficulty}
             onChange={(e) => {
@@ -56,10 +60,13 @@ export function QuickPlay({ topics, statuses }: { topics: TopicSummary[]; status
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
           </select>
-        </label>
-        <label className="block">
-          <span className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">Topic</span>
+        </div>
+        <div>
+          <label htmlFor={`${id}-topic`} className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+            Topic
+          </label>
           <select
+            id={`${id}-topic`}
             className={`${selectClass} font-tamil leading-relaxed`}
             value={topicKey}
             onChange={(e) => {
@@ -74,10 +81,12 @@ export function QuickPlay({ topics, statuses }: { topics: TopicSummary[]; status
               </option>
             ))}
           </select>
-        </label>
-        <label className="block">
-          <span className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">Game</span>
-          <select className={selectClass} value={engineId} disabled={!topic} onChange={(e) => setEngineId(e.target.value)}>
+        </div>
+        <div>
+          <label htmlFor={`${id}-game`} className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+            Game
+          </label>
+          <select id={`${id}-game`} className={selectClass} value={engineId} disabled={!topic} onChange={(e) => setEngineId(e.target.value)}>
             <option value="">{topic ? 'Choose a game' : 'Pick a topic first'}</option>
             {topic?.engines.map((e) => (
               <option key={e.engineId} value={e.engineId}>
@@ -85,7 +94,7 @@ export function QuickPlay({ topics, statuses }: { topics: TopicSummary[]; status
               </option>
             ))}
           </select>
-        </label>
+        </div>
       </div>
       <div className="flex flex-col sm:flex-row gap-2">
         <button

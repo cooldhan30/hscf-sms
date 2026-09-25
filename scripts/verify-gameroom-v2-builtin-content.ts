@@ -24,6 +24,8 @@ import {
   isBuiltinSetId,
 } from '../lib/gameRoomV2/builtin/catalog'
 import { builtinUuid } from '../lib/gameRoomV2/builtin/ids'
+import { computeTopicProgress, computeBoardProgress, recommend, MASTERY_ACCURACY_PCT, type SessionRow } from '../lib/gameRoomV2/builtin/progress'
+import { setForEngine, getBuiltinTopic as topicByKey } from '../lib/gameRoomV2/builtin/catalog'
 
 let failures = 0
 function fail(msg: string) {
@@ -135,6 +137,58 @@ for (const topic of BUILTIN_TOPICS) {
   }
 }
 console.log(`  Checked ${textCount} strings.`)
+
+console.log('\n== 8. Progress and recommendations come only from real completions ==')
+{
+  const empty = computeTopicProgress([])
+  if (Array.from(empty.values()).some((p) => p.status !== 'new')) fail('a student with no games has non-new topics')
+  const recs = recommend(empty, [])
+  if (recs.length === 0 || recs[0].kind !== 'next' || recs[0].topicKey !== LEARNING_BOARDS[0].topicKeys[0]) fail('a new student is not pointed at the first Tamil Foundations topic')
+
+  const uyir = topicByKey('uyir-ezhuthukkal')!
+  const kn = topicByKey('kuril-nedil')!
+  const vall = topicByKey('vallinam')!
+  const now = '2026-09-25T10:00:00Z'
+  const completions = [
+    { question_set_id: uyir.sets[0].id, completion_count: 2, best_accuracy_pct: 90, last_completed_at: now },
+    { question_set_id: kn.sets[1].id, completion_count: 1, best_accuracy_pct: '65.0', last_completed_at: '2026-09-25T09:00:00Z' },
+    { question_set_id: vall.sets[0].id, completion_count: 1, best_accuracy_pct: 40, last_completed_at: '2026-09-25T08:00:00Z' },
+    // Not built-in -> ignored; zero-count row -> not "practiced".
+    { question_set_id: '00000000-0000-4000-8000-000000000000', completion_count: 5, best_accuracy_pct: 100, last_completed_at: now },
+    { question_set_id: builtinUuid('set:mei-ezhuthukkal:quiz'), completion_count: 0, best_accuracy_pct: 0, last_completed_at: now },
+  ]
+  const progress = computeTopicProgress(completions)
+  if (progress.get('uyir-ezhuthukkal')!.status !== 'mastered') fail(`>= ${MASTERY_ACCURACY_PCT}% should be mastered`)
+  if (progress.get('kuril-nedil')!.status !== 'practicing') fail('65% (as a numeric string) should be practicing')
+  if (progress.get('mei-ezhuthukkal')!.status !== 'new') fail('a zero-count completion row must not count as practiced')
+  const board = computeBoardProgress(LEARNING_BOARDS[0], progress)
+  if (board.mastered !== 1 || board.practicing !== 1 || board.total !== 6) fail(`unexpected Tamil Foundations progress ${JSON.stringify(board)}`)
+
+  const sess = (id: string, setId: string, correct: number, at: string): SessionRow => ({
+    id,
+    question_set_id: setId,
+    engine_id: 'classic-quiz',
+    status: 'COMPLETED',
+    correct_count: correct,
+    answered_count: 10,
+    xp_earned: 10,
+    created_at: at,
+    completed_at: at,
+  })
+  const sessions = [sess('a', vall.sets[0].id, 7, '2026-09-25T11:00:00Z'), sess('b', vall.sets[0].id, 4, '2026-09-25T08:00:00Z')]
+  const r = recommend(progress, sessions)
+  if (r[0]?.kind !== 'improved' || r[0].topicKey !== 'vallinam') fail(`expected "You improved in வல்லினம்" first, got ${JSON.stringify(r[0])}`)
+  const r2 = recommend(progress, [])
+  if (!r2.some((x) => x.kind === 'practice-again' && x.topicKey === 'vallinam')) fail('40% topic should be "Practice again"')
+  if (!r2.some((x) => x.kind === 'continue' && x.topicKey === 'kuril-nedil')) fail('65% topic should be "Continue"')
+  if (JSON.stringify(recommend(progress, sessions)) !== JSON.stringify(r)) fail('recommendations are not deterministic')
+
+  if (setForEngine(kn, 'word-ninja')?.kind !== 'sort') fail('Word Ninja should play the sorting set')
+  if (setForEngine(kn, 'memory')?.kind !== 'match') fail('Memory should play the matching set')
+  if (setForEngine(uyir, 'racing')?.kind !== 'order') fail('Racing should prefer the ordering set')
+  if (setForEngine(vall, 'word-ninja')) fail('a topic without a sort set must not offer Word Ninja')
+  console.log('  Progress, board progress, recommendations and engine->set selection behave as specified.')
+}
 
 if (failures > 0) {
   console.error(`\n${failures} failure(s).`)

@@ -1,43 +1,15 @@
 'use client'
 
 import { GRADE_LEVEL_OPTIONS } from '@/lib/constants'
-import { QUESTION_SET_DIFFICULTIES, QUESTION_SET_VISIBILITIES, type QuestionSetVisibility, type QuestionSetDifficulty } from '@/lib/gameRoomV2/domain'
+import { QUESTION_SET_DIFFICULTIES, QUESTION_SET_VISIBILITIES, type QuestionSetVisibility } from '@/lib/gameRoomV2/domain'
 import { TamilTextInput, TamilTextArea } from './TamilTextInput'
 
-export interface SetMetadata {
-  title: string
-  description: string
-  tamilTitle: string
-  englishTitle: string
-  level: string
-  subject: string
-  topic: string
-  difficulty: QuestionSetDifficulty | ''
-  estimatedDurationMinutes: string
-  tags: string[]
-  visibility: QuestionSetVisibility
-  // Lets students start this set on their own from the GameRoom home.
-  // Separate from `visibility` (teacher-to-teacher sharing). Live
-  // Classroom never needs it -- a hosted set is always playable.
-  published: boolean
-}
-
-export function emptyMetadata(): SetMetadata {
-  return {
-    title: '',
-    description: '',
-    tamilTitle: '',
-    englishTitle: '',
-    level: '',
-    subject: '',
-    topic: '',
-    difficulty: '',
-    estimatedDurationMinutes: '',
-    tags: [],
-    visibility: 'PRIVATE',
-    published: false,
-  }
-}
+// SetMetadata/emptyMetadata live in types.ts (a plain module) so SERVER
+// components can call emptyMetadata() -- a function exported from this
+// 'use client' file is only a client reference on the server, and calling
+// it there throws ("is not a function"), which broke Edit Question Set.
+export { emptyMetadata, type SetMetadata } from './types'
+import type { SetMetadata } from './types'
 
 const VISIBILITY_INFO: Record<QuestionSetVisibility, { label: string; description: string }> = {
   PRIVATE: { label: 'Private', description: 'Only you can see and use this set.' },

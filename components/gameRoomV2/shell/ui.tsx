@@ -64,7 +64,7 @@ export function PageHeader({
   return (
     <div className="space-y-2">
       {backHref && (
-        <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm font-medium text-primary-700 dark:text-primary-400 hover:underline">
+        <Link href={backHref} className="inline-flex items-center gap-1.5 min-h-[40px] text-sm font-medium text-primary-700 dark:text-primary-400 hover:underline">
           <FiArrowLeft className="w-4 h-4" aria-hidden /> {backLabel ?? 'Back'}
         </Link>
       )}
@@ -147,7 +147,7 @@ const STATUS_STYLE: Record<TopicStatusValue, { label: string; icon: IconType; cl
 export function TopicStatusBadge({ status }: { status: TopicStatusValue }) {
   const s = STATUS_STYLE[status]
   return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${s.classes}`}>
+    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 ${s.classes}`}>
       <s.icon className="w-3 h-3" aria-hidden /> {s.label}
     </span>
   )
@@ -155,7 +155,7 @@ export function TopicStatusBadge({ status }: { status: TopicStatusValue }) {
 
 export function Pill({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300 capitalize">
+    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300 first-letter:uppercase">
       {children}
     </span>
   )

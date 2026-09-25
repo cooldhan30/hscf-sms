@@ -31,6 +31,7 @@ export function HomeScreenClient({
   dailyChallenge,
   earnedAchievements,
   totalAchievements,
+  teacherSets = [],
 }: {
   firstName: string
   level: number
@@ -42,6 +43,7 @@ export function HomeScreenClient({
   dailyChallenge: HomeDailyChallenge | null
   earnedAchievements: { id: string; name: string }[]
   totalAchievements: number
+  teacherSets?: { id: string; title: string; tamilTitle: string | null; questionCount: number; engines: { id: string; name: string }[] }[]
 }) {
   const { start, starting } = useStartGame()
   const topicByKey = new Map(topics.map((t) => [t.key, t]))
@@ -52,9 +54,9 @@ export function HomeScreenClient({
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <PageHeader
-        title={firstName ? `Game Room -- welcome, ${firstName}` : 'Game Room'}
+        title="Game Room"
         tamilTitle="விளையாட்டு அறை"
-        description="Pick a Tamil topic, then choose a game to practise it."
+        description={`${firstName ? `Welcome, ${firstName}. ` : ''}Pick a Tamil topic, then choose a game to practise it.`}
         actions={
           <>
             <Link href="/gameroom-v2/live/join" className={secondaryLinkButton}>
@@ -170,6 +172,34 @@ export function HomeScreenClient({
           })}
         </div>
       </SectionCard>
+
+      {teacherSets.length > 0 && (
+        <SectionCard title="From Your Teachers">
+          <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+            {teacherSets.map((set) => (
+              <li key={set.id} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-tamil font-medium leading-relaxed text-stone-800 dark:text-stone-100 break-words">{set.tamilTitle || set.title}</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">{set.questionCount} questions</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {set.engines.slice(0, 3).map((e) => (
+                    <button
+                      key={e.id}
+                      type="button"
+                      disabled={starting !== null}
+                      onClick={() => start(set.id, e.id, `t:${set.id}:${e.id}`)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-lg border border-stone-300 dark:border-stone-700 text-sm font-medium text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 disabled:opacity-50"
+                    >
+                      <FiPlayCircle className="w-4 h-4" aria-hidden /> {starting === `t:${set.id}:${e.id}` ? 'Starting...' : e.name}
+                    </button>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      )}
 
       <SectionCard title="Quick Play">
         <QuickPlay topics={topics} statuses={statuses} />
