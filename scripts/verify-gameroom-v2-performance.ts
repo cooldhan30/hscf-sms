@@ -185,9 +185,9 @@ for (const [file, re, label] of FORBIDDEN_DEPS) {
 }
 for (const [file, flag] of [
   ['components/gameRoomV2/towerDefense/TowerDefenseGame.tsx', 'simRunning'],
-  ['components/gameRoomV2/racing/RacingGame.tsx', 'simRunning'],
+  // Solo racing's loop lives in GrandPrixGame.tsx (RacingGame.tsx keeps the Live Classroom race).
+  ['components/gameRoomV2/racing/GrandPrixGame.tsx', 'simRunning'],
   ['components/gameRoomV2/racing/RacingGame.tsx', 'raceFinished'],
-  ['components/gameRoomV2/bossBattle/BossBattleGame.tsx', 'simRunning'],
   ['components/gameRoomV2/wordNinja/WordNinjaGame.tsx', 'flightRunning'],
   ['components/gameRoomV2/matching/MatchingGame.tsx', 'countdownRunning'],
 ]) {
@@ -195,6 +195,13 @@ for (const [file, flag] of [
 }
 
 // ---------------------------------------------------------------------
+// Solo Boss Battle is a turn-based duel (BossDuelGame.tsx): it runs no
+// per-tick simulation loop at all -- nothing to key, nothing to leak.
+{
+  const duelSrc = read('components/gameRoomV2/bossBattle/BossDuelGame.tsx')
+  assert(!/setInterval\(|requestAnimationFrame\(/.test(duelSrc), 'solo Boss Battle (turn-based) runs no tick loop')
+}
+
 console.log('\n== 5. Live Classroom Realtime load ==')
 const livePlay = read('app/gameroom-v2/live/play/[id]/LivePlayClient.tsx')
 const host = read('app/gameroom-v2/live/host/[id]/HostDashboardClient.tsx')

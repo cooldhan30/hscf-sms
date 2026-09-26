@@ -6,30 +6,20 @@ import { GameV2Card, GameV2Button, GameV2Loading, GameV2Error } from '@/componen
 import { QuestionOverlay, type QuestionOverlayQuestion, GameResultsScreen, useSoundPreference, playSound, useGameSessionState } from '@/components/gameRoomV2/gameplay'
 import { useManagedTimeouts } from '@/components/gameRoomV2/gameplay/useManagedTimeouts'
 import { BossSetupPicker } from './BossSetupPicker'
-import { BossArena } from './BossArena'
+import { BossDuelGame } from './BossDuelGame'
 import { CoopArena } from './CoopArena'
 import { TeamAttackBanner } from './TeamAttackBanner'
 import { VictorySequence } from './VictorySequence'
 import { CoopResultsScreen } from './CoopResultsScreen'
 import {
-  createInitialBattle,
-  applyCorrectAnswerDamage,
-  applyWrongAnswerConsequence,
-  activateAbility,
-  tickBattle,
-  getBossBattleDifficultySettings,
-  PLAYER_ATTACKER_ID,
   getBoss,
   STREAK_TEAM_ATTACK_THRESHOLD,
   isCoopBattleConcluded,
-  type BattleState,
   type BossId,
   type BossBattleDifficulty,
-  type AbilityId,
   type CoopContribution,
 } from '@/lib/gameRoomV2/bossBattle'
 
-const SIM_INTERVAL_MS = 100
 // Same "meaningful gameplay state, not animation frames" cadence as
 // Racing's multiplayer polling -- boss HP/contributions travel over
 // ordinary HTTP polling at a human-perceptible interval, never pushed
@@ -59,6 +49,7 @@ interface BossBattleGameProps {
   sessionId: string
   onExit: () => void
   onPlayAgain?: () => void
+  onHome?: () => void
   // Present only when mounted inside Live Classroom (see
   // LivePlayClient.tsx) -- switches the whole component into
   // cooperative multiplayer mode: shared boss HP polled from
@@ -73,14 +64,13 @@ interface BossBattleGameProps {
 }
 
 // Boss Battle's top-level play screen. Solo mode (no liveSessionId) is
-// completely unchanged from before: an individual player vs. a boss
-// with its own health/counterattack/defeat state. Multiplayer mode (a
+// the turn-based duel in BossDuelGame.tsx (lib/gameRoomV2/bossBattle/duel.ts). Multiplayer mode (a
 // liveSessionId is present) is a GENUINELY DIFFERENT, cooperative
 // mechanic -- see lib/gameRoomV2/bossBattle/coopBattle.ts's header
 // comment: no individual player health, no boss counterattack, no
 // defeat state. A wrong answer has no visible consequence at all;
 // every correct answer damages the one shared class-wide boss HP pool.
-export function BossBattleGame({ sessionId, onExit, onPlayAgain, liveSessionId, myParticipantId, fixedBossId, fixedDifficulty }: BossBattleGameProps) {
+export function BossBattleGame({ sessionId, onExit, onPlayAgain, onHome, liveSessionId, myParticipantId, fixedBossId, fixedDifficulty }: BossBattleGameProps) {
   if (liveSessionId && myParticipantId) {
     return (
       <CoopBossBattleGame
@@ -93,219 +83,7 @@ export function BossBattleGame({ sessionId, onExit, onPlayAgain, liveSessionId, 
       />
     )
   }
-  return <SoloBossBattleGame sessionId={sessionId} onExit={onExit} onPlayAgain={onPlayAgain} />
-}
-
-// ============================================================
-// SOLO -- unchanged behavior from before this pass.
-// ============================================================
-function SoloBossBattleGame({ sessionId, onExit, onPlayAgain }: { sessionId: string; onExit: () => void; onPlayAgain?: () => void }) {
-  const [bossId, setBossId] = useState<BossId | null>(null)
-  const [difficulty, setDifficulty] = useState<BossBattleDifficulty | null>(null)
-  const [battle, setBattle] = useState<BattleState | null>(null)
-  const [showQuestion, setShowQuestion] = useState(false)
-  const [lastHitBoss, setLastHitBoss] = useState(false)
-  const [lastHitPlayer, setLastHitPlayer] = useState(false)
-  const [showVictorySequence, setShowVictorySequence] = useState(false)
-  const defeatSoundPlayed = useRef(false)
-  const { soundEnabled } = useSoundPreference()
-  const scheduleTimeout = useManagedTimeouts()
-  const { state: sessionState, error, result, poll, togglePause, exit } = useGameSessionState<StatePayload>({
-    sessionId,
-    enabled: !!difficulty,
-    soundEnabled,
-  })
-
-  // Local battle clock: the boss counterattacks on its own phase-driven
-  // interval, entirely independent of the 2s session poll. Frozen while
-  // a question is shown or the session is paused, and kept running once
-  // the session's questions are exhausted so a shorter Question Set
-  // than the fight needs doesn't strand an unfinished battle. Keyed on a
-  // boolean rather than the battle object, which changes every tick
-  // (see TowerDefenseGame's simulation clock).
-  const simRunning = !!battle && !!difficulty && !showQuestion && sessionState?.status !== 'PAUSED' && !battle.battleOver
-  useEffect(() => {
-    if (!simRunning || !difficulty) return
-
-    const settings = getBossBattleDifficultySettings(difficulty)
-    const interval = setInterval(() => {
-      setBattle((prev) => {
-        if (!prev) return prev
-        const before = prev.attackers[0].health
-        const next = tickBattle(prev, SIM_INTERVAL_MS, settings)
-        if (next.attackers[0].health < before) {
-          setLastHitPlayer(true)
-          playSound('incorrect', soundEnabled)
-          scheduleTimeout(() => setLastHitPlayer(false), 350)
-        }
-        return next
-      })
-    }, SIM_INTERVAL_MS)
-
-    return () => clearInterval(interval)
-  }, [simRunning, difficulty, soundEnabled, scheduleTimeout])
-
-  useEffect(() => {
-    if (battle?.victory && !showVictorySequence) {
-      setShowVictorySequence(true)
-      playSound('victory', soundEnabled)
-    }
-  }, [battle?.victory, showVictorySequence, soundEnabled])
-
-  // The "Defeated..." screen (below, battle.battleOver && !battle.victory)
-  // previously played no sound at all -- a losing end state is just as
-  // important to mark audibly as winning, so this mirrors the victory
-  // effect's exactly-once-on-transition guard.
-  useEffect(() => {
-    if (battle?.battleOver && !battle.victory && !defeatSoundPlayed.current) {
-      defeatSoundPlayed.current = true
-      playSound('gameOver', soundEnabled)
-    }
-  }, [battle?.battleOver, battle?.victory, soundEnabled])
-
-  useEffect(() => {
-    if (!battle || !sessionState || sessionState.status !== 'ACTIVE' || !sessionState.question) return
-    if (battle.battleOver || showQuestion) return
-    setShowQuestion(true)
-  }, [battle, sessionState, showQuestion])
-
-  function handleStart(chosenBossId: BossId, chosenDifficulty: BossBattleDifficulty) {
-    setBossId(chosenBossId)
-    setDifficulty(chosenDifficulty)
-    setBattle(createInitialBattle(chosenBossId, getBossBattleDifficultySettings(chosenDifficulty)))
-  }
-
-  function handleAnswerResult(res: { correct: boolean }) {
-    // QuestionOverlay already played correct/incorrect (+ haptic) the
-    // moment the server responded, just before calling this callback --
-    // this handler owns ONLY the visual hit-flash and battle-state
-    // update, never a second audio cue for the same answer.
-    setShowQuestion(false)
-    setBattle((prev) => {
-      if (!prev || !difficulty) return prev
-      const settings = getBossBattleDifficultySettings(difficulty)
-      if (res.correct) {
-        setLastHitBoss(true)
-        scheduleTimeout(() => setLastHitBoss(false), 350)
-        return applyCorrectAnswerDamage(prev, PLAYER_ATTACKER_ID, settings)
-      }
-      setLastHitPlayer(true)
-      scheduleTimeout(() => setLastHitPlayer(false), 350)
-      return applyWrongAnswerConsequence(prev, PLAYER_ATTACKER_ID, settings)
-    })
-    poll()
-  }
-
-  function handleUseAbility(abilityId: AbilityId) {
-    setBattle((prev) => {
-      if (!prev) return prev
-      const next = activateAbility(prev, PLAYER_ATTACKER_ID, abilityId)
-      if (next.bossHealth < prev.bossHealth) {
-        setLastHitBoss(true)
-        scheduleTimeout(() => setLastHitBoss(false), 350)
-      }
-      return next
-    })
-  }
-
-  async function handleTogglePause() {
-    await togglePause()
-  }
-
-  async function handleExit() {
-    await exit(onExit)
-  }
-
-  function handleRestart() {
-    setBossId(null)
-    setDifficulty(null)
-    setBattle(null)
-    setShowVictorySequence(false)
-  }
-
-  if (!bossId || !difficulty) {
-    return <BossSetupPicker onStart={handleStart} />
-  }
-
-  if (error && !sessionState) return <GameV2Error description={error} onRetry={poll} />
-  if (!sessionState || !battle) return <GameV2Loading label="Entering the arena..." />
-  if (result) return <GameResultsScreen result={result} onPlayAgain={onPlayAgain} onExit={onExit} />
-
-  if (showVictorySequence) {
-    return <VictorySequence boss={battle.boss} onContinue={() => setShowVictorySequence(false)} />
-  }
-
-  const battleStillInPlay = !battle.battleOver
-  if (sessionState.status === 'COMPLETED' && !battleStillInPlay) return <GameV2Loading label="Calculating your results..." />
-
-  if (battle.battleOver && !battle.victory) {
-    return (
-      <GameV2Card padding="lg" className="max-w-lg w-full mx-auto text-center">
-        <div className="text-5xl mb-2" aria-hidden>
-          {'\u{1F480}'}
-        </div>
-        <h2 className="text-2xl font-extrabold text-gamev2ink-900 dark:text-white">Defeated...</h2>
-        <p className="mt-2 text-sm text-gamev2ink-500 dark:text-gamev2ink-400">
-          {battle.boss.name} proved too strong this time. Answer more questions correctly to land bigger hits next attempt.
-        </p>
-        <div className="mt-6 flex flex-col sm:flex-row gap-3">
-          <GameV2Button variant="spark" fullWidth onClick={handleRestart}>
-            Try Again
-          </GameV2Button>
-          <GameV2Button variant="ghost" fullWidth onClick={handleExit}>
-            Exit
-          </GameV2Button>
-        </div>
-      </GameV2Card>
-    )
-  }
-
-  return (
-    <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-4 px-4 py-6">
-      <div className="w-full flex items-center justify-between">
-        <button onClick={handleExit} className="text-sm font-bold text-gamev2ink-400 hover:text-gamev2coral-500">
-          Exit
-        </button>
-        <span className="text-sm font-extrabold text-gamev2ink-800 dark:text-white">
-          Question {Math.min(sessionState.currentIndex + 1, sessionState.totalQuestions)} of {sessionState.totalQuestions}
-        </span>
-        <button onClick={handleTogglePause} className="text-sm font-bold text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white">
-          {sessionState.status === 'PAUSED' ? 'Resume' : 'Pause'}
-        </button>
-      </div>
-
-      <BossArena state={battle} lastHitBoss={lastHitBoss} lastHitPlayer={lastHitPlayer} onUseAbility={handleUseAbility} />
-
-      {battle.victory && !showVictorySequence && (
-        <GameV2Card padding="md" className="w-full text-center">
-          <p className="font-extrabold text-gamev2mint-600 dark:text-gamev2mint-400">
-            {'\u{1F3C6}'} Boss defeated! Finish any remaining questions to see your full results.
-          </p>
-        </GameV2Card>
-      )}
-
-      {sessionState.status === 'PAUSED' && (
-        <GameV2Card padding="md" className="w-full text-center">
-          <p className="font-extrabold text-gamev2ink-800 dark:text-white">Battle Paused</p>
-          <GameV2Button variant="spark" size="md" className="mt-3" onClick={handleTogglePause}>
-            Resume
-          </GameV2Button>
-        </GameV2Card>
-      )}
-
-      {showQuestion && sessionState.question && sessionState.status === 'ACTIVE' && (
-        <div className="w-full">
-          <QuestionOverlay
-            sessionId={sessionId}
-            question={sessionState.question}
-            questionIndex={sessionState.currentIndex}
-            remainingSeconds={sessionState.remainingSeconds}
-            onResult={handleAnswerResult}
-          />
-        </div>
-      )}
-    </div>
-  )
+  return <BossDuelGame sessionId={sessionId} onExit={onExit} onPlayAgain={onPlayAgain} onHome={onHome} />
 }
 
 // ============================================================

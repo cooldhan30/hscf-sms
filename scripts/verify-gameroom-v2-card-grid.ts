@@ -1,8 +1,8 @@
 // Standalone verification script for the shared V2 card/grid layer
 // (lib/gameRoomV2/cardGrid/*) used by both Matching and Memory. Same
 // tsx-script convention as every other verify-gameroom-v2-*.ts script.
-// Covers: card construction from a MATCH payload (pair reconstruction
-// correctness -- the core "do not duplicate question storage"
+// Covers: card construction from a stripped MATCH payload (no client-
+// side pair guessing -- the core "do not duplicate question storage"
 // guarantee), deterministic shuffling, and grid sizing.
 //
 // Run with: npx tsx scripts/verify-gameroom-v2-card-grid.ts
@@ -28,16 +28,13 @@ assert(cards.length === 6, `one card per pair-side (3 pairs -> 6 cards, found ${
 assert(cards.filter((c) => c.side === 'left').length === 3, 'exactly 3 left-side cards')
 assert(cards.filter((c) => c.side === 'right').length === 3, 'exactly 3 right-side cards')
 
-const puliCard = cards.find((c) => c.label === 'puli')!
-const tigerCard = cards.find((c) => c.label === 'tiger')!
-assert(puliCard.pairId === tigerCard.pairId, 'a left item and its corresponding right item share the same pairId')
-const yaanaiCard = cards.find((c) => c.label === 'yaanai')!
-assert(puliCard.pairId !== yaanaiCard.pairId, 'two unrelated cards never share a pairId')
+assert(cards.every((c) => !('pairId' in c)), 'cards carry no pair identity -- /state shuffles the two sides independently, so the client must not guess pairs from positions')
+assert(new Set(cards.map((c) => c.id)).size === cards.length, 'every card has a unique id')
 
 console.log('\n== Card construction never invents content ==')
 assert(cards.every((c) => left.includes(c.label) || right.includes(c.label)), 'every card label comes directly from the given left/right arrays -- nothing is fabricated')
 const mismatchedLength = buildCardsFromMatchPayload(['a', 'b', 'c'], ['x', 'y'])
-assert(mismatchedLength.length === 4, 'mismatched left/right array lengths degrade gracefully to the shorter length (2 pairs -> 4 cards), never throwing')
+assert(mismatchedLength.length === 5, 'mismatched left/right array lengths never throw (one card per item)')
 
 console.log('\n== Deterministic shuffling ==')
 const itemsToShuffle = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']

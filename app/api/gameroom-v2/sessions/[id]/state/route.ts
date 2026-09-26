@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireGameV2Session } from '@/lib/gameRoomV2/requireSession'
 import { shuffledOptionsFor } from '@/lib/gameRoomV2/shuffle'
+import { shuffleSalt } from '@/lib/gameRoomV2/security/shuffleSeed'
 import { getGameEngineV2 } from '@/lib/gameRoomV2/registry'
 
 // POST /api/gameroom-v2/sessions/[id]/state -- "SHOW QUESTION". Polled
@@ -109,18 +110,19 @@ function stripAnswerKey(
   sessionId: string
 ) {
   const p = question.payload ?? {}
+  const salt = shuffleSalt()
   let safePayload: Record<string, unknown> = {}
 
   switch (question.question_type) {
     case 'MULTIPLE_CHOICE':
-      safePayload = { options: shuffledOptionsFor((p.options as string[]) ?? [], `${sessionId}:${question.id}`) }
+      safePayload = { options: shuffledOptionsFor((p.options as string[]) ?? [], `${salt}:${sessionId}:${question.id}`) }
       break
     case 'TRUE_FALSE':
       safePayload = {}
       break
     case 'IMAGE_CHOICE':
       safePayload = {
-        options: shuffledOptionsFor((p.options as { imageUrl: string; label?: string }[]) ?? [], `${sessionId}:${question.id}`),
+        options: shuffledOptionsFor((p.options as { imageUrl: string; label?: string }[]) ?? [], `${salt}:${sessionId}:${question.id}`),
       }
       break
     case 'TEXT_INPUT':
@@ -131,26 +133,26 @@ function stripAnswerKey(
       break
     case 'MATCH':
       safePayload = {
-        left: shuffledOptionsFor(((p.pairs as { left: string; right: string }[]) ?? []).map((pr) => pr.left), `${sessionId}:${question.id}:left`),
-        right: shuffledOptionsFor(((p.pairs as { left: string; right: string }[]) ?? []).map((pr) => pr.right), `${sessionId}:${question.id}:right`),
+        left: shuffledOptionsFor(((p.pairs as { left: string; right: string }[]) ?? []).map((pr) => pr.left), `${salt}:${sessionId}:${question.id}:left`),
+        right: shuffledOptionsFor(((p.pairs as { left: string; right: string }[]) ?? []).map((pr) => pr.right), `${salt}:${sessionId}:${question.id}:right`),
       }
       break
     case 'ORDER_LETTERS':
-      safePayload = { letters: shuffledOptionsFor((p.letters as string[]) ?? [], `${sessionId}:${question.id}`) }
+      safePayload = { letters: shuffledOptionsFor((p.letters as string[]) ?? [], `${salt}:${sessionId}:${question.id}`) }
       break
     case 'ORDER_WORDS':
-      safePayload = { words: shuffledOptionsFor((p.words as string[]) ?? [], `${sessionId}:${question.id}`) }
+      safePayload = { words: shuffledOptionsFor((p.words as string[]) ?? [], `${salt}:${sessionId}:${question.id}`) }
       break
     case 'CATEGORIZE':
       safePayload = {
-        items: shuffledOptionsFor((p.items as string[]) ?? [], `${sessionId}:${question.id}`),
+        items: shuffledOptionsFor((p.items as string[]) ?? [], `${salt}:${sessionId}:${question.id}`),
         categories: (p.categories as string[]) ?? [],
       }
       break
     case 'AUDIO_CHOICE':
       safePayload = {
         audioUrl: p.audioUrl,
-        options: shuffledOptionsFor((p.options as string[]) ?? [], `${sessionId}:${question.id}`),
+        options: shuffledOptionsFor((p.options as string[]) ?? [], `${salt}:${sessionId}:${question.id}`),
       }
       break
     default:

@@ -8,41 +8,29 @@
 
 export interface CardSpec {
   id: string
-  // Which pair this card belongs to -- two cards sharing the same
-  // pairId are the correct match. Never exposed to the UI as "this is
-  // the answer": the UI only ever learns a match was correct via the
-  // server's graded /answer response, exactly like every other engine.
-  pairId: string
-  // Which side of the pair this card represents -- 'left'/'right' for
-  // Matching's two-column layout, or arbitrary for Memory (where every
-  // card is just "a card," left/right collapse into one shuffled deck).
+  // Which side of the MATCH question this card came from. A pair is
+  // always one left card and one right card.
   side: 'left' | 'right'
   label: string
 }
 
-// Builds one CardSpec per pair-side from a MATCH question's already-
-// shuffled, already-correct-answer-stripped payload (payload.left/
-// payload.right, exactly as delivered by
-// app/api/gameroom-v2/sessions/[id]/state/route.ts's MATCH case) --
-// this is the concrete mechanism behind "do not duplicate question
-// storage": a card grid is DERIVED from the existing MATCH payload
-// every session poll, never authored or persisted separately.
+// Builds one CardSpec per item of a MATCH question's stripped payload
+// (payload.left / payload.right, exactly as delivered by
+// app/api/gameroom-v2/sessions/[id]/state/route.ts) -- a card grid is
+// DERIVED from the existing MATCH payload, never authored or stored
+// separately.
 //
-// IMPORTANT: the server shuffles `left` and `right` independently (two
-// separate seeded shuffles), so pairId must be assigned by matching
-// each left/right item back to its original pair -- reconstructed here
-// via array index BEFORE either side's own display order is shuffled
-// again by the caller (Matching/Memory each do their own further
-// shuffling of the resulting CardSpec[] for the grid layout).
+// IMPORTANT: the server shuffles `left` and `right` independently with
+// a server-only salt, so left[i] and right[i] are NOT a pair and the
+// client cannot know which cards pair up. Cards therefore carry no pair
+// identity at all: whether an attempted left/right pair is correct is
+// asked of the server (POST /sessions/[id]/pair-check), and the final
+// mapping is graded by /answer.
 export function buildCardsFromMatchPayload(left: string[], right: string[]): CardSpec[] {
-  const count = Math.min(left.length, right.length)
-  const cards: CardSpec[] = []
-  for (let i = 0; i < count; i++) {
-    const pairId = `pair-${i}`
-    cards.push({ id: `${pairId}-left`, pairId, side: 'left', label: left[i] })
-    cards.push({ id: `${pairId}-right`, pairId, side: 'right', label: right[i] })
-  }
-  return cards
+  return [
+    ...left.map((label, i) => ({ id: `L${i}`, side: 'left' as const, label })),
+    ...right.map((label, i) => ({ id: `R${i}`, side: 'right' as const, label })),
+  ]
 }
 
 // Deterministic shuffle (Fisher-Yates with a seeded PRNG), so a given

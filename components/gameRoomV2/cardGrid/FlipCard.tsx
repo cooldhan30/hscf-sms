@@ -64,10 +64,19 @@ export function FlipCard({
             practice (Matching never shows this since faceUp is always
             true) */}
         <div
-          className="absolute inset-0 flex items-center justify-center rounded-2xl border-2 border-gamev2spark-300 dark:border-gamev2spark-600 bg-gradient-to-br from-gamev2spark-100 to-gamev2spark-200 dark:from-gamev2spark-900 dark:to-gamev2spark-800 text-2xl [backface-visibility:hidden] [transform:rotateY(180deg)]"
+          className="absolute inset-0 flex items-center justify-center rounded-2xl border-2 border-gamev2spark-300 dark:border-gamev2spark-600 bg-gradient-to-br from-gamev2spark-100 to-gamev2spark-200 dark:from-gamev2spark-900 dark:to-gamev2spark-800 [backface-visibility:hidden] [transform:rotateY(180deg)]"
           aria-hidden
         >
-          {'✨'}
+          {/* A small kolam: a dot grid looped by one continuous line. */}
+          <svg viewBox="0 0 40 40" className="w-1/2 h-1/2 max-w-[56px] text-gamev2spark-600 dark:text-gamev2spark-300">
+            {[8, 20, 32].map((x) => [8, 20, 32].map((y) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.8" fill="currentColor" />))}
+            <path
+              d="M20 2 C28 2 38 12 38 20 C38 28 28 38 20 38 C12 38 2 28 2 20 C2 12 12 2 20 2 Z M20 11 C25 11 29 15 29 20 C29 25 25 29 20 29 C15 29 11 25 11 20 C11 15 15 11 20 11 Z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+            />
+          </svg>
         </div>
       </motion.div>
     </button>

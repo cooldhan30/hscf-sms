@@ -1,6 +1,9 @@
 export {
   createMemoryRound,
   isRoundComplete,
+  totalPairs,
+  flippedPairToCheck,
+  memoryStars,
   canFlip,
   flipCard,
   resolveFlippedPair,

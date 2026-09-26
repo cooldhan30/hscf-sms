@@ -125,7 +125,7 @@ assert(reachedPlanetIds(state.distanceTravelled).length === MISSION_ROUTE.length
 console.log('\n== Registry: Space Mission has a real, testable engine behind it ==')
 const engine = getGameEngineV2('space-mission')
 assert(engine !== undefined, 'space-mission is registered')
-assert(engine?.status === 'ACTIVE', 'Space Mission is ACTIVE, genuinely playable')
+assert(engine?.status === 'COMING_SOON', 'Space Mission is hidden (COMING_SOON) until rebuilt as a real game -- its logic stays tested here')
 assert(engine?.compatibility.soloSupport === true, 'Space Mission supports solo play')
 assert(engine?.compatibility.supportedQuestionTypes.includes('MULTIPLE_CHOICE') === true, 'Space Mission supports MULTIPLE_CHOICE questions')
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { FiGrid } from 'react-icons/fi'
 import { GameV2Card } from '@/components/gameRoomV2'
 import { MEMORY_DIFFICULTY_SETTINGS, type MemoryDifficulty } from '@/lib/gameRoomV2/memory'
 
@@ -10,12 +11,10 @@ import { MEMORY_DIFFICULTY_SETTINGS, type MemoryDifficulty } from '@/lib/gameRoo
 export function MemorySetupPicker({ onStart }: { onStart: (difficulty: MemoryDifficulty) => void }) {
   return (
     <GameV2Card padding="lg" className="max-w-xl w-full mx-auto text-center">
-      <div className="text-5xl mb-2" aria-hidden>
-        {'\u{1F9E0}'}
-      </div>
+      <FiGrid className="w-10 h-10 mx-auto mb-2 text-gamev2spark-500" aria-hidden />
       <h2 className="text-2xl font-extrabold text-gamev2ink-900 dark:text-white">Memory</h2>
       <p className="mt-2 text-sm text-gamev2ink-500 dark:text-gamev2ink-400">
-        Flip two cards at a time and remember where each pair is hiding. No timer -- just your recall.
+        Flip two cards at a time and remember where each pair is hiding. Fewer flips earn more stars. No timer -- just your recall.
       </p>
 
       <p className="mt-6 text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500 mb-2 text-left">
@@ -25,6 +24,7 @@ export function MemorySetupPicker({ onStart }: { onStart: (difficulty: MemoryDif
         {MEMORY_DIFFICULTY_SETTINGS.map((d) => (
           <button
             key={d.id}
+            type="button"
             onClick={() => onStart(d.id)}
             className="text-left rounded-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 hover:border-gamev2spark-400 dark:hover:border-gamev2spark-500 bg-gamev2ink-50 dark:bg-gamev2ink-800/50 p-4 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gamev2spark-400"
           >

@@ -9,3 +9,4 @@ export {
   type RoundState,
   type ActiveWord,
 } from './round'
+export * from './arcade'

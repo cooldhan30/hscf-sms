@@ -54,7 +54,10 @@ assert(GAME_ENGINES_V2.length === 12, `12 engines registered as scaffolding (fou
 // components/gameRoomV2/{towerDefense,racing,bossBattle,treasureQuest,wordNinja,spaceMission,kingdomBuilder,mysteryMansion,matching,memory}/
 // -- are the real, playable engines so far; every other engine stays
 // COMING_SOON until it gets the same treatment.
-const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'treasure-quest', 'word-ninja', 'space-mission', 'kingdom-builder', 'mystery-mansion', 'matching', 'memory']
+const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'word-ninja', 'matching', 'memory']
+// Built, but hidden (COMING_SOON) by the gameplay overhaul until each is
+// rebuilt into a real game -- see lib/gameRoomV2/registry.ts.
+const HIDDEN_ENGINE_IDS = ['treasure-quest', 'space-mission', 'kingdom-builder', 'mystery-mansion']
 assert(
   GAME_ENGINES_V2.filter((e) => e.status === 'COMING_SOON').length === GAME_ENGINES_V2.length - ACTIVE_ENGINE_IDS.length,
   `every engine except {${ACTIVE_ENGINE_IDS.join(', ')}} is still COMING_SOON`
@@ -63,13 +66,14 @@ assert(getGameEngineV2('classic-quiz')?.status === 'ACTIVE', 'Classic Quiz is AC
 assert(getGameEngineV2('tower-defense')?.status === 'ACTIVE', 'Tower Defense is ACTIVE, genuinely playable')
 assert(getGameEngineV2('racing')?.status === 'ACTIVE', 'Racing is ACTIVE, genuinely playable')
 assert(getGameEngineV2('boss-battle')?.status === 'ACTIVE', 'Boss Battle is ACTIVE, genuinely playable')
-assert(getGameEngineV2('treasure-quest')?.status === 'ACTIVE', 'Treasure Quest is ACTIVE, genuinely playable')
+assert(getGameEngineV2('treasure-quest')?.status === 'COMING_SOON', 'Treasure Quest is hidden (COMING_SOON) until it is rebuilt as a real game')
 assert(getGameEngineV2('word-ninja')?.status === 'ACTIVE', 'Word Ninja is ACTIVE, genuinely playable')
-assert(getGameEngineV2('space-mission')?.status === 'ACTIVE', 'Space Mission is ACTIVE, genuinely playable')
-assert(getGameEngineV2('kingdom-builder')?.status === 'ACTIVE', 'Kingdom Builder is ACTIVE, genuinely playable')
-assert(getGameEngineV2('mystery-mansion')?.status === 'ACTIVE', 'Mystery Mansion is ACTIVE, genuinely playable')
+assert(getGameEngineV2('space-mission')?.status === 'COMING_SOON', 'Space Mission is hidden (COMING_SOON) until it is rebuilt as a real game')
+assert(getGameEngineV2('kingdom-builder')?.status === 'COMING_SOON', 'Kingdom Builder is hidden (COMING_SOON) until it is rebuilt as a real game')
+assert(getGameEngineV2('mystery-mansion')?.status === 'COMING_SOON', 'Mystery Mansion is hidden (COMING_SOON) until it is rebuilt as a real game')
 assert(getGameEngineV2('matching')?.status === 'ACTIVE', 'Matching is ACTIVE, genuinely playable')
 assert(getGameEngineV2('memory')?.status === 'ACTIVE', 'Memory is ACTIVE, genuinely playable')
+assert(HIDDEN_ENGINE_IDS.every((id) => !ACTIVE_ENGINE_IDS.includes(id)), 'no hidden engine is counted as ACTIVE')
 assert(getGameEngineV2('does-not-exist') === undefined, 'getGameEngineV2 returns undefined for an unknown id')
 for (const id of ['word-ninja', 'space-mission', 'kingdom-builder', 'mystery-mansion', 'crossword', 'matching', 'memory']) {
   assert(getGameEngineV2(id) !== undefined, `getGameEngineV2('${id}') resolves (home-screen roster engine)`)

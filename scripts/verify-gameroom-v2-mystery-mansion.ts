@@ -141,7 +141,7 @@ assert(resolution.includes(state.mystery.suspect), 'the resolution text names th
 console.log('\n== Registry: Mystery Mansion has a real, testable engine behind it ==')
 const engine = getGameEngineV2('mystery-mansion')
 assert(engine !== undefined, 'mystery-mansion is registered')
-assert(engine?.status === 'ACTIVE', 'Mystery Mansion is ACTIVE, genuinely playable')
+assert(engine?.status === 'COMING_SOON', 'Mystery Mansion is hidden (COMING_SOON) until rebuilt as a real game -- its logic stays tested here')
 assert(engine?.compatibility.soloSupport === true, 'Mystery Mansion supports solo play')
 assert(engine?.compatibility.supportedQuestionTypes.includes('MULTIPLE_CHOICE') === true, 'Mystery Mansion supports MULTIPLE_CHOICE questions')
 

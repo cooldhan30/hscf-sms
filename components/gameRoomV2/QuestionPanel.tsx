@@ -11,14 +11,19 @@ export function QuestionPanel({
   prompt,
   mediaUrl,
   children,
+  variant = 'card',
+  header,
 }: {
+  variant?: 'card' | 'compact'
+  header?: ReactNode
   category?: string | null
   prompt: string
   mediaUrl?: string | null
   children: ReactNode
 }) {
   return (
-    <GameV2Card padding="lg" className="max-w-xl w-full mx-auto">
+    <GameV2Card padding={variant === 'compact' ? 'sm' : 'lg'} className={`text-stone-900 dark:text-stone-100 ${variant === 'compact' ? 'w-full' : 'max-w-xl w-full mx-auto'}`}>
+      {header}
       {category && (
         <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-300 mb-3">
           {category}
@@ -32,10 +37,10 @@ export function QuestionPanel({
           rather than relying on the body default -- Tamil vowel signs
           and conjuncts need visibly more vertical room than Latin text
           at the same font-size or they read as cramped/clipped. */}
-      <p className="font-tamil text-2xl sm:text-3xl font-bold text-primary-900 dark:text-white leading-[1.6] tracking-wide text-center">
+      <p className={`font-tamil ${variant === 'compact' ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl'} font-bold text-primary-900 dark:text-white leading-[1.6] tracking-wide text-center`}>
         {prompt}
       </p>
-      <div className="mt-6 space-y-3">{children}</div>
+      <div className={`${variant === 'compact' ? 'mt-4' : 'mt-6'} space-y-3`}>{children}</div>
     </GameV2Card>
   )
 }

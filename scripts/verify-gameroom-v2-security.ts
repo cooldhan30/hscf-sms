@@ -419,5 +419,27 @@ for (const f of ['app/api/gameroom-v2/sessions/[id]/pause/route.ts', 'app/api/ga
   assert(/studentMayControlPause\(/.test(readFileSync(join(ROOT, f), 'utf8')), `${f} refuses self-pause/resume for Live Classroom sessions`)
 }
 
+// The per-question shuffles are deterministic; seeded from ids the client
+// knows, the permutation could be replayed and inverted to recover MATCH
+// pairs / ORDER answers from the stripped payload. Every seed must carry
+// the server-only salt.
+const stateRoute = readFileSync(join(ROOT, 'app/api/gameroom-v2/sessions/[id]/state/route.ts'), 'utf8')
+const shuffleSeeds = Array.from(stateRoute.matchAll(/shuffledOptionsFor\([^`]*`([^`]*)`\)/g)).map((m) => m[1])
+assert(shuffleSeeds.length >= 6 && shuffleSeeds.every((seed) => seed.startsWith('${salt}:')), `every /state shuffle seed starts with the server-only salt (${shuffleSeeds.length} seeds)`)
+assert(/const salt = shuffleSalt\(\)/.test(stateRoute), '/state derives the salt from shuffleSalt()')
+const saltSrc = readFileSync(join(ROOT, 'lib/gameRoomV2/security/shuffleSeed.ts'), 'utf8')
+assert(!/NEXT_PUBLIC_/.test(saltSrc) && /SUPABASE_SERVICE_ROLE_KEY|GAMEROOM_V2_SHUFFLE_SECRET/.test(saltSrc), 'the shuffle salt comes from a server-only secret, never a NEXT_PUBLIC_ variable')
+
+// pair-check tells a Matching/Memory player whether one attempted pair is
+// right. It must stay narrow: own session, those two engines, ACTIVE,
+// current question, MATCH only, and it must never write or award.
+const pairCheck = readFileSync(join(ROOT, 'app/api/gameroom-v2/sessions/[id]/pair-check/route.ts'), 'utf8')
+assert(/requireGameV2Session\(params\.id\)/.test(pairCheck), 'pair-check authorizes through requireGameV2Session (own session only)')
+assert(/PAIR_CHECK_ENGINES\.includes\(session\.engine_id\)/.test(pairCheck), 'pair-check is refused for engines other than Matching/Memory')
+assert(/session\.status !== 'ACTIVE'/.test(pairCheck), 'pair-check requires an ACTIVE session (nothing while paused/completed)')
+assert(/questionIndex !== session\.current_index/.test(pairCheck), 'pair-check only answers for the CURRENT question')
+assert(/question_type !== 'MATCH'/.test(pairCheck), 'pair-check only answers MATCH questions')
+assert(!/\.(insert|update|upsert|delete|rpc)\(/.test(pairCheck), 'pair-check never writes (no points, rewards or answers)')
+
 console.log(`\n${failures === 0 ? 'PASS' : 'FAIL'}: ${failures} failure(s).`)
 process.exit(failures === 0 ? 0 : 1)

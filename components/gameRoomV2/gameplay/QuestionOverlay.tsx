@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { QuestionPanel } from '@/components/gameRoomV2'
 import { QuestionInput } from './QuestionInput'
 import { playSound } from './playSound'
@@ -43,12 +43,18 @@ export function QuestionOverlay({
   questionIndex,
   remainingSeconds,
   onResult,
+  variant = 'card',
+  header,
 }: {
   sessionId: string
   question: QuestionOverlayQuestion
   questionIndex: number
   remainingSeconds: number | null
   onResult: (result: AnswerResult) => void
+  // 'compact' fits the question into a game's own panel (e.g. Tower
+  // Defense's between-wave challenge) instead of a full-width card.
+  variant?: 'card' | 'compact'
+  header?: ReactNode
 }) {
   const [submitting, setSubmitting] = useState(false)
   const [pendingAnswer, setPendingAnswer] = useState<unknown>(undefined)
@@ -103,7 +109,7 @@ export function QuestionOverlay({
   }, [remainingSeconds, submitting])
 
   return (
-    <QuestionPanel prompt={question.prompt} mediaUrl={question.mediaUrl}>
+    <QuestionPanel prompt={question.prompt} mediaUrl={question.mediaUrl} variant={variant} header={header}>
       <QuestionInput
         questionType={question.questionType}
         payload={question.payload}

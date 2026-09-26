@@ -145,7 +145,7 @@ assert(nextBuildingToConstruct(state.builtIds) === null, 'there is no next build
 console.log('\n== Registry: Kingdom Builder has a real, testable engine behind it ==')
 const engine = getGameEngineV2('kingdom-builder')
 assert(engine !== undefined, 'kingdom-builder is registered')
-assert(engine?.status === 'ACTIVE', 'Kingdom Builder is ACTIVE, genuinely playable')
+assert(engine?.status === 'COMING_SOON', 'Kingdom Builder is hidden (COMING_SOON) until rebuilt as a real game -- its logic stays tested here')
 assert(engine?.compatibility.soloSupport === true, 'Kingdom Builder supports solo play')
 assert(engine?.compatibility.supportedQuestionTypes.includes('MULTIPLE_CHOICE') === true, 'Kingdom Builder supports MULTIPLE_CHOICE questions')
 

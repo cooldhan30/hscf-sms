@@ -160,6 +160,8 @@ const config: Config = {
         'gamev2-pop-in': 'gamev2PopIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
         'gamev2-shake': 'gamev2Shake 0.4s ease-in-out',
         'gamev2-spark-burst': 'gamev2SparkBurst 0.6s ease-out',
+        'gamev2-float-up': 'gamev2FloatUp 0.9s ease-out forwards',
+        'gamev2-slash': 'gamev2Slash 0.35s ease-out forwards',
       },
       keyframes: {
         blob: {
@@ -195,6 +197,16 @@ const config: Config = {
           '40%': { transform: 'translateX(6px)' },
           '60%': { transform: 'translateX(-4px)' },
           '80%': { transform: 'translateX(4px)' },
+        },
+        gamev2FloatUp: {
+          '0%': { opacity: '0', transform: 'translate(-50%, 0) scale(0.8)' },
+          '20%': { opacity: '1', transform: 'translate(-50%, -8px) scale(1.1)' },
+          '100%': { opacity: '0', transform: 'translate(-50%, -48px) scale(1)' },
+        },
+        gamev2Slash: {
+          '0%': { opacity: '1', transform: 'translate(-50%, -50%) rotate(-24deg) scaleX(0)' },
+          '50%': { opacity: '1', transform: 'translate(-50%, -50%) rotate(-24deg) scaleX(1)' },
+          '100%': { opacity: '0', transform: 'translate(-50%, -50%) rotate(-24deg) scaleX(1.1)' },
         },
         gamev2SparkBurst: {
           '0%': { opacity: '0', transform: 'scale(0.5) rotate(-8deg)' },

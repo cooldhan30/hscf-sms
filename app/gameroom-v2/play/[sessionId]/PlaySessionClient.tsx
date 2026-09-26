@@ -19,7 +19,7 @@ import { GameV2Loading } from '@/components/gameRoomV2'
 // page used to import all ten statically, shipping every engine's
 // components and simulation code to every player. Every future engine
 // that needs its own board gets an entry in ENGINE_COMPONENTS the same way.
-type EngineProps = { sessionId: string; onExit: () => void; onPlayAgain?: () => void }
+type EngineProps = { sessionId: string; onExit: () => void; onPlayAgain?: () => void; onHome?: () => void }
 
 const engineLoading = () => <GameV2Loading label="Loading game..." />
 
@@ -95,7 +95,7 @@ export function PlaySessionClient({ sessionId }: { sessionId: string }) {
   const Engine = ENGINE_COMPONENTS[engineId]
 
   if (Engine) {
-    return <Engine sessionId={sessionId} onExit={goToResults} onPlayAgain={playAgain} />
+    return <Engine sessionId={sessionId} onExit={goToResults} onPlayAgain={playAgain} onHome={() => router.push('/gameroom-v2')} />
   }
 
   return <GameSessionRuntime sessionId={sessionId} onExit={goToResults} onPlayAgain={playAgain} />

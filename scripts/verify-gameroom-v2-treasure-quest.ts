@@ -129,7 +129,7 @@ assert(iterations < 50, 'reaching the treasure happens in a bounded number of st
 
 console.log('\n== Registry: Treasure Quest is now a real, playable engine ==')
 const engine = getGameEngineV2('treasure-quest')
-assert(engine?.status === 'ACTIVE', 'Treasure Quest is ACTIVE in the registry')
+assert(engine?.status === 'COMING_SOON', 'Treasure Quest is hidden (COMING_SOON) until rebuilt as a real game -- its logic stays tested here')
 assert(engine?.compatibility.soloSupport === true, 'Treasure Quest supports solo play')
 
 console.log(`\n${failures === 0 ? 'PASS' : 'FAIL'}: ${failures} failure(s).`)

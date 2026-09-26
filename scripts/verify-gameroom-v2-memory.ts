@@ -1,24 +1,32 @@
 // Standalone verification script for Memory's pure round/difficulty
 // logic (lib/gameRoomV2/memory/*). Same tsx-script convention as every
 // other verify-gameroom-v2-*.ts script. Covers: round creation from a
-// MATCH payload, classic flip-two-cards rules (can't flip a 3rd card,
-// can't flip an already-face-up/matched card), match/mismatch
-// resolution, moves counter, matched state never regressing, round
-// completion, and submission building.
+// STRIPPED MATCH payload (sides shuffled independently, as /state sends
+// them), classic flip-two-cards rules, same-side pairs resolving locally,
+// left+right pairs resolved by a server-style pair oracle, matched state
+// never regressing, completion, submission graded by the existing MATCH
+// grader, and star ratings.
 //
 // Run with: npx tsx scripts/verify-gameroom-v2-memory.ts
 
 import {
   createMemoryRound,
   isRoundComplete,
+  totalPairs,
   canFlip,
   flipCard,
+  flippedPairToCheck,
   resolveFlippedPair,
   acknowledgeAttempt,
   isCardFaceUp,
   buildRoundSubmission,
+  memoryStars,
+  type MemoryRoundState,
 } from '../lib/gameRoomV2/memory/round'
+import { isPairInMatchPayload } from '../lib/gameRoomV2/matching/pairCheck'
 import { MEMORY_DIFFICULTY_SETTINGS, getMemoryDifficultySettings } from '../lib/gameRoomV2/memory/difficulty'
+import { shuffledOptionsFor } from '../lib/gameRoomV2/shuffle'
+import { gradeAnswer } from '../lib/gameRoomV2/gradeAnswer'
 import { getGameEngineV2 } from '../lib/gameRoomV2/registry'
 
 let failures = 0
@@ -32,88 +40,73 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-const LEFT = ['puli', 'yaanai', 'naai']
-const RIGHT = ['tiger', 'elephant', 'dog']
+const PAYLOAD = {
+  pairs: [
+    { left: 'puli', right: 'tiger' },
+    { left: 'yaanai', right: 'elephant' },
+    { left: 'naai', right: 'dog' },
+  ],
+}
+const LEFT = shuffledOptionsFor(PAYLOAD.pairs.map((p) => p.left), 'salt:s2:q9:left')
+const RIGHT = shuffledOptionsFor(PAYLOAD.pairs.map((p) => p.right), 'salt:s2:q9:right')
+
+// What the UI does: a left+right pair asks the server; same-side never pairs.
+function resolve(r: MemoryRoundState) {
+  const labels = flippedPairToCheck(r)
+  return resolveFlippedPair(r, labels ? isPairInMatchPayload(PAYLOAD, labels.left, labels.right) : false)
+}
 
 console.log('== Round creation: every card starts face down ==')
 let round = createMemoryRound(LEFT, RIGHT, 'verify-seed-1')
-assert(round.cards.length === 6, 'a 3-pair MATCH payload creates a 6-card round')
-assert(round.flippedCardIds.length === 0, 'a fresh round has nothing flipped')
-assert(round.matchedPairIds.length === 0, 'a fresh round has nothing matched')
+assert(round.cards.length === 6 && totalPairs(round) === 3, 'a 3-pair MATCH payload creates a 6-card round')
+assert(round.flippedCardIds.length === 0 && round.matchedCardIds.length === 0, 'a fresh round has nothing flipped or matched')
 assert(round.cards.every((c) => !isCardFaceUp(round, c)), 'every card starts face down')
 
-function findByLabel(label: string) {
-  return round.cards.find((c) => c.label === label)!
-}
+const by = (label: string) => round.cards.find((c) => c.label === label)!
 
 console.log('\n== Flipping cards: classic two-at-a-time rules ==')
-let puli = findByLabel('puli')
-assert(canFlip(round, puli.id), 'a fresh card can be flipped')
-round = flipCard(round, puli.id)
-assert(round.flippedCardIds.includes(puli.id), 'flipping a card adds it to flippedCardIds')
-assert(isCardFaceUp(round, puli), 'a flipped card reports face up')
-
-let tiger = findByLabel('tiger')
-round = flipCard(round, tiger.id)
+assert(canFlip(round, by('puli').id), 'a fresh card can be flipped')
+round = flipCard(round, by('puli').id)
+assert(isCardFaceUp(round, by('puli')), 'a flipped card reports face up')
+assert(!canFlip(round, by('puli').id), 'the same card cannot be flipped twice')
+round = flipCard(round, by('tiger').id)
 assert(round.flippedCardIds.length === 2, 'flipping a second card brings the flipped count to 2')
-
-let naai = findByLabel('naai')
-assert(!canFlip(round, naai.id), 'a third card cannot be flipped while two are already face up awaiting resolution')
-const beforeThirdFlip = round
-round = flipCard(round, naai.id)
-assert(round === beforeThirdFlip, 'attempting to flip a third card is a no-op')
-
-console.log('\n== Resolving a correct pair ==')
-round = resolveFlippedPair(round)
-assert(round.flippedCardIds.length === 0, 'resolving clears the flipped selection')
-assert(round.matchedPairIds.includes(puli.pairId), 'a correct pair is recorded as matched')
-assert(round.moves === 1, 'resolving counts as one move')
-assert(round.currentStreak === 1, 'a correct match grows the streak')
-assert(isCardFaceUp(round, puli), 'a matched card stays permanently face up')
+assert(!canFlip(round, by('naai').id), 'a third card cannot be flipped while two are face up')
+assert(flippedPairToCheck(round)?.left === 'puli' && flippedPairToCheck(round)?.right === 'tiger', 'a left+right pair is sent to the server as left/right labels')
+round = resolve(round)
+assert(round.pairs['puli'] === 'tiger' && round.matchedCardIds.length === 2, 'a confirmed pair is recorded as matched')
+assert(isCardFaceUp(round, by('tiger')), 'matched cards stay face up')
 round = acknowledgeAttempt(round)
 
-console.log('\n== A matched card can never be flipped again ==')
-assert(!canFlip(round, puli.id), 'an already-matched card cannot be flipped')
-assert(!canFlip(round, tiger.id), "matching's other half also can't be flipped again")
+console.log('\n== Mismatches ==')
+round = flipCard(round, by('yaanai').id)
+round = flipCard(round, by('naai').id)
+assert(flippedPairToCheck(round) === null, 'two cards from the same side need no server check -- they can never pair')
+round = resolve(round)
+assert(round.lastAttempt?.correct === false && round.flippedCardIds.length === 0, 'a same-side flip resolves as a mismatch and both flip back')
+round = flipCard(round, by('yaanai').id)
+round = flipCard(round, by('dog').id)
+round = resolve(round)
+assert(!round.pairs['yaanai'] && round.matchedCardIds.length === 2, 'a server-rejected pair is never matched, and earlier matches never regress')
+assert(round.currentStreak === 0, 'a mismatch breaks the streak')
 
-console.log('\n== Resolving an incorrect pair: mismatch never destroys prior progress ==')
-let yaanai = findByLabel('yaanai')
-let dog = findByLabel('dog')
-round = flipCard(round, yaanai.id)
-round = flipCard(round, dog.id)
-const matchedBeforeMismatch = [...round.matchedPairIds]
-round = resolveFlippedPair(round)
-assert(round.flippedCardIds.length === 0, 'a resolved mismatch also clears the flipped selection (both flip back down)')
-assert(!round.matchedPairIds.includes(yaanai.pairId), 'a mismatched pair is never recorded as matched')
-assert(JSON.stringify(round.matchedPairIds) === JSON.stringify(matchedBeforeMismatch), 'a mismatch never removes an already-matched pair -- prior progress is untouched')
-assert(round.moves === 2, 'a mismatch still counts as a move')
-assert(round.currentStreak === 0, 'a mismatch resets the streak')
-assert(round.lastAttempt?.correct === false, 'lastAttempt reflects the incorrect outcome')
-assert(!isCardFaceUp(round, yaanai), 'after resolution, a mismatched card is face down again (not matched, not currently flipped)')
-round = acknowledgeAttempt(round)
-assert(round.lastAttempt === null, 'acknowledging clears the one-shot flag')
-
-console.log('\n== Re-attempting and completing the round ==')
-round = flipCard(round, yaanai.id)
-let elephant = findByLabel('elephant')
-round = flipCard(round, elephant.id)
-round = resolveFlippedPair(round)
-assert(round.matchedPairIds.includes(yaanai.pairId), 'the actual yaanai/elephant pair resolves correctly on retry')
-round = acknowledgeAttempt(round)
-
-round = flipCard(round, dog.id)
-let naaiCard = findByLabel('naai')
-round = flipCard(round, naaiCard.id)
-round = resolveFlippedPair(round)
+console.log('\n== Completion ==')
+round = flipCard(round, by('yaanai').id)
+round = flipCard(round, by('elephant').id)
+round = resolve(round)
+round = flipCard(round, by('dog').id)
+round = flipCard(round, by('naai').id)
+round = resolve(round)
 assert(isRoundComplete(round), 'matching every pair completes the round')
-assert(round.matchedPairIds.length === 3, 'all 3 pairs are recorded as matched')
-assert(round.moves === 4, 'the full round took exactly 4 resolved moves (1 correct, 1 wrong, 2 correct)')
+assert(round.moves === 5, 'the full round took exactly 5 resolved moves (3 correct, 2 wrong)')
 
 console.log('\n== Submission reuses the existing MATCH grading contract exactly ==')
 const submission = buildRoundSubmission(round)
-assert(submission['puli'] === 'tiger', 'the submission maps each left label to its matched right label')
-assert(submission['yaanai'] === 'elephant', 'the submission includes every matched pair')
-assert(Object.keys(submission).length === 3, 'the submission has exactly one entry per matched pair')
+assert(Object.keys(submission).length === 3 && submission['naai'] === 'dog', 'the submission maps every left label to its confirmed right label')
+assert(gradeAnswer('MATCH', PAYLOAD, submission) === true, 'the existing MATCH grader accepts the confirmed pairs, unchanged')
+
+console.log('\n== Stars (in-match only) ==')
+assert(memoryStars(4, 3) === 3 && memoryStars(6, 3) === 2 && memoryStars(9, 3) === 1, 'fewer flips earn more stars')
 
 console.log('\n== Difficulty: alters gameplay parameters only, no round timer ==')
 assert(MEMORY_DIFFICULTY_SETTINGS.length === 3, 'exactly 3 difficulty tiers (Easy/Medium/Hard)')

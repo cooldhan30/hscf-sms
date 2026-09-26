@@ -17,10 +17,21 @@ export function GameResultsScreen({
   result,
   onPlayAgain,
   onExit,
+  onHome,
+  headline,
+  subline,
+  gameStats,
 }: {
   result: GameResult
   onPlayAgain?: () => void
+  // "Next activity": the results page with topic progress + Recommended Next.
   onExit?: () => void
+  onHome?: () => void
+  // Engine-specific outcome ("Fort defended!", "2nd place") and stats
+  // (waves survived, enemies defeated...) shown above the learning stats.
+  headline?: string
+  subline?: string
+  gameStats?: { label: string; value: string | number }[]
 }) {
   const { celebrate, reduced } = useGameV2Motion()
   const newAchievements = (result.newlyEarnedAchievementIds ?? [])
@@ -38,7 +49,19 @@ export function GameResultsScreen({
       >
         <FiAward className="w-7 h-7" />
       </motion.div>
-      <h2 className="text-2xl font-bold text-primary-900 dark:text-white">Game complete</h2>
+      <h2 className="text-2xl font-bold text-primary-900 dark:text-white">{headline ?? 'Game complete'}</h2>
+      {subline && <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">{subline}</p>}
+
+      {gameStats && gameStats.length > 0 && (
+        <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {gameStats.map((s) => (
+            <div key={s.label} className="rounded-xl bg-stone-50 dark:bg-stone-800 px-3 py-2">
+              <p className="text-lg font-bold text-stone-800 dark:text-stone-100 tabular-nums">{s.value}</p>
+              <p className="text-xs text-stone-500 dark:text-stone-400">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
         <Stat value={result.score} label="Score" tone="text-stone-800 dark:text-stone-100" />
@@ -102,7 +125,12 @@ export function GameResultsScreen({
         )}
         {onExit && (
           <GameV2Button variant="ghost" fullWidth onClick={onExit}>
-            See my progress
+            {onHome ? 'Next activity' : 'See my progress'}
+          </GameV2Button>
+        )}
+        {onHome && (
+          <GameV2Button variant="ghost" fullWidth onClick={onHome}>
+            Back to Game Room
           </GameV2Button>
         )}
       </div>

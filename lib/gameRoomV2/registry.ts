@@ -196,7 +196,9 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     // Defense, Racing, and Boss Battle) -- built around QuestionOverlay/
     // the shared session routes the same way. See
     // components/gameRoomV2/treasureQuest/TreasureQuestGame.tsx.
-    status: 'ACTIVE',
+    // Hidden in the gameplay overhaul: its play loop is still a quiz
+    // with a light theme, not yet a real game. Code kept for a rebuild.
+    status: 'COMING_SOON',
     version: '0.1.0',
   },
   {
@@ -262,7 +264,9 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     // verify-gameroom-v2-*.ts suite, tsc, lint, and build all passed. See
     // lib/gameRoomV2/spaceMission/* and
     // components/gameRoomV2/spaceMission/SpaceMissionGame.tsx.
-    status: 'ACTIVE',
+    // Hidden in the gameplay overhaul: its play loop is still a quiz
+    // with a light theme, not yet a real game. Code kept for a rebuild.
+    status: 'COMING_SOON',
     version: '0.1.0',
   },
   {
@@ -291,7 +295,9 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     // verify-gameroom-v2-*.ts suite, tsc, lint, and build all passed. See
     // lib/gameRoomV2/kingdomBuilder/* and
     // components/gameRoomV2/kingdomBuilder/KingdomBuilderGame.tsx.
-    status: 'ACTIVE',
+    // Hidden in the gameplay overhaul: its play loop is still a quiz
+    // with a light theme, not yet a real game. Code kept for a rebuild.
+    status: 'COMING_SOON',
     version: '0.1.0',
   },
   {
@@ -321,7 +327,9 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     // verify-gameroom-v2-*.ts suite, tsc, lint, and build all passed. See
     // lib/gameRoomV2/mysteryMansion/* and
     // components/gameRoomV2/mysteryMansion/MysteryMansionGame.tsx.
-    status: 'ACTIVE',
+    // Hidden in the gameplay overhaul: its play loop is still a quiz
+    // with a light theme, not yet a real game. Code kept for a rebuild.
+    status: 'COMING_SOON',
     version: '0.1.0',
   },
   // Lightweight/legacy-style activities -- the same familiar shapes

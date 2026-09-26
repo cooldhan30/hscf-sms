@@ -20,3 +20,4 @@ export {
   type LiveRaceResponse,
   type RawRaceRow,
 } from './liveRace'
+export * from './grandPrix'

@@ -25,3 +25,4 @@ export {
   type ParticipantAnswerSummary,
   type CoopSessionStatus,
 } from './coopBattle'
+export * from './duel'

@@ -1,22 +1,30 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { GameV2Card, GameV2Loading, GameV2Error } from '@/components/gameRoomV2'
-import { GameResultsScreen, useSoundPreference, playSound, useGameSessionState } from '@/components/gameRoomV2/gameplay'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { FiLayers, FiRepeat, FiZap, FiStar, FiPlay } from 'react-icons/fi'
+import { GameV2Loading, GameV2Error } from '@/components/gameRoomV2'
+import { GameResultsScreen, useSoundPreference, playSound, useGameSessionState, vibrate } from '@/components/gameRoomV2/gameplay'
+import { ArenaHud } from '@/components/gameRoomV2/gameplay/ArenaHud'
+import { useManagedTimeouts } from '@/components/gameRoomV2/gameplay/useManagedTimeouts'
+import { usePairCheck } from '@/components/gameRoomV2/cardGrid/usePairCheck'
+import { RoundStars } from '@/components/gameRoomV2/cardGrid/RoundStars'
 import { MemorySetupPicker } from './MemorySetupPicker'
 import { MemoryBoard } from './MemoryBoard'
-import { MemoryStatsBar } from './MemoryStatsBar'
 import {
   createMemoryRound,
   isRoundComplete,
+  totalPairs,
   flipCard,
+  flippedPairToCheck,
   resolveFlippedPair,
   acknowledgeAttempt,
   buildRoundSubmission,
+  memoryStars,
   getMemoryDifficultySettings,
   type MemoryRoundState,
   type MemoryDifficulty,
 } from '@/lib/gameRoomV2/memory'
+import type { BaseSessionStatePayload } from '@/lib/gameRoomV2/gameplay/sessionPolling'
 
 interface MatchQuestion {
   id: string
@@ -24,164 +32,205 @@ interface MatchQuestion {
   payload: { left?: string[]; right?: string[] }
 }
 
-interface StatePayload {
-  status: 'CREATED' | 'READY' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ABANDONED'
-  currentIndex: number
-  totalQuestions: number
+interface StatePayload extends BaseSessionStatePayload {
   question: MatchQuestion | null
 }
 
-// Memory's top-level play screen. Like Matching/Word Ninja, this does
-// NOT compose around QuestionOverlay/QuestionInput for the answering
-// moment -- the flip-card grid is a genuinely different UI for the
-// exact same MATCH question type MatchInput already renders as a
-// two-column tap-to-select form. Both submit the identical
-// Record<left, right> shape to the same POST /answer route, so
-// gradeAnswer needs zero changes -- see
-// lib/gameRoomV2/memory/round.ts's buildRoundSubmission. The round
-// state (which cards are flipped/matched, moves, streak) is
-// client-local ephemeral gameplay state, built fresh from each MATCH
-// question's payload.left/payload.right (never duplicated/persisted
-// separately); only question-answering progress and the real score/
-// XP/coins ledger persist server-side via the unmodified session
-// framework, which is also what feeds
-// progression/achievements/analytics/mastery tracking after this
-// engine's session completes.
-export function MemoryGame({ sessionId, onExit, onPlayAgain }: { sessionId: string; onExit: () => void; onPlayAgain?: () => void }) {
+interface RoundLog {
+  stars: 1 | 2 | 3
+  moves: number
+  pairs: number
+}
+
+// Memory: the question's cards face down; flip two at a time and
+// remember where each pair hides. Whether two cards pair up is asked of
+// the server (pair-check -- the client never holds the pairs); a cleared
+// round's confirmed pairs go to the SAME /answer route every engine uses.
+// Stars and streaks are in-match only; points (server-timed), XP and
+// coins are computed server-side.
+export function MemoryGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionId: string; onExit: () => void; onPlayAgain?: () => void; onHome?: () => void }) {
   const [difficulty, setDifficulty] = useState<MemoryDifficulty | null>(null)
   const [round, setRound] = useState<MemoryRoundState | null>(null)
+  const [roundQuestionId, setRoundQuestionId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const { soundEnabled } = useSoundPreference()
-  const { state: sessionState, error: pollError, result, poll, togglePause, exit } = useGameSessionState<StatePayload>({
-    sessionId,
-    enabled: !!difficulty,
-    soundEnabled,
-  })
+  const [cleared, setCleared] = useState<RoundLog | null>(null)
+  const [log, setLog] = useState<RoundLog[]>([])
+  const [bestStreak, setBestStreak] = useState(0)
+  const [toast, setToast] = useState<string | null>(null)
+  const { soundEnabled, toggleSound } = useSoundPreference()
+  const soundRef = useRef(soundEnabled)
+  soundRef.current = soundEnabled
+  const schedule = useManagedTimeouts()
+  const checkPair = usePairCheck(sessionId)
+  const { state: session, error: pollError, result, poll, togglePause, exit } = useGameSessionState<StatePayload>({ sessionId, enabled: !!difficulty, soundEnabled })
   const error = pollError || submitError
 
-  // Starts a fresh round the moment a new MATCH question becomes
-  // current -- pairs come exclusively from sessionState.question's
-  // payload (the session's linked Question Set); Memory never invents
-  // pair content itself.
+  const question = session?.status === 'ACTIVE' ? session.question : null
   useEffect(() => {
-    if (!difficulty || !sessionState || sessionState.status !== 'ACTIVE' || !sessionState.question) return
-    setRound((prev) => {
-      if (prev) return prev
-      const left = sessionState.question!.payload.left ?? []
-      const right = sessionState.question!.payload.right ?? []
-      return createMemoryRound(left, right, `${sessionId}:${sessionState.question!.id}`)
-    })
-  }, [difficulty, sessionState, sessionId])
+    if (!difficulty || !question || question.id === roundQuestionId || cleared) return
+    setRoundQuestionId(question.id)
+    setRound(createMemoryRound(question.payload.left ?? [], question.payload.right ?? [], `${sessionId}:${question.id}`))
+  }, [difficulty, question, sessionId, roundQuestionId, cleared])
 
-  // Once two cards are face up (flippedCardIds.length === 2), pause
-  // briefly (Easy/Medium/Hard's own mismatchRevealMs -- longer on Easy
-  // so there's real time to see and remember a mismatch) before
-  // resolving the pair -- this deliberate beat IS the classic memory
-  // game's "flip, look, then find out" pacing; resolving instantly
-  // would rob the mismatch feedback of its purpose.
+  // Two cards face up -> verdict (server for a left+right pair), shown
+  // for a beat before a mismatch flips back.
+  const flippedKey = round && round.flippedCardIds.length === 2 ? round.flippedCardIds.join('|') : null
   useEffect(() => {
-    if (!round || round.flippedCardIds.length !== 2 || !difficulty) return
+    if (!flippedKey || !round || !session || !difficulty) return
     const settings = getMemoryDifficultySettings(difficulty)
-    const [aId, bId] = round.flippedCardIds
-    const a = round.cards.find((c) => c.id === aId)!
-    const b = round.cards.find((c) => c.id === bId)!
-    const willMatch = a.pairId === b.pairId
-    const delay = willMatch ? 250 : settings.mismatchRevealMs
-    const timeout = window.setTimeout(() => {
-      setRound((prev) => {
-        if (!prev) return prev
-        const resolved = resolveFlippedPair(prev)
-        playSound(resolved.lastAttempt?.correct ? 'correct' : 'incorrect', soundEnabled)
-        return resolved
+    const labels = flippedPairToCheck(round)
+    const started = Date.now()
+    let cancelled = false
+    const verdict = labels ? checkPair(session.currentIndex, labels.left, labels.right) : Promise.resolve(false)
+    verdict
+      .then((isPair) => {
+        if (cancelled) return
+        const wait = Math.max(0, (isPair ? 250 : settings.mismatchRevealMs) - (Date.now() - started))
+        schedule(() => {
+          setRound((prev) => (prev ? resolveFlippedPair(prev, isPair) : prev))
+          playSound(isPair ? 'correct' : 'incorrect', soundRef.current)
+          if (isPair) vibrate('correct', soundRef.current)
+        }, wait)
       })
-    }, delay)
-    return () => window.clearTimeout(timeout)
+      .catch(() => {
+        if (cancelled) return
+        setToast('Could not check that pair -- try again')
+        schedule(() => setToast(null), 2000)
+        setRound((prev) => (prev ? { ...prev, flippedCardIds: [] } : prev))
+      })
+    return () => {
+      cancelled = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [round?.flippedCardIds, difficulty, soundEnabled])
+  }, [flippedKey])
 
-  // The attempt-feedback ring clears itself after a short beat,
-  // mirroring every prior engine's one-shot acknowledgement pattern.
   useEffect(() => {
     if (!round?.lastAttempt) return
     const timeout = window.setTimeout(() => setRound((prev) => (prev ? acknowledgeAttempt(prev) : prev)), 500)
     return () => window.clearTimeout(timeout)
   }, [round?.lastAttempt])
 
-  // Once every pair in the round is matched, submit the whole mapping
-  // as this question's answer through the SAME /answer route every
-  // other engine uses -- grading, points, XP/coins all happen exactly
-  // as they do for a two-column MatchInput submission.
+  const roundBest = round?.bestStreak ?? 0
   useEffect(() => {
-    if (!round || !sessionState?.question || !isRoundComplete(round) || submitting) return
+    setBestStreak((b) => Math.max(b, roundBest))
+  }, [roundBest])
+
+  // Every pair found -> submit the confirmed pairs.
+  const complete = !!round && isRoundComplete(round)
+  useEffect(() => {
+    if (!complete || !round || !session?.question || submitting || cleared || submitError) return
     setSubmitting(true)
-    const questionIndex = sessionState.currentIndex
-    const answer = buildRoundSubmission(round)
     fetch(`/api/gameroom-v2/sessions/${sessionId}/answer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ questionIndex, answer }),
+      body: JSON.stringify({ questionIndex: session.currentIndex, answer: buildRoundSubmission(round) }),
     })
-      .then((res) => res.json())
-      .then(() => {
-        playSound('checkpoint', soundEnabled)
-        setRound(null)
-        setSubmitting(false)
-        poll()
+      .then(async (res) => {
+        const data = await res.json().catch(() => null)
+        if (!res.ok || typeof data?.isCorrect !== 'boolean') throw new Error(data?.error || 'Failed to submit your matches')
+        const pairs = totalPairs(round)
+        const entry: RoundLog = { stars: memoryStars(round.moves, pairs), moves: round.moves, pairs }
+        setLog((l) => [...l, entry])
+        setCleared(entry)
+        playSound(entry.stars === 3 ? 'streak' : 'checkpoint', soundRef.current, 4)
+        schedule(() => {
+          setCleared(null)
+          setRound(null)
+          poll()
+        }, 1600)
       })
-      .catch(() => {
-        setSubmitting(false)
-        setSubmitError('Failed to submit your matches')
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [round, sessionState, submitting, sessionId, poll, soundEnabled])
+      .catch((e: Error) => setSubmitError(e.message || 'Failed to submit your matches'))
+      .finally(() => setSubmitting(false))
+  }, [complete, round, session, submitting, cleared, submitError, sessionId, poll, schedule])
 
-  function handleFlip(cardId: string) {
+  const handleFlip = useCallback((cardId: string) => {
     setRound((prev) => (prev ? flipCard(prev, cardId) : prev))
+    playSound('button', soundRef.current)
+  }, [])
+
+  const leave = () => exit(onExit)
+  const again = () => exit(onPlayAgain ?? onExit)
+
+  if (!difficulty) return <MemorySetupPicker onStart={setDifficulty} />
+  if (error && !session) return <GameV2Error description={error} onRetry={poll} />
+  if (!session) return <GameV2Loading label="Laying out the cards..." />
+
+  if (result) {
+    const stars = log.reduce((a, r) => a + r.stars, 0)
+    return (
+      <div className="min-h-screen w-full bg-slate-950 px-4 py-8">
+        <GameResultsScreen
+          result={result}
+          headline={stars === log.length * 3 && log.length > 0 ? 'Perfect memory!' : 'Every pair found'}
+          subline="Fewer flips earn more stars -- try to remember where each card was."
+          gameStats={[
+            { label: 'Stars', value: `${stars} of ${log.length * 3}` },
+            { label: 'Pairs found', value: log.reduce((a, r) => a + r.pairs, 0) },
+            { label: 'Flips (pairs of cards)', value: log.reduce((a, r) => a + r.moves, 0) },
+            { label: 'Best streak', value: `x${bestStreak}` },
+          ]}
+          onPlayAgain={onPlayAgain ? again : undefined}
+          onExit={onExit}
+          onHome={onHome}
+        />
+      </div>
+    )
   }
 
-  async function handleTogglePause() {
-    await togglePause()
-  }
-
-  async function handleExit() {
-    await exit(onExit)
-  }
-
-  if (!difficulty) {
-    return <MemorySetupPicker onStart={setDifficulty} />
-  }
-
-  if (error && !sessionState) return <GameV2Error description={error} onRetry={poll} />
-  if (!sessionState) return <GameV2Loading label="Laying out the cards..." />
-  if (result) return <GameResultsScreen result={result} onPlayAgain={onPlayAgain} onExit={onExit} />
-  if (sessionState.status === 'COMPLETED') return <GameV2Loading label="Calculating your results..." />
-  if (!round) return <GameV2Loading label="Dealing the next round..." />
+  const paused = session.status === 'PAUSED'
+  const found = round ? Object.keys(round.pairs).length : 0
 
   return (
-    <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-4 px-4 py-6">
-      <div className="w-full flex items-center justify-between">
-        <button onClick={handleExit} className="text-sm font-bold text-gamev2ink-400 hover:text-gamev2coral-500">
-          Exit
-        </button>
-        <span className="text-sm font-extrabold text-gamev2ink-800 dark:text-white">
-          Round {Math.min(sessionState.currentIndex + 1, sessionState.totalQuestions)} of {sessionState.totalQuestions}
-        </span>
-        <button onClick={handleTogglePause} className="text-sm font-bold text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white">
-          {sessionState.status === 'PAUSED' ? 'Resume' : 'Pause'}
-        </button>
+    <div className="min-h-screen w-full bg-slate-950 text-white">
+      <ArenaHud
+        stats={[
+          { icon: FiLayers, label: 'Round', value: `${Math.min(session.currentIndex + 1, session.totalQuestions)}/${session.totalQuestions}` },
+          { icon: FiStar, label: 'Pairs', value: `${found}/${round ? totalPairs(round) : 0}`, tone: 'gold' },
+          { icon: FiRepeat, label: 'Flips', value: round?.moves ?? 0 },
+          ...(round && round.currentStreak >= 2 ? [{ icon: FiZap, label: 'Streak', value: `x${round.currentStreak}`, tone: 'good' as const }] : []),
+        ]}
+        paused={paused}
+        onTogglePause={() => togglePause()}
+        soundEnabled={soundEnabled}
+        onToggleSound={toggleSound}
+        onExit={leave}
+      />
+      <div className="max-w-3xl mx-auto px-3 py-4 space-y-3">
+        {session.question && !paused && (
+          <p className="text-center font-tamil leading-relaxed text-base sm:text-lg font-bold text-slate-100">{session.question.prompt}</p>
+        )}
+        {toast && (
+          <p role="status" className="text-center text-sm font-bold text-amber-300">
+            {toast}
+          </p>
+        )}
+        {paused ? (
+          <div className="rounded-2xl bg-slate-900 border border-white/10 p-8 text-center">
+            <p className="font-bold text-lg">Paused</p>
+            <button type="button" onClick={() => togglePause()} className="mt-4 inline-flex items-center gap-2 min-h-[48px] px-6 rounded-2xl bg-amber-400 text-slate-900 font-bold">
+              <FiPlay className="w-5 h-5" aria-hidden /> Resume
+            </button>
+          </div>
+        ) : cleared ? (
+          <div role="status" className="rounded-2xl bg-slate-900 border border-white/10 p-8 text-center animate-gamev2-pop-in">
+            <RoundStars stars={cleared.stars} />
+            <p className="mt-3 text-xl font-bold">Round cleared in {cleared.moves} flips</p>
+          </div>
+        ) : round ? (
+          <MemoryBoard round={round} disabled={submitting} onFlip={handleFlip} />
+        ) : (
+          <GameV2Loading label={session.status === 'COMPLETED' ? 'Calculating your results...' : 'Dealing the next round...'} />
+        )}
+        {submitError && (
+          <p className="text-sm text-red-300 text-center">
+            {submitError}{' '}
+            <button type="button" onClick={() => setSubmitError(null)} className="underline font-bold min-h-[44px] px-2">
+              Try again
+            </button>
+          </p>
+        )}
       </div>
-
-      <MemoryStatsBar moves={round.moves} currentStreak={round.currentStreak} />
-
-      {sessionState.status === 'PAUSED' ? (
-        <GameV2Card padding="md" className="w-full text-center">
-          <p className="font-extrabold text-gamev2ink-800 dark:text-white">Round Paused</p>
-          <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400 mt-1">Tap resume to keep flipping.</p>
-        </GameV2Card>
-      ) : (
-        <MemoryBoard round={round} disabled={submitting} onFlip={handleFlip} />
-      )}
     </div>
   )
 }

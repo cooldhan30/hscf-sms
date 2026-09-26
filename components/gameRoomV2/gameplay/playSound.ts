@@ -60,6 +60,16 @@ export type SoundId =
   | 'checkpoint'
   | 'victory'
   | 'gameOver'
+  // Game-event sounds (Tower Defense and other arcade engines).
+  | 'coin'
+  | 'build'
+  | 'upgrade'
+  | 'hit'
+  | 'ability'
+  | 'waveStart'
+  | 'bossWarning'
+  | 'baseHit'
+  | 'slash'
 
 let audioCtx: AudioContext | null = null
 
@@ -243,16 +253,73 @@ export function tonesFor(id: SoundId, variant?: number): Tone[] {
         { freq: 392, startMs: 0, durationMs: 220, gain: 0.15, type: 'triangle' },
         { freq: 293.66, startMs: 180, durationMs: 380, gain: 0.15, type: 'triangle' },
       ]
+    case 'coin':
+      // A tiny bright double-blip -- pickups happen often, so it's short and quiet.
+      return [
+        { freq: 988, startMs: 0, durationMs: 50, gain: 0.07, type: 'square' },
+        { freq: 1319, startMs: 45, durationMs: 70, gain: 0.07, type: 'square' },
+      ]
+    case 'build':
+      return [
+        { freq: 330, startMs: 0, durationMs: 70, gain: 0.12, type: 'triangle' },
+        { freq: 440, startMs: 60, durationMs: 110, gain: 0.12, type: 'triangle' },
+      ]
+    case 'upgrade':
+      return [
+        { freq: 523.25, startMs: 0, durationMs: 80, gain: 0.12, type: 'triangle' },
+        { freq: 659.25, startMs: 70, durationMs: 80, gain: 0.12, type: 'triangle' },
+        { freq: 1046.5, startMs: 140, durationMs: 160, gain: 0.13, type: 'triangle' },
+      ]
+    case 'hit':
+      // Very short, very quiet thud -- rate-limited in playSound().
+      return [{ freq: 180, startMs: 0, durationMs: 40, gain: 0.05, type: 'square' }]
+    case 'ability':
+      return [
+        { freq: 392, startMs: 0, durationMs: 120, gain: 0.14, type: 'sawtooth' },
+        { freq: 784, startMs: 90, durationMs: 220, gain: 0.12, type: 'triangle' },
+      ]
+    case 'waveStart':
+      return [
+        { freq: 294, startMs: 0, durationMs: 150, gain: 0.13, type: 'triangle' },
+        { freq: 392, startMs: 140, durationMs: 220, gain: 0.14, type: 'triangle' },
+      ]
+    case 'bossWarning':
+      // Low, ominous (but not scary) three-pulse horn.
+      return [
+        { freq: 146.83, startMs: 0, durationMs: 220, gain: 0.16, type: 'sawtooth' },
+        { freq: 146.83, startMs: 300, durationMs: 220, gain: 0.16, type: 'sawtooth' },
+        { freq: 110, startMs: 600, durationMs: 420, gain: 0.17, type: 'sawtooth' },
+      ]
+    case 'baseHit':
+      return [{ freq: 110, startMs: 0, durationMs: 160, gain: 0.14, type: 'triangle' }]
+    case 'slash':
+      // A quick bright swish -- two very short descending blips.
+      return [
+        { freq: 1480, startMs: 0, durationMs: 35, gain: 0.06, type: 'sawtooth' },
+        { freq: 880, startMs: 30, durationMs: 45, gain: 0.05, type: 'triangle' },
+      ]
     default:
       return []
   }
 }
+
+// Minimum gap between two plays of the same frequent game-event sound,
+// so a tower firing 3x a second or ten coins dropping at once never
+// turns into noise.
+const MIN_GAP_MS: Partial<Record<SoundId, number>> = { hit: 140, coin: 90, baseHit: 250, build: 80, slash: 60 }
+const lastPlayedAt = new Map<SoundId, number>()
 
 // `variant` is an optional intensity knob a caller can pass for sounds
 // that scale with a number (currently just `streak`, keyed off the
 // player's current streak length) -- ignored by every other category.
 export function playSound(id: SoundId, soundEnabled: boolean, variant?: number) {
   if (!soundEnabled) return
+  const gap = MIN_GAP_MS[id]
+  if (gap !== undefined) {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+    if (now - (lastPlayedAt.get(id) ?? -Infinity) < gap) return
+    lastPlayedAt.set(id, now)
+  }
 
   if (id in RECORDED_SOUND_FILES) {
     playRecorded(id as RecordedSoundId)
