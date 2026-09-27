@@ -84,6 +84,8 @@ const GAMES: Record<string, string> = {
   'word-ninja': 'components/gameRoomV2/wordNinja/WordNinjaGame.tsx',
   matching: 'components/gameRoomV2/matching/MatchingGame.tsx',
   memory: 'components/gameRoomV2/memory/MemoryGame.tsx',
+  racing: 'components/gameRoomV2/racing3d/RaceGame3D.tsx',
+  'racing-live': 'components/gameRoomV2/racing/RacingGame.tsx',
 }
 for (const [id, file] of Object.entries(GAMES)) {
   const src = read(file)

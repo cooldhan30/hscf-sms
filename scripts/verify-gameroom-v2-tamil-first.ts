@@ -56,11 +56,11 @@ const SURFACES: Record<string, string[]> = {
   'components/gameRoomV2/bossBattle/brawl/BrawlSetup.tsx': ['>Choose your arena<', '> Enter the arena\n'],
   'components/gameRoomV2/bossBattle/brawl/BrawlResults.tsx': ["'DEFEATED'", "stat('Waves cleared'"],
   // Racing
-  'components/gameRoomV2/racing/DriveGame.tsx': ["flash('FINAL LAP!'", "'NOT QUITE'", 'Cars to the grid...'],
+  'components/gameRoomV2/racing3d/RaceGame3D.tsx': ["'FINAL LAP!'", "'NOT QUITE'", 'Cars to the grid...'],
+  'components/gameRoomV2/racing3d/TrackPicker.tsx': ['>Choose a track<'],
   'components/gameRoomV2/racing/RaceCelebration.tsx': ["'1st PLACE!'", 'Saving your race and XP...'],
   'components/gameRoomV2/racing/RacingGame.tsx': ['Race Paused'],
   'components/gameRoomV2/racing/MultiplayerFinishScreen.tsx': ['Race Complete!'],
-  'components/gameRoomV2/racing/RaceSetupPicker.tsx': ['dark:text-white">Tamil Racing</h2>'],
   // Word Ninja
   'components/gameRoomV2/wordNinja/WordNinjaGame.tsx': ["'Dojo mastered!'", "'Checking your lanes...'"],
   'components/gameRoomV2/wordNinja/NinjaSetupPicker.tsx': ['font-bold mt-1">The Word Dojo</h1>'],

@@ -14,11 +14,17 @@ export function TouchControls({
   boostReady,
   boosting,
   disabled,
+  boostLabel,
+  steerOnly = false,
 }: {
   controls: MutableRefObject<ControlState>
   boostReady: boolean
   boosting: boolean
   disabled: boolean
+  // What the boost button fires (e.g. the held power-up's name).
+  boostLabel?: { ta: string; en: string }
+  // Live Classroom: the server moves the car; the student only steers.
+  steerOnly?: boolean
 }) {
   const padRef = useRef<HTMLDivElement | null>(null)
   const steerPointer = useRef<number | null>(null)
@@ -126,7 +132,7 @@ export function TouchControls({
       </div>
 
       {/* Pedals + boost */}
-      <div className="pointer-events-auto flex items-end gap-2 sm:gap-3">
+      <div className={`pointer-events-auto flex items-end gap-2 sm:gap-3 ${steerOnly ? 'hidden' : ''}`}>
         <button
           type="button"
           aria-label="நிறுத்தி · Brake"
@@ -142,7 +148,7 @@ export function TouchControls({
         <div className="flex flex-col items-center gap-2">
           <button
             type="button"
-            aria-label="உந்துதல் · Boost"
+            aria-label={boostLabel ? `${boostLabel.ta} · ${boostLabel.en}` : "உந்துதல் · Boost"}
             disabled={!boostReady}
             onPointerDown={(e) => {
               e.preventDefault()
@@ -152,8 +158,8 @@ export function TouchControls({
               boosting ? 'bg-terracotta-500 text-white animate-pulse' : boostReady ? 'bg-gold-400 text-stone-900 shadow-terracotta' : 'bg-white/60 text-stone-400'
             }`}
           >
-            <span className="font-tamil block">உந்து</span>
-            <span className="block text-[10px] opacity-70">BOOST</span>
+            <span className="font-tamil block text-sm leading-tight">{boostLabel?.ta ?? 'உந்து'}</span>
+            <span className="block text-[10px] opacity-70 uppercase">{boostLabel?.en ?? 'BOOST'}</span>
           </button>
           <button
             type="button"

@@ -185,8 +185,8 @@ for (const [file, re, label] of FORBIDDEN_DEPS) {
 }
 for (const [file, flag] of [
   ['components/gameRoomV2/towerDefense/TowerDefenseGame.tsx', 'simRunning'],
-  // Solo racing's loop lives in DriveGame.tsx (RacingGame.tsx keeps the Live Classroom race).
-  ['components/gameRoomV2/racing/DriveGame.tsx', 'simRunning'],
+  // Solo racing's loop lives in racing3d/RaceGame3D.tsx (RacingGame.tsx keeps the Live Classroom race).
+  ['components/gameRoomV2/racing3d/RaceGame3D.tsx', 'running'],
   ['components/gameRoomV2/racing/RacingGame.tsx', 'raceFinished'],
   ['components/gameRoomV2/wordNinja/WordNinjaGame.tsx', 'flightRunning'],
   ['components/gameRoomV2/matching/MatchingGame.tsx', 'countdownRunning'],
