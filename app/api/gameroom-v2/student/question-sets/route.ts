@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireGameV2Student } from '@/lib/gameRoomV2/requireStudentAccess'
 import { getGameEngineV2 } from '@/lib/gameRoomV2/registry'
-import { checkEngineCompatibility } from '@/lib/gameRoomV2/domain'
+import { gameAvailability, isEngineLaunchable } from '@/lib/gameRoomV2/gameAvailability'
 
 // GET /api/gameroom-v2/student/question-sets?engineId=... -- the Question
 // Sets the calling student can play ON THEIR OWN with the given engine:
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
   const engineId = new URL(request.url).searchParams.get('engineId') ?? ''
   const engine = getGameEngineV2(engineId)
-  if (!engine || engine.status !== 'ACTIVE') {
+  if (!engine || !isEngineLaunchable(engine)) {
     return NextResponse.json({ questionSets: [] })
   }
 
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
   const questionSets = (sets ?? [])
     .filter((s) => s.class_id === null || myClassIds.has(s.class_id))
-    .filter((s) => checkEngineCompatibility([engine], s.question_types ?? [])[0]?.compatible)
+    .filter((s) => gameAvailability(engine, s.question_types ?? [], 'solo').playable)
     .map((s) => ({
       id: s.id,
       title: s.title,

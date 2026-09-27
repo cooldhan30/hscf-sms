@@ -59,8 +59,8 @@ const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-batt
 // rebuilt into a real game -- see lib/gameRoomV2/registry.ts.
 const HIDDEN_ENGINE_IDS = ['treasure-quest', 'space-mission', 'kingdom-builder', 'mystery-mansion']
 assert(
-  GAME_ENGINES_V2.filter((e) => e.status === 'COMING_SOON').length === GAME_ENGINES_V2.length - ACTIVE_ENGINE_IDS.length,
-  `every engine except {${ACTIVE_ENGINE_IDS.join(', ')}} is still COMING_SOON`
+  GAME_ENGINES_V2.filter((e) => e.status === 'COMING_SOON' || e.status === 'HIDDEN').length === GAME_ENGINES_V2.length - ACTIVE_ENGINE_IDS.length,
+  `every engine except {${ACTIVE_ENGINE_IDS.join(', ')}} is still COMING_SOON (or HIDDEN)`
 )
 assert(getGameEngineV2('classic-quiz')?.status === 'ACTIVE', 'Classic Quiz is ACTIVE, genuinely playable')
 assert(getGameEngineV2('tower-defense')?.status === 'ACTIVE', 'Tower Defense is ACTIVE, genuinely playable')

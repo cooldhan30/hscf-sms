@@ -1,4 +1,5 @@
-import { GAME_ENGINES_V2 } from '../registry'
+import { getGameEngineV2 } from '../registry'
+import { gameAvailability, isEngineLaunchable, launchableEngines } from '../gameAvailability'
 import type { GameEngine, GameRoomQuestionType } from '../domain'
 import { builtinUuid, sha1Hex } from './ids'
 import type { BuiltinQuestion, BuiltinSet, BuiltinSetKind, BuiltinTopic, BuiltinTopicDef, LearningBoard } from './types'
@@ -181,6 +182,8 @@ export const BUILTIN_CONTENT_VERSION = sha1Hex(JSON.stringify(BUILTIN_TOPICS)).s
 // Which kind of set an engine should play when a topic has several.
 // Engines not listed fall back to the first compatible set in topic order.
 const ENGINE_SET_PREFERENCE: Record<string, BuiltinSetKind[]> = {
+  'classic-quiz': ['quiz'],
+  'boss-battle': ['quiz'],
   'word-ninja': ['sort'],
   matching: ['match'],
   memory: ['match'],
@@ -190,17 +193,15 @@ const ENGINE_SET_PREFERENCE: Record<string, BuiltinSetKind[]> = {
   'kingdom-builder': ['quiz', 'match', 'sort'],
 }
 
-function isPlayable(engine: GameEngine): boolean {
-  return engine.status === 'ACTIVE' || engine.status === 'BETA'
-}
-
+// Built-in sets use the exact same availability rule as teacher-made
+// and imported sets (lib/gameRoomV2/gameAvailability.ts).
 function engineSupports(engine: GameEngine, set: BuiltinSet): boolean {
-  return set.questionTypes.every((t) => engine.compatibility.supportedQuestionTypes.includes(t))
+  return gameAvailability(engine, set.questionTypes).playable
 }
 
 export function setForEngine(topic: BuiltinTopic, engineId: string): BuiltinSet | undefined {
-  const engine = GAME_ENGINES_V2.find((e) => e.id === engineId)
-  if (!engine || !isPlayable(engine)) return undefined
+  const engine = getGameEngineV2(engineId)
+  if (!engine || !isEngineLaunchable(engine)) return undefined
   const compatible = topic.sets.filter((s) => engineSupports(engine, s))
   const preference = ENGINE_SET_PREFERENCE[engineId] ?? []
   for (const kind of preference) {
@@ -213,7 +214,13 @@ export function setForEngine(topic: BuiltinTopic, engineId: string): BuiltinSet 
 // Every playable engine that can play at least one of the topic's sets,
 // in registry order, each paired with the set it would play.
 export function enginesForTopic(topic: BuiltinTopic): { engine: GameEngine; set: BuiltinSet }[] {
-  return GAME_ENGINES_V2.filter(isPlayable)
+  return launchableEngines()
     .map((engine) => ({ engine, set: setForEngine(topic, engine.id) }))
     .filter((e): e is { engine: GameEngine; set: BuiltinSet } => Boolean(e.set))
+}
+
+// Active games that can't play ANY of the topic's sets -- shown disabled
+// with their reason rather than silently missing from the topic.
+export function unavailableEnginesForTopic(topic: BuiltinTopic): GameEngine[] {
+  return launchableEngines().filter((engine) => !setForEngine(topic, engine.id))
 }

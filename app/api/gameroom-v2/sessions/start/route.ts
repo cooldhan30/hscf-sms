@@ -3,7 +3,7 @@ import { requireGameV2Student } from '@/lib/gameRoomV2/requireStudentAccess'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireString } from '@/lib/validation'
 import { getGameEngineV2 } from '@/lib/gameRoomV2/registry'
-import { checkEngineCompatibility } from '@/lib/gameRoomV2/domain'
+import { checkGameLaunch, isEngineLaunchable } from '@/lib/gameRoomV2/gameAvailability'
 import { shuffle } from '@/lib/gameRoomV2/shuffle'
 import { SESSION_START_LIMIT, exceedsSessionStartLimit } from '@/lib/gameRoomV2/security/limits'
 
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   if (!engine) {
     return NextResponse.json({ error: 'Unknown game engine' }, { status: 400 })
   }
-  if (engine.status !== 'ACTIVE' && engine.status !== 'BETA') {
+  if (!isEngineLaunchable(engine)) {
     return NextResponse.json({ error: `${engine.name} is not playable yet (${engine.status})` }, { status: 409 })
   }
 
@@ -68,12 +68,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Question set not found' }, { status: 404 })
   }
 
-  const compatible = checkEngineCompatibility([engine], questionSet.question_types)[0]
-  if (!compatible.compatible) {
-    return NextResponse.json(
-      { error: `${engine.name} does not support: ${compatible.unsupportedTypes.join(', ')}` },
-      { status: 409 }
-    )
+  // The same rule every picker displays (lib/gameRoomV2/gameAvailability.ts).
+  const launch = checkGameLaunch(engine.id, questionSet.question_types ?? [], 'solo')
+  if (!launch.ok) {
+    return NextResponse.json({ error: launch.error }, { status: launch.status })
   }
 
   const since = new Date(Date.now() - SESSION_START_LIMIT.windowMinutes * 60 * 1000).toISOString()

@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { FiPlus, FiEdit2, FiTrash2, FiUsers, FiLock, FiGlobe } from 'react-icons/fi'
 import { GameV2Button, GameV2Card, GameV2Empty, GameV2ConfirmDialog } from '@/components/gameRoomV2'
-import { checkEngineCompatibility, type GameRoomQuestionType, type QuestionSetVisibility } from '@/lib/gameRoomV2/domain'
-import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
+import type { GameRoomQuestionType, QuestionSetVisibility } from '@/lib/gameRoomV2/domain'
+import { playableEnginesForSet } from '@/lib/gameRoomV2/gameAvailability'
 import { toast } from '@/lib/toast'
 
 export interface QuestionSetRow {
@@ -69,7 +69,7 @@ export function BuilderListClient({ questionSets, currentProfileId }: { question
           {sets.map((set) => {
             const VisIcon = VISIBILITY_ICON[set.visibility]
             const isOwner = set.created_by === currentProfileId
-            const compatibleCount = checkEngineCompatibility(GAME_ENGINES_V2, set.question_types).filter((r) => r.compatible).length
+            const compatibleCount = playableEnginesForSet(set.question_types).length
 
             return (
               <GameV2Card key={set.id} padding="md">

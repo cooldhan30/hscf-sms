@@ -1,22 +1,51 @@
-import type { GameEngine } from './domain'
+import type { GameEngine, GameRoomQuestionType } from './domain'
 
-// GameRoom V2's own engine registry -- entirely separate from
-// lib/gameRoom/registry.ts (legacy GameRoom's GAME_MODULES/
-// INTERACTIVE_GAME_MODULES). Adding an entry here has zero effect on
-// production GameRoom: it isn't read by any legacy route, page, or
-// component, and nothing here can appear in the legacy teacher host's
-// game-type dropdown (GET /api/game-room/games only ever reads the
-// legacy registry).
+// Every single-question shape the shared QuestionOverlay/QuestionInput
+// renders as one self-contained checkpoint question. CATEGORIZE and MATCH
+// are left out on purpose: their overlay forms are a fallback, and the
+// games built for them (Word Ninja, Matching, Memory) play them properly.
+export const CHECKPOINT_QUESTION_TYPES: GameRoomQuestionType[] = [
+  'MULTIPLE_CHOICE',
+  'TRUE_FALSE',
+  'IMAGE_CHOICE',
+  'AUDIO_CHOICE',
+  'TEXT_INPUT',
+  'FILL_BLANK',
+  'ORDER_LETTERS',
+  'ORDER_WORDS',
+]
+
+const CHECKPOINT_REQUIREMENT = {
+  en: 'Requires quiz-style questions (choice, true/false, short answer, fill-in or ordering)',
+  ta: 'வினாடி வினா வகை வினாக்கள் தேவை',
+}
+
+// THE authoritative GameRoom V2 game registry. Every GameRoom surface
+// (Choose a Game, Library cards, Builder, Import, student home, Learning
+// Boards/topics, Quick Play, Host Live, the session/live launch routes)
+// derives which games exist, which are playable, and which can play a
+// given question set from THIS list -- through the pure helpers in
+// lib/gameRoomV2/gameAvailability.ts. No screen keeps its own list of
+// game ids or compares statuses itself;
+// scripts/verify-gameroom-v2-game-registry.ts fails the build if one does.
 //
-// Every entry today is metadata only -- declaring an engine here does
-// NOT mean it's playable. `status` says how far along it is; per this
-// phase's explicit scope, no engine is implemented yet (all are
-// COMING_SOON), and Classic Quiz -- the only one with real gameplay
-// planned first -- stays COMING_SOON until its actual session/scoring
-// logic exists. This registry exists now so the compatibility-matching
-// design (a GameRoomQuestionSet -> which engines can play it) has real
-// data to be built and eyeballed against before the first engine is
-// implemented.
+// Entirely separate from lib/gameRoom/registry.ts (legacy GameRoom's
+// GAME_MODULES) -- nothing here is read by any legacy route or page.
+//
+// Order here is display order everywhere: the seven ACTIVE games first
+// (Classic Quiz, Tower Defense, Racing, Boss Battle, Word Ninja,
+// Matching, Memory), then COMING_SOON concepts, then HIDDEN ones.
+//
+// `id` is also the game's URL slug (?game=<id>) and the engine_id stored
+// on session rows -- it never changes once shipped.
+//
+// supportedQuestionTypes must describe what the engine ACTUALLY renders.
+// Tower Defense, Racing, Boss Battle and Classic Quiz ask every question
+// through the shared QuestionOverlay -> QuestionInput, which renders (and
+// gradeAnswer grades) every CHECKPOINT_QUESTION_TYPES shape -- so they
+// declare all of them. Under-declaring here is exactly what used to make
+// Tower Defense and Racing vanish from Choose a Game for teacher-made
+// short-answer sets.
 export const GAME_ENGINES_V2: GameEngine[] = [
   {
     id: 'classic-quiz',
@@ -26,7 +55,10 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     icon: null,
     thumbnail: null,
     compatibility: {
-      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'TEXT_INPUT', 'AUDIO_CHOICE'],
+      // Classic Quiz IS the shared runtime (GameSessionRuntime ->
+      // QuestionInput): every quiz-style question. Matching-pair and
+      // sorting sets belong to Matching/Memory/Word Ninja instead.
+      supportedQuestionTypes: [...CHECKPOINT_QUESTION_TYPES],
       soloSupport: true,
       multiplayerSupport: true,
       liveClassroomSupport: true,
@@ -36,15 +68,12 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     },
     recommendedLevel: null,
     estimatedDurationMinutes: 10,
-    // The one engine with real gameplay today -- a thin reference
-    // implementation that mounts components/gameRoomV2/gameplay's
-    // GameSessionRuntime directly with no extra visual layer of its
-    // own, since a plain question-by-question quiz IS exactly what the
-    // shared runtime already provides. Exists specifically to prove
-    // the gameplay framework end-to-end (session lifecycle, scoring,
-    // XP/coins, results) with a real, playable engine, while every
-    // other engine (Tower Defense included) stays COMING_SOON
-    // untouched per this phase's explicit scope.
+    // A thin reference engine that mounts components/gameRoomV2/
+    // gameplay's GameSessionRuntime directly with no extra visual layer
+    // of its own -- a plain question-by-question quiz IS exactly what
+    // the shared runtime already provides.
+    requirement: CHECKPOINT_REQUIREMENT,
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'TEXT_INPUT'],
     status: 'ACTIVE',
     version: '0.1.0',
   },
@@ -56,7 +85,8 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     icon: null,
     thumbnail: null,
     compatibility: {
-      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'CATEGORIZE'],
+      // Build-phase questions go through QuestionOverlay (see the header).
+      supportedQuestionTypes: [...CHECKPOINT_QUESTION_TYPES, 'CATEGORIZE'],
       soloSupport: true,
       multiplayerSupport: false,
       // Live Classroom: each student plays their own game on a session the
@@ -67,6 +97,8 @@ export const GAME_ENGINES_V2: GameEngine[] = [
       minPlayers: 1,
       maxPlayers: 1,
     },
+    requirement: CHECKPOINT_REQUIREMENT,
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE'],
     recommendedLevel: null,
     estimatedDurationMinutes: 15,
     // The second real, playable engine (after Classic Quiz) -- a full
@@ -79,6 +111,56 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     version: '0.1.0',
   },
   {
+    id: 'racing',
+    name: 'Racing',
+    tamilName: 'தமிழ்ப் பந்தயம்',
+    description: 'Correct answers boost your racer forward -- accuracy wins the race, not button speed.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      // Checkpoint questions go through QuestionOverlay (see the header).
+      supportedQuestionTypes: [...CHECKPOINT_QUESTION_TYPES],
+      // ONE user-facing Racing game. engine id 'racing' is rendered by
+      // components/gameRoomV2/racing/RacingGame.tsx, which mounts the
+      // pseudo-3D racing3d implementation (RaceGame3D solo, LiveRace3D in
+      // Live Classroom); the old top-down racer no longer exists.
+      //
+      // Multiplayer (Live Classroom only, since it needs a shared
+      // question_order + a shared race_difficulty every racer runs
+      // identically -- see migration 081): genuinely shipped. Every
+      // joined participant IS one racer on the SAME shared track, and
+      // every viewer (each racer's own screen, plus the teacher's
+      // RaceTrackOverview) sees every OTHER racer's live, server-
+      // authoritative position -- not a solo-vs-rival simulation per
+      // student. Racer distance is never client-reported; it's replayed
+      // server-side from each participant's own answer history (see
+      // lib/gameRoomV2/racing/race.ts's replayRacerFromAnswers) and
+      // polled at a deliberately coarse ~1.5s HTTP cadence
+      // (MultiplayerRacingGame), not pushed over Realtime on every
+      // physics tick -- meaningful gameplay state is synchronized;
+      // animation between polls is smoothed locally. This IS real
+      // multiplayer racing, just polled rather than push-synced at
+      // sub-second resolution -- see
+      // scripts/verify-gameroom-v2-racing-multiplayer.ts.
+      soloSupport: true,
+      multiplayerSupport: true,
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 8,
+    },
+    requirement: CHECKPOINT_REQUIREMENT,
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'ORDER_LETTERS', 'ORDER_WORDS'],
+    recommendedLevel: null,
+    estimatedDurationMinutes: 5,
+    // The third real, playable engine (after Classic Quiz and Tower
+    // Defense) -- built around QuestionOverlay/the shared session
+    // routes the same way Tower Defense is. See
+    // components/gameRoomV2/racing/RacingGame.tsx.
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  {
     id: 'boss-battle',
     name: 'Boss Battle',
     tamilName: 'இருள் அரசனுடன் போர்',
@@ -86,7 +168,8 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     icon: null,
     thumbnail: null,
     compatibility: {
-      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'TEXT_INPUT'],
+      // Checkpoint questions go through QuestionOverlay (see the header).
+      supportedQuestionTypes: [...CHECKPOINT_QUESTION_TYPES],
       soloSupport: true,
       // Solo mode: a real-time top-down arena brawler -- the student
       // moves a hero through four waves and two bosses; Tamil questions
@@ -116,6 +199,8 @@ export const GAME_ENGINES_V2: GameEngine[] = [
       minPlayers: 1,
       maxPlayers: 4,
     },
+    requirement: CHECKPOINT_REQUIREMENT,
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'TEXT_INPUT'],
     recommendedLevel: null,
     estimatedDurationMinutes: 8,
     // The fourth real, playable engine (after Classic Quiz, Tower
@@ -126,51 +211,121 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     version: '0.1.0',
   },
   {
-    id: 'racing',
-    name: 'Racing',
-    tamilName: 'தமிழ்ப் பந்தயம்',
-    description: 'Correct answers boost your racer forward -- accuracy wins the race, not button speed.',
+    id: 'word-ninja',
+    name: 'Word Ninja',
+    tamilName: 'சொல் வீரன்',
+    description: 'Slash flying words into the correct category lane before time runs out.',
     icon: null,
     thumbnail: null,
     compatibility: {
-      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'ORDER_WORDS', 'ORDER_LETTERS'],
-      // Solo mode: a student races a scripted rival, ticked locally at
-      // 100ms resolution (components/gameRoomV2/racing/RacingGame.tsx's
-      // SoloRacingGame).
-      //
-      // Multiplayer (Live Classroom only, since it needs a shared
-      // question_order + a shared race_difficulty every racer runs
-      // identically -- see migration 081): genuinely shipped. Every
-      // joined participant IS one racer on the SAME shared track, and
-      // every viewer (each racer's own screen, plus the teacher's
-      // RaceTrackOverview) sees every OTHER racer's live, server-
-      // authoritative position -- not a solo-vs-rival simulation per
-      // student. Racer distance is never client-reported; it's replayed
-      // server-side from each participant's own answer history (see
-      // lib/gameRoomV2/racing/race.ts's replayRacerFromAnswers) and
-      // polled at a deliberately coarse ~1.5s HTTP cadence
-      // (MultiplayerRacingGame), not pushed over Realtime on every
-      // physics tick -- meaningful gameplay state is synchronized;
-      // animation between polls is smoothed locally. This IS real
-      // multiplayer racing, just polled rather than push-synced at
-      // sub-second resolution -- see
-      // scripts/verify-gameroom-v2-racing-multiplayer.ts.
+      // CATEGORIZE only -- Word Ninja's mechanic (N lanes, one per
+      // category, words slashed into the lane the player believes fits)
+      // is a reusable renderer for ANY CATEGORIZE question, generic over
+      // category count. This is deliberately the ONLY supported type:
+      // the 5 grammar categories the request names (பெயர்ச்சொல்/
+      // வினைச்சொல், ஒருமை/பன்மை, உயர்திணை/அஃறிணை,
+      // வல்லினம்/மெல்லினம்/இடையினம்) are teacher-authored CATEGORIZE
+      // Question Sets, not anything hardcoded in this engine -- see
+      // lib/gameRoomV2/wordNinja/lanes.ts's header comment.
+      supportedQuestionTypes: ['CATEGORIZE'],
       soloSupport: true,
-      multiplayerSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each student plays their own game on a session the
+      // shared live system creates (same question order for the class,
+      // server grading) -- see LivePlayClient.tsx and engineBranch.ts.
       liveClassroomSupport: true,
       homeworkSupport: true,
       minPlayers: 1,
-      maxPlayers: 8,
+      maxPlayers: 1,
     },
+    requirement: { en: 'Requires sorting (categorize) questions', ta: 'வகைப்படுத்தும் வினாக்கள் தேவை' },
+    recommendedQuestionTypes: ['CATEGORIZE'],
     recommendedLevel: null,
-    estimatedDurationMinutes: 5,
-    // The third real, playable engine (after Classic Quiz and Tower
-    // Defense) -- built around QuestionOverlay/the shared session
-    // routes the same way Tower Defense is. See
-    // components/gameRoomV2/racing/RacingGame.tsx.
+    estimatedDurationMinutes: 6,
+    // The sixth real, playable engine (after Classic Quiz, Tower
+    // Defense, Racing, Boss Battle, and Treasure Quest) -- built around
+    // the shared session routes (not QuestionOverlay/QuestionInput
+    // directly, since the lane-slashing interaction is a genuinely
+    // different UI than CategorizeInput's dropdown form -- both submit
+    // the identical Record<item, category> shape to the same /answer
+    // route). See components/gameRoomV2/wordNinja/WordNinjaGame.tsx.
     status: 'ACTIVE',
     version: '0.1.0',
   },
+  {
+    id: 'matching',
+    name: 'Matching',
+    tamilName: 'பொருத்துக',
+    description: 'Pair up related items -- letters, words, or meanings -- as fast as you can.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['MATCH'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each student plays their own game on a session the
+      // shared live system creates (same question order for the class,
+      // server grading) -- see LivePlayClient.tsx and engineBranch.ts.
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: { en: 'Requires matching-pair questions', ta: 'பொருத்தும் இணை வினாக்கள் தேவை' },
+    recommendedQuestionTypes: ['MATCH'],
+    recommendedLevel: null,
+    estimatedDurationMinutes: 5,
+    // The tenth real, playable engine -- a reusable shared card/grid
+    // layer (lib/gameRoomV2/cardGrid + components/gameRoomV2/cardGrid,
+    // shared with Memory below) with Matching's own tap-to-pair round
+    // logic on top. Promoted from BETA to ACTIVE only after
+    // scripts/verify-gameroom-v2-matching.ts and the full
+    // verify-gameroom-v2-*.ts suite, tsc, lint, and build all passed. See
+    // lib/gameRoomV2/matching/* and
+    // components/gameRoomV2/matching/MatchingGame.tsx.
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  {
+    id: 'memory',
+    name: 'Memory',
+    tamilName: 'நினைவுப் பெட்டகம்',
+    description: 'Flip cards to find matching pairs and train your recall.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      // MATCH only, not IMAGE_CHOICE -- a classic memory pairing needs
+      // two items with an actual RELATIONSHIP (pairs.left/right), which
+      // is exactly what MATCH's payload provides and IMAGE_CHOICE (a
+      // single-answer image select, no pair structure) does not. Declaring
+      // IMAGE_CHOICE support here would overstate what the engine
+      // actually does, per this registry's own "shipped, not
+      // aspirational" convention.
+      supportedQuestionTypes: ['MATCH'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each student plays their own game on a session the
+      // shared live system creates (same question order for the class,
+      // server grading) -- see LivePlayClient.tsx and engineBranch.ts.
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: { en: 'Requires matching-pair questions', ta: 'பொருத்தும் இணை வினாக்கள் தேவை' },
+    recommendedQuestionTypes: ['MATCH'],
+    recommendedLevel: null,
+    estimatedDurationMinutes: 5,
+    // The eleventh real, playable engine -- built on the same shared
+    // card/grid layer as Matching, with Memory's own flip-and-remember
+    // round logic on top. Promoted from BETA to ACTIVE only after
+    // scripts/verify-gameroom-v2-memory.ts and the full
+    // verify-gameroom-v2-*.ts suite, tsc, lint, and build all passed. See
+    // lib/gameRoomV2/memory/* and components/gameRoomV2/memory/MemoryGame.tsx.
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  // --- Not playable: listed only in a separate "Coming Soon" section ---
   {
     id: 'treasure-quest',
     name: 'Treasure Quest',
@@ -202,46 +357,6 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     // Hidden in the gameplay overhaul: its play loop is still a quiz
     // with a light theme, not yet a real game. Code kept for a rebuild.
     status: 'COMING_SOON',
-    version: '0.1.0',
-  },
-  {
-    id: 'word-ninja',
-    name: 'Word Ninja',
-    tamilName: 'சொல் வீரன்',
-    description: 'Slash flying words into the correct category lane before time runs out.',
-    icon: null,
-    thumbnail: null,
-    compatibility: {
-      // CATEGORIZE only -- Word Ninja's mechanic (N lanes, one per
-      // category, words slashed into the lane the player believes fits)
-      // is a reusable renderer for ANY CATEGORIZE question, generic over
-      // category count. This is deliberately the ONLY supported type:
-      // the 5 grammar categories the request names (பெயர்ச்சொல்/
-      // வினைச்சொல், ஒருமை/பன்மை, உயர்திணை/அஃறிணை,
-      // வல்லினம்/மெல்லினம்/இடையினம்) are teacher-authored CATEGORIZE
-      // Question Sets, not anything hardcoded in this engine -- see
-      // lib/gameRoomV2/wordNinja/lanes.ts's header comment.
-      supportedQuestionTypes: ['CATEGORIZE'],
-      soloSupport: true,
-      multiplayerSupport: false,
-      // Live Classroom: each student plays their own game on a session the
-      // shared live system creates (same question order for the class,
-      // server grading) -- see LivePlayClient.tsx and engineBranch.ts.
-      liveClassroomSupport: true,
-      homeworkSupport: true,
-      minPlayers: 1,
-      maxPlayers: 1,
-    },
-    recommendedLevel: null,
-    estimatedDurationMinutes: 6,
-    // The sixth real, playable engine (after Classic Quiz, Tower
-    // Defense, Racing, Boss Battle, and Treasure Quest) -- built around
-    // the shared session routes (not QuestionOverlay/QuestionInput
-    // directly, since the lane-slashing interaction is a genuinely
-    // different UI than CategorizeInput's dropdown form -- both submit
-    // the identical Record<item, category> shape to the same /answer
-    // route). See components/gameRoomV2/wordNinja/WordNinjaGame.tsx.
-    status: 'ACTIVE',
     version: '0.1.0',
   },
   {
@@ -338,15 +453,7 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     status: 'COMING_SOON',
     version: '0.1.0',
   },
-  // Lightweight/legacy-style activities -- the same familiar shapes
-  // legacy GameRoom already has (crossword: tamilWordFormation;
-  // matching: inaEzhuthukkalMatchingModule/pairMatchGame; memory: the
-  // *MemoryModule interactive games), represented here as V2 engines in
-  // their own right so a question set author isn't limited to the
-  // bigger arcade-style engines above. These reuse none of legacy
-  // GameRoom's code -- see lib/gameRoomV2/README.md's isolation
-  // requirement -- they're new V2 engines with a deliberately familiar
-  // shape.
+  // --- HIDDEN: on no GameRoom surface at all ---
   {
     id: 'crossword',
     name: 'Crossword',
@@ -365,77 +472,10 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     },
     recommendedLevel: null,
     estimatedDurationMinutes: 10,
-    status: 'COMING_SOON',
+    // Never built -- no gameplay exists at all, so it is not even
+    // advertised as Coming Soon.
+    status: 'HIDDEN',
     version: '0.0.0',
-  },
-  {
-    id: 'matching',
-    name: 'Matching',
-    tamilName: 'பொருத்துக',
-    description: 'Pair up related items -- letters, words, or meanings -- as fast as you can.',
-    icon: null,
-    thumbnail: null,
-    compatibility: {
-      supportedQuestionTypes: ['MATCH'],
-      soloSupport: true,
-      multiplayerSupport: false,
-      // Live Classroom: each student plays their own game on a session the
-      // shared live system creates (same question order for the class,
-      // server grading) -- see LivePlayClient.tsx and engineBranch.ts.
-      liveClassroomSupport: true,
-      homeworkSupport: true,
-      minPlayers: 1,
-      maxPlayers: 1,
-    },
-    recommendedLevel: null,
-    estimatedDurationMinutes: 5,
-    // The tenth real, playable engine -- a reusable shared card/grid
-    // layer (lib/gameRoomV2/cardGrid + components/gameRoomV2/cardGrid,
-    // shared with Memory below) with Matching's own tap-to-pair round
-    // logic on top. Promoted from BETA to ACTIVE only after
-    // scripts/verify-gameroom-v2-matching.ts and the full
-    // verify-gameroom-v2-*.ts suite, tsc, lint, and build all passed. See
-    // lib/gameRoomV2/matching/* and
-    // components/gameRoomV2/matching/MatchingGame.tsx.
-    status: 'ACTIVE',
-    version: '0.1.0',
-  },
-  {
-    id: 'memory',
-    name: 'Memory',
-    tamilName: 'நினைவுப் பெட்டகம்',
-    description: 'Flip cards to find matching pairs and train your recall.',
-    icon: null,
-    thumbnail: null,
-    compatibility: {
-      // MATCH only, not IMAGE_CHOICE -- a classic memory pairing needs
-      // two items with an actual RELATIONSHIP (pairs.left/right), which
-      // is exactly what MATCH's payload provides and IMAGE_CHOICE (a
-      // single-answer image select, no pair structure) does not. Declaring
-      // IMAGE_CHOICE support here would overstate what the engine
-      // actually does, per this registry's own "shipped, not
-      // aspirational" convention.
-      supportedQuestionTypes: ['MATCH'],
-      soloSupport: true,
-      multiplayerSupport: false,
-      // Live Classroom: each student plays their own game on a session the
-      // shared live system creates (same question order for the class,
-      // server grading) -- see LivePlayClient.tsx and engineBranch.ts.
-      liveClassroomSupport: true,
-      homeworkSupport: true,
-      minPlayers: 1,
-      maxPlayers: 1,
-    },
-    recommendedLevel: null,
-    estimatedDurationMinutes: 5,
-    // The eleventh real, playable engine -- built on the same shared
-    // card/grid layer as Matching, with Memory's own flip-and-remember
-    // round logic on top. Promoted from BETA to ACTIVE only after
-    // scripts/verify-gameroom-v2-memory.ts and the full
-    // verify-gameroom-v2-*.ts suite, tsc, lint, and build all passed. See
-    // lib/gameRoomV2/memory/* and components/gameRoomV2/memory/MemoryGame.tsx.
-    status: 'ACTIVE',
-    version: '0.1.0',
   },
 ]
 
@@ -443,13 +483,8 @@ export function getGameEngineV2(id: string): GameEngine | undefined {
   return GAME_ENGINES_V2.find((e) => e.id === id)
 }
 
-// Engines whose declared compatibility.supportedQuestionTypes fully
-// covers every question type actually present in a question set --
-// i.e. every question in the set can be rendered by the engine. This
-// is the concrete mechanism behind "a Question Set may later be played
-// through multiple compatible game engines": nothing hardcodes which
-// engines go with which sets, it's derived from these two
-// declarations every time.
+// Raw type-coverage check, ignoring status. Screens should use
+// lib/gameRoomV2/gameAvailability.ts instead, which also applies status.
 export function compatibleEnginesForQuestionTypes(questionTypes: string[]) {
   return GAME_ENGINES_V2.filter((engine) =>
     questionTypes.every((t) => engine.compatibility.supportedQuestionTypes.includes(t as never))

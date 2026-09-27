@@ -21,7 +21,7 @@ interface HostSet {
   questionCount: number
   questionTypes: string[]
   source: 'mine' | 'builtin' | 'shared'
-  games: { id: string; compatible: boolean; unsupportedTypes: string[] }[]
+  games: { id: string; compatible: boolean; unsupportedTypes: string[]; reason: string | null }[]
 }
 interface HostGame {
   id: string
@@ -269,7 +269,7 @@ export function HostLiveSetup() {
                   {blocked ? (
                     <span className="flex items-start gap-1 text-xs text-terracotta-700 dark:text-terracotta-300">
                       <FiAlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden />
-                      Needs {typeList(g.supportedTypes)} questions; this set has {typeList(c?.unsupportedTypes ?? [])}.
+                      {c?.reason ?? `Needs ${typeList(g.supportedTypes)} questions; this set has ${typeList(c?.unsupportedTypes ?? [])}.`}
                     </span>
                   ) : (
                     <span className="block text-xs text-stone-500 dark:text-stone-400">{g.description}</span>

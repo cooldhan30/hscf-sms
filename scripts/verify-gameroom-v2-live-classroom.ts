@@ -112,7 +112,7 @@ for (const id of ['treasure-quest', 'space-mission', 'kingdom-builder', 'mystery
 
 console.log('\n== Host Live and joining: simplified, same security ==')
 const hostRoute = readFileSync('app/api/gameroom-v2/live/host/route.ts', 'utf8')
-assert(/sms_teacher_owns_class/.test(hostRoute) && /checkEngineCompatibility/.test(hostRoute), 'hosting still verifies class ownership and set/game compatibility on the server')
+assert(/sms_teacher_owns_class/.test(hostRoute) && /checkGameLaunch\(/.test(hostRoute), 'hosting still verifies class ownership and set/game compatibility on the server')
 assert(/bossId = 'suran'/.test(hostRoute), 'Boss Battle no longer needs a boss picked before hosting')
 const classesRoute = readFileSync('app/api/gameroom-v2/live/classes/route.ts', 'utf8')
 const optionsRoute = readFileSync('app/api/gameroom-v2/live/host-options/route.ts', 'utf8')

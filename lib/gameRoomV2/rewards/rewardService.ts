@@ -2,7 +2,7 @@ import 'server-only'
 import type { createClient } from '@/lib/supabase/server'
 import type { createAdminClient } from '@/lib/supabase/admin'
 import { calculateCompletionBonus } from '@/lib/gameRoomV2/scoring'
-import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
+import { launchableEngines } from '@/lib/gameRoomV2/gameAvailability'
 import { computeEngineMilestone } from '@/lib/gameRoomV2/progression/engineMilestone'
 import { levelForXp } from '@/lib/gameRoomV2/progression/levels'
 import { applyDailyActivity } from '@/lib/gameRoomV2/progression/streaks'
@@ -153,7 +153,7 @@ export async function finalizeSessionRewards(input: SessionFinalizationInput): P
     sessionCorrectCount: session.correct_count,
     engineId: session.engine_id,
     enginesPlayed,
-    totalActiveEngineCount: GAME_ENGINES_V2.filter((e) => e.status === 'ACTIVE' || e.status === 'BETA').length,
+    totalActiveEngineCount: launchableEngines().length,
     engineMilestoneReached,
     questionSetCompletionCount: (qsCompletionRow?.completion_count ?? 0) + 1,
     alreadyEarnedIds: (existingAchievements ?? []).map((a) => a.achievement_id),
