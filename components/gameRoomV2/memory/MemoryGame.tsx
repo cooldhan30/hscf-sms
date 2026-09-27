@@ -27,6 +27,8 @@ import {
 import type { BaseSessionStatePayload } from '@/lib/gameRoomV2/gameplay/sessionPolling'
 import { Bi, ta } from '@/components/gameRoomV2/Bi'
 import { TA } from '@/lib/gameRoomV2/i18n/ta'
+import { useGameV2Motion } from '@/components/gameRoomV2/useGameV2Motion'
+import { CelebrationLayer, type CelebrationHandle } from '@/components/gameRoomV2/celebration/CelebrationLayer'
 
 interface MatchQuestion {
   id: string
@@ -63,6 +65,10 @@ export function MemoryGame({ sessionId, onExit, onPlayAgain, onHome }: { session
   const { soundEnabled, toggleSound } = useSoundPreference()
   const soundRef = useRef(soundEnabled)
   soundRef.current = soundEnabled
+  const reduced = !!useGameV2Motion().reduced
+  const celebrateRef = useRef<CelebrationHandle>(null)
+  const pairStreak = useRef(0)
+  const celebratedResult = useRef(false)
   const schedule = useManagedTimeouts()
   const checkPair = usePairCheck(sessionId)
   const { state: session, error: pollError, result, poll, togglePause, exit } = useGameSessionState<StatePayload>({ sessionId, enabled: !!difficulty, soundEnabled })
@@ -92,6 +98,8 @@ export function MemoryGame({ sessionId, onExit, onPlayAgain, onHome }: { session
         schedule(() => {
           setRound((prev) => (prev ? resolveFlippedPair(prev, isPair) : prev))
           playSound(isPair ? 'correct' : 'incorrect', soundRef.current)
+        pairStreak.current = isPair ? pairStreak.current + 1 : 0
+        if (isPair) celebrateRef.current?.correct({ streak: pairStreak.current, card: false, sound: false })
           if (isPair) vibrate('correct', soundRef.current)
         }, wait)
       })
@@ -136,6 +144,8 @@ export function MemoryGame({ sessionId, onExit, onPlayAgain, onHome }: { session
         setLog((l) => [...l, entry])
         setCleared(entry)
         playSound(entry.stars === 3 ? 'streak' : 'checkpoint', soundRef.current, 4)
+        // A perfect round is a milestone: the stronger burst.
+        if (entry.stars === 3) celebrateRef.current?.correct({ streak: pairStreak.current, milestone: true, card: false, sound: false })
         schedule(() => {
           setCleared(null)
           setRound(null)
@@ -151,6 +161,14 @@ export function MemoryGame({ sessionId, onExit, onPlayAgain, onHome }: { session
     playSound('button', soundRef.current)
   }, [])
 
+  // A finished set gets the full celebration once the rewards are in.
+  useEffect(() => {
+    if (!result || celebratedResult.current) return
+    celebratedResult.current = true
+    const id = window.setTimeout(() => celebrateRef.current?.victory({ rewards: [{ kind: 'xp', amount: result.xpEarned }, { kind: 'coins', amount: result.coinsEarned }] }), 250)
+    return () => window.clearTimeout(id)
+  }, [result])
+
   const leave = () => exit(onExit)
   const again = () => exit(onPlayAgain ?? onExit)
 
@@ -162,6 +180,7 @@ export function MemoryGame({ sessionId, onExit, onPlayAgain, onHome }: { session
     const stars = log.reduce((a, r) => a + r.stars, 0)
     return (
       <div className="min-h-screen w-full bg-slate-950 px-4 py-8">
+        <CelebrationLayer ref={celebrateRef} soundEnabled={soundEnabled} reducedMotion={reduced} fixed />
         <GameResultsScreen
           result={result}
           headline={stars === log.length * 3 && log.length > 0 ? 'அற்புதமான நினைவாற்றல்!' : 'எல்லா இணைகளும் கண்டுபிடிக்கப்பட்டன'}
@@ -185,6 +204,7 @@ export function MemoryGame({ sessionId, onExit, onPlayAgain, onHome }: { session
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-white">
+      <CelebrationLayer ref={celebrateRef} soundEnabled={soundEnabled} reducedMotion={reduced} fixed />
       <ArenaHud
         stats={[
           { icon: FiLayers, label: ta('round', true), value: `${Math.min(session.currentIndex + 1, session.totalQuestions)}/${session.totalQuestions}` },

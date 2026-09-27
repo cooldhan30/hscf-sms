@@ -1,10 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FiPause, FiPlay, FiVolume2, FiVolumeX, FiLogOut, FiFastForward, FiZap, FiCheckCircle, FiXCircle, FiShield, FiMusic } from 'react-icons/fi'
+import { FiPause, FiPlay, FiVolume2, FiVolumeX, FiLogOut, FiFastForward, FiZap, FiCheckCircle, FiShield, FiMusic } from 'react-icons/fi'
 import { GiTwoCoins, GiCastle, GiScrollUnfurled, GiCrossedSwords, GiSnowflake1, GiDrum, GiHammerNails, GiFallingRocks, GiCrown } from 'react-icons/gi'
 import { GameV2Error } from '@/components/gameRoomV2'
 import { useGameV2Motion } from '@/components/gameRoomV2/useGameV2Motion'
+import { CelebrationLayer, type CelebrationHandle } from '@/components/gameRoomV2/celebration/CelebrationLayer'
+import { AnswerReview } from '@/components/gameRoomV2/celebration/AnswerReview'
 import { QuestionOverlay, type QuestionOverlayQuestion, type AnswerResult, useSoundPreference, useMusicPreference, playSound, useGameSessionState, vibrate } from '@/components/gameRoomV2/gameplay'
 import { Confetti } from '@/components/gameRoomV2/celebration/Confetti'
 import { useManagedTimeouts } from '@/components/gameRoomV2/gameplay/useManagedTimeouts'
@@ -135,6 +137,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
   const fxRef = useRef<Fx[]>([])
   const clockRef = useRef<StepClock>({ lastStepAt: 0, running: false, speed: 1 })
   const coinChipRef = useRef<HTMLElement | null>(null)
+  const celebrateRef = useRef<CelebrationHandle>(null)
   const [built, setBuilt] = useState(false)
   const [hud, setHud] = useState<Hud | null>(null)
   const [version, setVersion] = useState(0)
@@ -489,6 +492,9 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
       playSound('coin', soundRef.current)
       if (td.streak >= 2) schedule(() => playSound('streak', soundRef.current, td.streak), 160)
       setFeedback({ correct: true, coins: r.coins, charges: r.charges, streak: td.streak, id })
+      // Tiered sparks/confetti on top of the game's own reward banner
+      // (which already shows the coins and plays the coin/streak sounds).
+      celebrateRef.current?.correct({ streak: td.streak, card: false, sound: false })
     } else {
       setFeedback({ correct: false, answer: formatAnswer(res.answer), right: res.correctAnswer ?? null, explanation: res.explanation ?? null, id })
     }
@@ -533,6 +539,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#79bd57] font-sans text-stone-900 select-none" style={{ height: '100dvh' }}>
+      <CelebrationLayer ref={celebrateRef} soundEnabled={soundEnabled} reducedMotion={reduced} />
       {layout && (
         <Battlefield
           stateRef={tdRef}
@@ -757,31 +764,8 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
               </p>
             </div>
           ) : (
-            <div key={feedback.id} role="status" className="pointer-events-auto max-w-md w-full rounded-2xl bg-white shadow-xl border-2 border-terracotta-300 px-4 py-3 animate-gamev2-pop-in">
-              <div className="flex items-start justify-between gap-2">
-                <p className="flex items-center gap-2 text-lg font-black text-terracotta-700">
-                  <FiXCircle className="w-5 h-5" aria-hidden /> <Bi k="notQuite" inline />
-                </p>
-                <button type="button" onClick={() => setFeedback(null)} className="min-h-[36px] rounded-xl px-3 text-sm font-bold text-primary-800 hover:bg-primary-50">
-                  <Bi k="gotIt" inline />
-                </button>
-              </div>
-              <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm text-stone-700">
-                <dt className="font-semibold text-stone-500 font-tamil">{TA.yourAnswer.ta}</dt>
-                <dd className="font-tamil font-semibold line-through decoration-terracotta-400">{feedback.answer}</dd>
-                {feedback.right && (
-                  <>
-                    <dt className="font-semibold text-stone-500 font-tamil">{TA.correctAnswer.ta}</dt>
-                    <dd className="font-tamil font-bold text-primary-800">{feedback.right}</dd>
-                  </>
-                )}
-                {feedback.explanation && (
-                  <>
-                    <dt className="font-semibold text-stone-500 font-tamil">{TA.why.ta}</dt>
-                    <dd className="font-tamil leading-relaxed text-stone-600">{feedback.explanation}</dd>
-                  </>
-                )}
-              </dl>
+            <div key={feedback.id} className="pointer-events-auto max-w-md w-full animate-gamev2-pop-in">
+              <AnswerReview yourAnswer={feedback.answer} correctAnswer={feedback.right} explanation={feedback.explanation} seed={feedback.id} onDismiss={() => setFeedback(null)} />
             </div>
           )}
         </div>

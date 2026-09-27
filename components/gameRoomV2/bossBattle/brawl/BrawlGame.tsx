@@ -1,10 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FiPause, FiPlay, FiVolume2, FiVolumeX, FiLogOut, FiZap, FiCheckCircle, FiXCircle, FiMusic, FiHeart, FiStar } from 'react-icons/fi'
+import { FiPause, FiPlay, FiVolume2, FiVolumeX, FiLogOut, FiZap, FiCheckCircle, FiMusic, FiHeart, FiStar } from 'react-icons/fi'
 import { GiCrown, GiScrollUnfurled, GiCrossedSwords, GiSkullCrossedBones } from 'react-icons/gi'
 import { GameV2Error } from '@/components/gameRoomV2'
 import { useGameV2Motion } from '@/components/gameRoomV2/useGameV2Motion'
+import { CelebrationLayer, type CelebrationHandle } from '@/components/gameRoomV2/celebration/CelebrationLayer'
+import { AnswerReview } from '@/components/gameRoomV2/celebration/AnswerReview'
 import { QuestionOverlay, type QuestionOverlayQuestion, type AnswerResult, useSoundPreference, useMusicPreference, playSound, useGameSessionState, vibrate } from '@/components/gameRoomV2/gameplay'
 import { Confetti } from '@/components/gameRoomV2/celebration/Confetti'
 import { useManagedTimeouts } from '@/components/gameRoomV2/gameplay/useManagedTimeouts'
@@ -138,6 +140,7 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
   const [momentDone, setMomentDone] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const streakRef = useRef(0)
+  const celebrateRef = useRef<CelebrationHandle>(null)
   const bannerId = useRef(0)
   const reduced = !!useGameV2Motion().reduced
   const reducedRef = useRef(reduced)
@@ -379,6 +382,7 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
       streakRef.current++
       if (streakRef.current >= 2) schedule(() => playSound('streak', soundRef.current, streakRef.current), 160)
       setFeedback({ correct: true, heal: r.heal, streak: streakRef.current, id })
+      celebrateRef.current?.correct({ streak: streakRef.current, card: false, sound: false })
     } else {
       streakRef.current = 0
       setFeedback({ correct: false, answer: formatAnswer(res.answer), right: res.correctAnswer ?? null, explanation: res.explanation ?? null, id })
@@ -408,6 +412,7 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-stone-800 font-sans text-stone-900 select-none" style={{ height: '100dvh' }}>
+      <CelebrationLayer ref={celebrateRef} soundEnabled={soundEnabled} reducedMotion={reduced} />
       {view && s && (
         <BrawlCanvas
           key={`${arenaId}-${built ? 'run' : 'preview'}`}
@@ -575,31 +580,8 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
               </p>
             </div>
           ) : (
-            <div key={feedback.id} role="status" className="pointer-events-auto max-w-md w-full rounded-2xl bg-white shadow-xl border-2 border-terracotta-300 px-4 py-3 animate-gamev2-pop-in">
-              <div className="flex items-start justify-between gap-2">
-                <p className="flex items-center gap-2 text-lg font-black text-terracotta-700">
-                  <FiXCircle className="w-5 h-5" aria-hidden /> <Bi k="notQuite" inline />
-                </p>
-                <button type="button" onClick={() => setFeedback(null)} className="min-h-[36px] rounded-xl px-3 text-sm font-bold text-primary-800 hover:bg-primary-50">
-                  <Bi k="gotIt" inline />
-                </button>
-              </div>
-              <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm text-stone-700">
-                <dt className="font-semibold text-stone-500 font-tamil">{TA.yourAnswer.ta}</dt>
-                <dd className="font-tamil font-semibold line-through decoration-terracotta-400">{feedback.answer}</dd>
-                {feedback.right && (
-                  <>
-                    <dt className="font-semibold text-stone-500 font-tamil">{TA.correctAnswer.ta}</dt>
-                    <dd className="font-tamil font-bold text-primary-800">{feedback.right}</dd>
-                  </>
-                )}
-                {feedback.explanation && (
-                  <>
-                    <dt className="font-semibold text-stone-500 font-tamil">{TA.why.ta}</dt>
-                    <dd className="font-tamil leading-relaxed text-stone-600">{feedback.explanation}</dd>
-                  </>
-                )}
-              </dl>
+            <div key={feedback.id} className="pointer-events-auto max-w-md w-full animate-gamev2-pop-in">
+              <AnswerReview yourAnswer={feedback.answer} correctAnswer={feedback.right} explanation={feedback.explanation} seed={feedback.id} onDismiss={() => setFeedback(null)} />
             </div>
           )}
         </div>
@@ -721,11 +703,11 @@ function UpgradeCard({ choice, index, current, onPick, narrow }: { choice: Upgra
           <p className="text-xs text-primary-700">{def.name}</p>
         </div>
       </div>
-      <ul className="relative mt-2 space-y-0.5 text-sm font-semibold text-stone-700">
+      <ul className="relative mt-2 space-y-0.5 text-sm font-semibold text-stone-700 font-tamil">
         {lines.map((l, k) => (
           <li key={k} className="flex gap-1.5">
             <span className="text-primary-600" aria-hidden>
-              +
+              •
             </span>
             {l}
           </li>

@@ -47,7 +47,7 @@ export const ARENAS: Arena[] = [
     id: 'temple',
     name: 'Temple Courtyard',
     tamilName: 'கோயில் முற்றம்',
-    blurb: 'Stone pillars and lamp-lit steps. The pillars block the way -- use them.',
+    blurb: 'கல் தூண்களும் விளக்கேற்றிய படிகளும். தூண்கள் வழியை மறைக்கும் -- அவற்றைப் பயன்படுத்துங்கள்.',
     bounds: { x0: 90, y0: 90, x1: 1510, y1: 920 },
     obstacles: [
       { x: 430, y: 300, r: 34, kind: 'pillar' },
@@ -73,7 +73,7 @@ export const ARENAS: Arena[] = [
     id: 'forest',
     name: 'Forest Ruins',
     tamilName: 'காட்டு இடிபாடுகள்',
-    blurb: 'Ancient walls swallowed by roots. Enemies slip out of the trees.',
+    blurb: 'வேர்கள் விழுங்கிய பழஞ்சுவர்கள். மரங்களுக்கிடையே எதிரிகள் நழுவி வருவார்கள்.',
     bounds: { x0: 110, y0: 100, x1: 1490, y1: 910 },
     obstacles: [
       { x: 360, y: 260, r: 46, kind: 'tree' },
@@ -102,7 +102,7 @@ export const ARENAS: Arena[] = [
     id: 'river',
     name: 'River Fort',
     tamilName: 'ஆற்றுக் கோட்டை',
-    blurb: 'The river guards the north. Raiders pour over the two bridges.',
+    blurb: 'வடக்கை ஆறு காக்கிறது. இரண்டு பாலங்கள் வழியே படையெடுப்பாளர்கள் பாய்ந்து வருவார்கள்.',
     bounds: { x0: 90, y0: 270, x1: 1510, y1: 920 },
     obstacles: [
       { x: 250, y: 860, r: 40, kind: 'wall' },
@@ -127,7 +127,7 @@ export const ARENAS: Arena[] = [
     id: 'volcano',
     name: 'Volcanic Citadel',
     tamilName: 'எரிமலைக் கோட்டை',
-    blurb: 'Black rock and glowing vents. Stay off the lava.',
+    blurb: 'கரும்பாறைகளும் ஒளிரும் துளைகளும். எரிமலைக் குழம்பிலிருந்து விலகியே இருங்கள்.',
     bounds: { x0: 100, y0: 100, x1: 1500, y1: 910 },
     obstacles: [
       { x: 420, y: 330, r: 40, kind: 'obsidian' },

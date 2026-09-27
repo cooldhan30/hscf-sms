@@ -31,6 +31,8 @@ import { seedFromString } from '@/lib/gameRoomV2/gameplay/rng'
 import type { BaseSessionStatePayload } from '@/lib/gameRoomV2/gameplay/sessionPolling'
 import { Bi, ta } from '@/components/gameRoomV2/Bi'
 import { TA } from '@/lib/gameRoomV2/i18n/ta'
+import { useGameV2Motion } from '@/components/gameRoomV2/useGameV2Motion'
+import { CelebrationLayer, type CelebrationHandle } from '@/components/gameRoomV2/celebration/CelebrationLayer'
 
 // Word Ninja: an arcade dojo. Each CATEGORIZE question is one round --
 // its items fall and the player slashes each into a category lane before
@@ -105,6 +107,10 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
   const { soundEnabled, toggleSound } = useSoundPreference()
   const soundRef = useRef(soundEnabled)
   soundRef.current = soundEnabled
+  const reduced = !!useGameV2Motion().reduced
+  const celebrateRef = useRef<CelebrationHandle>(null)
+  const cleanStreak = useRef(0)
+  const celebratedResult = useRef(false)
   const schedule = useManagedTimeouts()
   const { state: session, error: pollError, result, poll, exit } = useGameSessionState<StatePayload>({ sessionId, enabled: !!difficulty, soundEnabled })
   const error = pollError || submitError
@@ -289,6 +295,8 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
         })
         playSound(data.isCorrect ? 'correct' : 'incorrect', soundRef.current)
         vibrate(data.isCorrect ? 'correct' : 'incorrect', soundRef.current)
+        cleanStreak.current = data.isCorrect ? cleanStreak.current + 1 : 0
+        if (data.isCorrect) celebrateRef.current?.correct({ streak: cleanStreak.current, card: false, baseSoundPlayed: true, milestone: !!j?.heart })
         handleEvents(ev)
         setAnsweredIndex(questionIndex)
         refresh()
@@ -330,6 +338,13 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
     return () => window.removeEventListener('keydown', onKey)
   }, [keysActive, lanes, doSlash, doPower])
 
+  useEffect(() => {
+    if (!result || celebratedResult.current || ninjaRef.current?.phase === 'over') return
+    celebratedResult.current = true
+    const id = window.setTimeout(() => celebrateRef.current?.victory({ rewards: [{ kind: 'xp', amount: result.xpEarned }, { kind: 'coins', amount: result.coinsEarned }] }), 250)
+    return () => window.clearTimeout(id)
+  }, [result])
+
   const leave = () => exit(onExit)
   const again = () => exit(onPlayAgain ?? onExit)
 
@@ -342,6 +357,7 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
     const won = s.phase !== 'over'
     return (
       <div className="min-h-screen w-full bg-slate-950 px-4 py-8">
+        <CelebrationLayer ref={celebrateRef} soundEnabled={soundEnabled} reducedMotion={reduced} fixed />
         <GameResultsScreen
           result={result}
           headline={won ? 'பயிற்சிக் கூடத்தை வென்றீர்கள்!' : 'இதயங்கள் தீர்ந்தன'}
@@ -367,6 +383,7 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-white">
+      <CelebrationLayer ref={celebrateRef} soundEnabled={soundEnabled} reducedMotion={reduced} fixed />
       <ArenaHud
         stats={[
           { icon: FiLayers, label: ta('round', true), value: `${Math.min(currentIndex + 1, totalRounds)}/${totalRounds}` },

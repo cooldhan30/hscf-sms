@@ -84,7 +84,7 @@ export function BrawlSetup({ arenaId, onArena, onStart }: { arenaId: ArenaId; on
               </button>
             ))}
           </div>
-          <p className="mt-2 text-xs text-stone-500">{arena.blurb}</p>
+          <p className="mt-2 text-xs text-stone-500 font-tamil">{arena.blurb}</p>
 
           <h2 className="mt-4 text-sm font-bold text-stone-500"><Bi k="difficulty" inline /></h2>
           <div className="mt-2 grid grid-cols-3 gap-2" role="radiogroup" aria-label={ta('difficulty', true)}>

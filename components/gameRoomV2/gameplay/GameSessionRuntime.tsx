@@ -7,6 +7,11 @@ import { GameResultsScreen } from './GameResultsScreen'
 import { useSoundPreference } from './useSoundPreference'
 import { useGameSessionState } from './useGameSessionState'
 import { Bi, ta } from '@/components/gameRoomV2/Bi'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useGameV2Motion } from '@/components/gameRoomV2/useGameV2Motion'
+import { CelebrationLayer, type CelebrationHandle } from '@/components/gameRoomV2/celebration/CelebrationLayer'
+import { AnswerReview } from '@/components/gameRoomV2/celebration/AnswerReview'
+import type { AnswerResult } from './QuestionOverlay'
 
 interface StatePayload {
   status: 'CREATED' | 'READY' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ABANDONED'
@@ -56,6 +61,19 @@ export function GameSessionRuntime({
     soundEnabled,
   })
 
+  const { reduced } = useGameV2Motion()
+  const fx = useRef<CelebrationHandle>(null)
+  const streak = useRef(0)
+  const [review, setReview] = useState<{ answer: string; right: string | null; explanation: string | null; id: number } | null>(null)
+  const celebratedResult = useRef(false)
+
+  // The whole run is over: a full celebration when the student did well.
+  useEffect(() => {
+    if (!result || celebratedResult.current) return
+    celebratedResult.current = true
+    if (result.accuracyPct >= 60) fx.current?.victory({ rewards: [{ kind: 'xp', amount: result.xpEarned }, { kind: 'coins', amount: result.coinsEarned }] })
+  }, [result])
+
   async function handleTogglePause() {
     await togglePause()
   }
@@ -69,9 +87,25 @@ export function GameSessionRuntime({
   // callback exists for an engine that wants to react to the individual
   // result (e.g. a Boss Battle animating a hit), not to update shared
   // state itself, which always comes from polling.
-  function handleAnswerResult() {
+  function handleAnswerResult(res: AnswerResult) {
+    if (res.correct) {
+      streak.current += 1
+      setReview(null)
+      fx.current?.correct({ streak: streak.current, rewards: [{ kind: 'points', amount: res.points }], baseSoundPlayed: true })
+    } else {
+      streak.current = 0
+      setReview({ answer: formatAnswer(res.answer), right: res.correctAnswer ?? null, explanation: res.explanation ?? null, id: Date.now() })
+    }
     poll()
   }
+
+  const layer = <CelebrationLayer ref={fx} soundEnabled={soundEnabled} reducedMotion={!!reduced} fixed />
+  const withLayer = (node: ReactNode) => (
+    <>
+      {node}
+      {layer}
+    </>
+  )
 
   if (error && !state) {
     return <GameV2Error description={error} onRetry={poll} />
@@ -82,7 +116,7 @@ export function GameSessionRuntime({
   }
 
   if (result) {
-    return <GameResultsScreen result={result} onPlayAgain={onPlayAgain} onExit={onExit} />
+    return withLayer(<GameResultsScreen result={result} onPlayAgain={onPlayAgain} onExit={onExit} />)
   }
 
   if (state.status === 'ABANDONED') {
@@ -101,7 +135,7 @@ export function GameSessionRuntime({
     return <GameV2Loading label={ta('calculating', true)} />
   }
 
-  return (
+  return withLayer(
     <div className="w-full flex flex-col items-center gap-6 px-4 py-6">
       <GameHUD
         currentIndex={state.currentIndex}
@@ -132,6 +166,12 @@ export function GameSessionRuntime({
         </GameV2Card>
       )}
 
+      {review && (
+        <div key={review.id} className="w-full max-w-xl animate-gamev2-pop-in">
+          <AnswerReview yourAnswer={review.answer} correctAnswer={review.right} explanation={review.explanation} seed={review.id} onDismiss={() => setReview(null)} />
+        </div>
+      )}
+
       {state.status === 'ACTIVE' && state.question && (
         <QuestionOverlay
           sessionId={sessionId}
@@ -143,4 +183,15 @@ export function GameSessionRuntime({
       )}
     </div>
   )
+}
+
+// Answers come back as whatever the question type submits (a string, a
+// boolean, an array or a map); show them the way the student saw them.
+function formatAnswer(a: unknown): string {
+  if (a === null || a === undefined) return ''
+  if (a === true) return ta('trueWord', true)
+  if (a === false) return ta('falseWord', true)
+  if (Array.isArray(a)) return a.join(' ')
+  if (typeof a === 'object') return Object.entries(a as Record<string, string>).map(([k, v]) => `${k} → ${v}`).join(', ')
+  return String(a)
 }

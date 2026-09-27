@@ -33,7 +33,7 @@ export function MemorySetupPicker({ onStart }: { onStart: (difficulty: MemoryDif
             className="text-left rounded-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 hover:border-gamev2spark-400 dark:hover:border-gamev2spark-500 bg-gamev2ink-50 dark:bg-gamev2ink-800/50 p-4 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gamev2spark-400"
           >
             <p className="font-extrabold text-gamev2ink-900 dark:text-white"><span className="font-tamil">{LEVEL_TA[d.id]}</span> <span className="text-xs font-semibold opacity-70">· {d.label}</span></p>
-            <p className="text-xs text-gamev2ink-500 dark:text-gamev2ink-400 mt-0.5">{d.description}</p>
+            <p className="font-tamil text-xs text-gamev2ink-500 dark:text-gamev2ink-400 mt-0.5">{d.description}</p>
           </button>
         ))}
       </div>

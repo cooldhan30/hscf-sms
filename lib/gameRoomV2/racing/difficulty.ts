@@ -27,7 +27,7 @@ export const RACING_DIFFICULTY_SETTINGS: RacingDifficultySettings[] = [
   {
     id: 'easy',
     label: 'Easy',
-    description: 'A shorter track and forgiving penalties -- a relaxed pace for learning the ropes.',
+    description: 'குறுகிய பாதை, மென்மையான தண்டனைகள் -- கற்றுக்கொள்ள நிதானமான வேகம்.',
     trackLength: 100,
     baseSpeed: 6,
     boostMultiplier: 2.2,
@@ -38,7 +38,7 @@ export const RACING_DIFFICULTY_SETTINGS: RacingDifficultySettings[] = [
   {
     id: 'normal',
     label: 'Normal',
-    description: 'A balanced race -- the default experience.',
+    description: 'சமநிலையான பந்தயம் -- இயல்பான அனுபவம்.',
     trackLength: 130,
     baseSpeed: 6,
     boostMultiplier: 2.5,
@@ -49,7 +49,7 @@ export const RACING_DIFFICULTY_SETTINGS: RacingDifficultySettings[] = [
   {
     id: 'hard',
     label: 'Hard',
-    description: 'A longer track and steeper penalties -- accuracy matters even more here.',
+    description: 'நீண்ட பாதை, கடுமையான தண்டனைகள் -- இங்கே துல்லியம் இன்னும் முக்கியம்.',
     trackLength: 160,
     baseSpeed: 6,
     boostMultiplier: 2.8,
