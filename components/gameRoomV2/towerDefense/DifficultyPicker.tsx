@@ -5,6 +5,8 @@ import { FiShield } from 'react-icons/fi'
 import { GiCastle } from 'react-icons/gi'
 import { DIFFICULTY_SETTINGS, TOWER_TYPES, type TowerDefenseDifficulty } from '@/lib/gameRoomV2/towerDefense'
 import { TowerPreview } from './ArtPreview'
+import { ta } from '@/components/gameRoomV2/Bi'
+import { TA } from '@/lib/gameRoomV2/i18n/ta'
 
 // The opening overlay, drawn OVER the live battlefield (fort, gate and
 // road already visible behind it). Tamizhi surface: white card, teal
@@ -20,17 +22,17 @@ export function DifficultyPicker({ onStart }: { onStart: (d: TowerDefenseDifficu
           </span>
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-terracotta-600">Game Room · Tower Defense</p>
-            <h1 className="text-2xl sm:text-3xl font-black text-stone-900 leading-tight">Guard the Fort</h1>
-            <p className="font-tamil text-sm font-bold text-primary-700">கோட்டையைக் காப்போம்</p>
+            <h1 className="font-tamil text-2xl sm:text-3xl font-black text-stone-900 leading-tight">கோட்டை காப்போம்</h1>
+            <p className="text-sm font-bold text-primary-700">Guard the Fort</p>
           </div>
         </div>
-        <p className="mt-2 text-sm text-stone-600">The Irul army marches down the road. Build towers, answer Tamil challenges for coins and scrolls, and hold the fort.</p>
+        <p className="mt-2 text-sm text-stone-600"><span className="font-tamil block text-stone-800">இருள் படை சாலையில் அணிவகுக்கிறது. கோபுரங்களைக் கட்டுங்கள், தமிழ்ச் சவால்களுக்கு விடையளித்து நாணயங்களும் சுவடிகளும் பெறுங்கள், கோட்டையைக் காத்திடுங்கள்.</span>The Irul army marches down the road. Build towers, answer Tamil challenges for coins and scrolls, and hold the fort.</p>
         <div className="mt-3 flex items-end justify-center gap-1 sm:gap-3" aria-hidden>
           {TOWER_TYPES.map((t) => (
             <TowerPreview key={t.id} type={t.id} level={2} size={58} />
           ))}
         </div>
-        <div className="mt-3 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Difficulty">
+        <div className="mt-3 grid grid-cols-3 gap-2" role="radiogroup" aria-label={ta('difficulty', true)}>
           {DIFFICULTY_SETTINGS.map((d) => (
             <button
               key={d.id}
@@ -42,8 +44,9 @@ export function DifficultyPicker({ onStart }: { onStart: (d: TowerDefenseDifficu
                 choice === d.id ? 'border-primary-600 bg-primary-50' : 'border-stone-200 hover:border-primary-400'
               }`}
             >
-              <span className="block font-extrabold text-stone-900">{d.label}</span>
-              <span className="block text-[11px] text-stone-500 leading-tight">{d.id === 'easy' ? 'Gentle waves' : d.id === 'normal' ? 'A fair fight' : 'Tough armies'}</span>
+              <span className="block font-extrabold text-stone-900 font-tamil">{TA[d.id].ta}</span>
+              <span className="block text-[11px] font-bold text-stone-500">{d.label}</span>
+              <span className="block text-[11px] text-stone-500 leading-tight"><span className="font-tamil">{d.id === 'easy' ? 'மென்மையான அலைகள்' : d.id === 'normal' ? 'சமமான போர்' : 'கடுமையான படைகள்'}</span></span>
             </button>
           ))}
         </div>
@@ -52,7 +55,7 @@ export function DifficultyPicker({ onStart }: { onStart: (d: TowerDefenseDifficu
           onClick={() => onStart(choice)}
           className="mt-4 w-full min-h-[52px] rounded-2xl bg-primary-700 hover:bg-primary-800 text-white font-extrabold text-lg shadow-teal inline-flex items-center justify-center gap-2"
         >
-          <FiShield className="w-5 h-5" aria-hidden /> Start the defence
+          <FiShield className="w-5 h-5" aria-hidden /> <span className="font-tamil">தற்காப்பைத் தொடங்கு</span> <span className="text-sm opacity-80">· Start</span>
         </button>
       </div>
     </div>

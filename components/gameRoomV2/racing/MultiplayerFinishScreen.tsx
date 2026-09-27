@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import { GameV2Card, GameV2Button, useGameV2Motion } from '@/components/gameRoomV2'
 import type { LiveRacer } from '@/lib/gameRoomV2/racing'
+import { Bi } from '@/components/gameRoomV2/Bi'
 
 const PLACE_EMOJI = ['\u{1F947}', '\u{1F948}', '\u{1F949}']
 
@@ -36,9 +37,10 @@ export function MultiplayerFinishScreen({
       >
         {won ? '\u{1F3C6}' : '\u{1F3C1}'}
       </motion.div>
-      <h2 className="text-2xl font-extrabold text-gamev2ink-900 dark:text-white">Race Complete!</h2>
-      <p className="mt-1 text-sm text-gamev2ink-500 dark:text-gamev2ink-400">
-        {myPlacement >= 0 ? `You finished ${ordinal(myPlacement + 1)}.` : 'Here are the final standings.'}
+      <h2 className="font-tamil leading-snug text-2xl font-extrabold text-gamev2ink-900 dark:text-white">பந்தயம் முடிந்தது!</h2>
+      <p className="text-xs font-semibold text-gamev2ink-400">Race complete</p>
+      <p className="font-tamil mt-1 text-sm text-gamev2ink-500 dark:text-gamev2ink-400">
+        {myPlacement >= 0 ? `நீங்கள் ${myPlacement + 1} ஆம் இடம் பெற்றீர்கள்.` : 'இறுதி நிலைகள் இதோ.'}
       </p>
 
       <ul className="mt-5 space-y-2 text-left">
@@ -54,23 +56,19 @@ export function MultiplayerFinishScreen({
               <span className="flex items-center gap-2 font-bold text-sm text-gamev2ink-800 dark:text-gamev2ink-100">
                 <span aria-hidden>{PLACE_EMOJI[i] ?? `#${i + 1}`}</span>
                 {r.nickname}
-                {isMe && <span className="text-[10px] font-bold text-gamev2spark-600 dark:text-gamev2spark-400">(You)</span>}
+                {isMe && <span className="font-tamil text-[10px] font-bold text-gamev2spark-600 dark:text-gamev2spark-400">(நீங்கள்)</span>}
               </span>
-              <span className="text-xs font-bold text-gamev2ink-500 dark:text-gamev2ink-400">{r.finished ? 'Finished' : 'Did not finish'}</span>
+              <span className="font-tamil text-xs font-bold text-gamev2ink-500 dark:text-gamev2ink-400">{r.finished ? 'முடித்தார்' : 'முடிக்கவில்லை'}</span>
             </li>
           )
         })}
       </ul>
 
       <GameV2Button variant="spark" fullWidth className="mt-6" onClick={onExit}>
-        Continue
+        <Bi k="continue" inline />
       </GameV2Button>
     </GameV2Card>
   )
 }
 
-function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd']
-  const v = n % 100
-  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`
-}
+

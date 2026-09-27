@@ -43,7 +43,7 @@ export function RewardReveal({ items, soundEnabled, reducedMotion = false, stepM
               {it.icon}
               {it.value}
             </p>
-            <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide opacity-80">{it.label}</p>
+            <p className="font-tamil text-[11px] sm:text-xs font-semibold tracking-wide opacity-80">{it.label}</p>
           </li>
         ))}
       </ul>

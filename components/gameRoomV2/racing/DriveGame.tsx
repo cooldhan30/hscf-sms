@@ -35,6 +35,8 @@ import {
 import { formatAnswer } from '@/lib/gameRoomV2/answerReveal'
 import { seedFromString } from '@/lib/gameRoomV2/gameplay/rng'
 import type { BaseSessionStatePayload } from '@/lib/gameRoomV2/gameplay/sessionPolling'
+import { Bi, ta } from '@/components/gameRoomV2/Bi'
+import { TA } from '@/lib/gameRoomV2/i18n/ta'
 
 // Tamil Grand Prix: a real top-down arcade racer. The student drives
 // (arrows / WASD, or the on-screen pad and pedals), races three rivals
@@ -71,10 +73,11 @@ interface Hud {
 }
 
 const ORD = ['1st', '2nd', '3rd', '4th']
+const ORD_TA = ['முதல்', 'இரண்டாம்', 'மூன்றாம்', 'நான்காம்']
 const DIFFS: { id: DriveDifficulty; label: string; blurb: string }[] = [
-  { id: 'easy', label: 'Easy', blurb: 'Forgiving rivals' },
-  { id: 'normal', label: 'Normal', blurb: 'A close race' },
-  { id: 'hard', label: 'Hard', blurb: 'Fast, sharp rivals' },
+  { id: 'easy', label: 'Easy', blurb: 'பொறுமையான போட்டியாளர்கள்' },
+  { id: 'normal', label: 'Normal', blurb: 'நெருக்கமான பந்தயம்' },
+  { id: 'hard', label: 'Hard', blurb: 'வேகமான, கூர்மையான போட்டியாளர்கள்' },
 ]
 
 function snap(s: DriveState, stuckFor: number): Hud {
@@ -106,11 +109,11 @@ function readRecords(difficulty: DriveDifficulty, time: number | null, bestLap: 
     const prev = JSON.parse(window.localStorage.getItem(key) || '{}') as { time?: number; lap?: number }
     const next = { ...prev }
     if (time !== null && (prev.time === undefined || time < prev.time)) {
-      if (prev.time !== undefined) out.push('New best time!')
+      if (prev.time !== undefined) out.push('புதிய சிறந்த நேரம்!')
       next.time = time
     }
     if (bestLap !== null && (prev.lap === undefined || bestLap < prev.lap)) {
-      if (prev.lap !== undefined) out.push('New best lap!')
+      if (prev.lap !== undefined) out.push('புதிய சிறந்த சுற்று!')
       next.lap = bestLap
     }
     window.localStorage.setItem(key, JSON.stringify(next))
@@ -199,20 +202,20 @@ export function DriveGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
           setCount({ text: String(e.n), id: Date.now() + e.n })
           playSound('countdown', snd)
         } else if (e.type === 'go') {
-          setCount({ text: 'GO!', id: Date.now() })
+          setCount({ text: TA.go.ta, id: Date.now() })
           playSound('go', snd)
           schedule(() => setCount(null), 900)
         } else if (e.type === 'lap' && e.carId === 'player') {
-          if (e.lap < LAPS - 1) flash(`Lap ${e.lap + 1} / ${LAPS}`, 'teal', true)
-          if (e.best && e.lap > 1) schedule(() => flash('NEW BEST LAP!', 'gold', true), 1300)
+          if (e.lap < LAPS - 1) flash(`${TA.lap.ta} ${e.lap + 1} / ${LAPS}`, 'teal', true)
+          if (e.best && e.lap > 1) schedule(() => flash('புதிய சிறந்த சுற்று!', 'gold', true), 1300)
         } else if (e.type === 'finalLap') {
-          flash('FINAL LAP!', 'orange', true)
+          flash('இறுதிச் சுற்று!', 'orange', true)
           playSound('finalLap', snd)
         } else if (e.type === 'overtake') {
-          flash(`NICE OVERTAKE! ${ORD[e.place - 1]} PLACE`, 'gold')
+          flash(`அருமையான முந்துதல்! ${ORD_TA[e.place - 1]} இடம்`, 'gold')
           playSound('overtake', snd)
         } else if (e.type === 'boostReady') {
-          flash('BOOST READY!', 'orange')
+          flash('உந்துதல் தயார்!', 'orange')
         } else if (e.type === 'boostStart') {
           playSound('boost', snd)
           vibrate('button', snd)
@@ -220,7 +223,7 @@ export function DriveGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
           playSound('baseHit', snd)
           vibrate('incorrect', snd)
         } else if (e.type === 'finish' && e.carId === 'player') {
-          flash('FINISH!', 'gold', true)
+          flash(TA.finish.ta, 'gold', true)
           playSound('finish', snd)
           vibrate('victory', snd)
         }
@@ -326,9 +329,9 @@ export function DriveGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
     const me = player(s)
     const place = placeOf(s, 'player')
     const records = readRecords(s.difficulty, me.finishedAt, me.bestLap)
-    if (s.stats.worstPlace === 4 && place <= 3 && s.stats.overtakes > 0) records.push('Comeback drive!')
-    if (s.stats.cleanLaps === LAPS) records.push('Perfect race: no mistakes')
-    else if (s.stats.cleanLaps > 0) records.push(`${s.stats.cleanLaps} clean lap${s.stats.cleanLaps === 1 ? '' : 's'}`)
+    if (s.stats.worstPlace === 4 && place <= 3 && s.stats.overtakes > 0) records.push('அற்புதமான மீள்வருகை!')
+    if (s.stats.cleanLaps === LAPS) records.push('தவறில்லாத பந்தயம்!')
+    else if (s.stats.cleanLaps > 0) records.push(`${s.stats.cleanLaps} தவறில்லாச் சுற்றுகள்`)
     const t = window.setTimeout(
       () =>
         setSummary({
@@ -383,27 +386,27 @@ export function DriveGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
       {raceBuilt && hud && (
         <div className="absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2 sm:p-3 pointer-events-none [padding-top:max(0.5rem,env(safe-area-inset-top))]">
           <div className="flex items-stretch gap-1.5 sm:gap-2 pointer-events-auto">
-            <div className="rounded-2xl bg-white/90 shadow-md px-2.5 sm:px-3 py-1.5 text-center min-w-[56px]" aria-label={`Position ${hud.place} of 4`}>
+            <div className="rounded-2xl bg-white/90 shadow-md px-2.5 sm:px-3 py-1.5 text-center min-w-[56px]" aria-label={`${ta('position', true)}: ${hud.place} / 4`}>
               <p className="text-2xl sm:text-3xl font-black text-primary-700 leading-none tabular-nums">
                 {hud.place}
                 <span className="text-sm align-top">{ORD[hud.place - 1].slice(1)}</span>
               </p>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-stone-500">of 4</p>
+              <p className="text-[10px] font-bold tracking-wide text-stone-500 font-tamil">{TA.position.ta} /4</p>
             </div>
-            <div className="rounded-2xl bg-white/90 shadow-md px-2.5 sm:px-3 py-1.5 text-center" aria-label={`Lap ${hud.lap} of ${LAPS}`}>
+            <div className="rounded-2xl bg-white/90 shadow-md px-2.5 sm:px-3 py-1.5 text-center" aria-label={`${ta('lap', true)}: ${hud.lap} / ${LAPS}`}>
               <p className="text-lg sm:text-xl font-black text-stone-800 leading-none tabular-nums">
                 {hud.lap}/{LAPS}
               </p>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-stone-500">Lap</p>
+              <p className="text-[10px] font-bold tracking-wide text-stone-500 font-tamil">{TA.lap.ta}</p>
             </div>
             <div className="hidden sm:block rounded-2xl bg-white/90 shadow-md px-3 py-1.5 text-center">
               <p className="text-lg sm:text-xl font-black text-stone-800 leading-none tabular-nums">{hud.speed}</p>
               <p className="text-[10px] font-bold uppercase tracking-wide text-stone-500">km/h</p>
             </div>
-            <div className="rounded-2xl bg-white/90 shadow-md px-2.5 sm:px-3 py-1.5 w-24 sm:w-40" aria-label={`Boost ${hud.meter} percent`}>
+            <div className="rounded-2xl bg-white/90 shadow-md px-2.5 sm:px-3 py-1.5 w-24 sm:w-40" aria-label={`உந்துதல் · Boost ${hud.meter}%`}>
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wide text-stone-500">
-                <span>Boost</span>
-                <span className="tabular-nums">{hud.streak >= 2 ? `x${hud.streak} streak` : `${hud.meter}%`}</span>
+                <span className="font-tamil normal-case">உந்துதல்</span>
+                <span className="tabular-nums">{hud.streak >= 2 ? `x${hud.streak}` : `${hud.meter}%`}</span>
               </div>
               <div className="mt-1 h-3 rounded-full bg-stone-200 overflow-hidden relative">
                 <div
@@ -412,18 +415,18 @@ export function DriveGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
                 />
                 <div className="absolute inset-y-0 border-l-2 border-white" style={{ left: `${BOOST_MIN}%` }} />
               </div>
-              {!touchUi && <p className="mt-0.5 text-[10px] text-stone-500">{hud.boosting ? 'Boosting!' : hud.meter >= BOOST_MIN ? 'Press SPACE' : 'Answer to charge'}</p>}
+              {!touchUi && <p className="font-tamil mt-0.5 text-[10px] text-stone-500">{hud.boosting ? 'பாய்கிறது!' : hud.meter >= BOOST_MIN ? 'SPACE அழுத்துங்கள்' : 'விடையளித்து நிரப்புங்கள்'}</p>}
             </div>
           </div>
           <div className="flex items-center gap-1 pointer-events-auto shrink-0">
             <span className="hidden md:inline rounded-xl bg-white/90 shadow-md px-2.5 py-1 text-sm font-bold tabular-nums text-stone-700">{fmtTime(hud.time)}</span>
-            <button type="button" onClick={togglePause} aria-label={paused ? 'Resume' : 'Pause'} className="w-11 h-11 rounded-xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
+            <button type="button" onClick={togglePause} aria-label={paused ? ta('resume', true) : ta('pause', true)} className="w-11 h-11 rounded-xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
               {paused ? <FiPlay className="w-5 h-5" /> : <FiPause className="w-5 h-5" />}
             </button>
-            <button type="button" onClick={toggleSound} aria-label={soundEnabled ? 'Mute sound' : 'Unmute sound'} className="w-11 h-11 rounded-xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
+            <button type="button" onClick={toggleSound} aria-label={soundEnabled ? ta('muteSound', true) : ta('soundOn', true)} className="w-11 h-11 rounded-xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
               {soundEnabled ? <FiVolume2 className="w-5 h-5" /> : <FiVolumeX className="w-5 h-5" />}
             </button>
-            <button type="button" onClick={leave} aria-label="Exit race" className="w-11 h-11 rounded-xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
+            <button type="button" onClick={leave} aria-label={ta('exitGame', true)} className="w-11 h-11 rounded-xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
               <FiLogOut className="w-5 h-5" />
             </button>
           </div>
@@ -433,14 +436,14 @@ export function DriveGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
       {/* Countdown and event banners */}
       <div aria-live="assertive" className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
         {count && (
-          <p key={count.id} className={`font-black drop-shadow-[0_6px_0_rgba(15,118,110,0.45)] animate-gamev2-count ${count.text === 'GO!' ? 'text-8xl sm:text-9xl text-gold-400' : 'text-8xl sm:text-9xl text-white'}`}>
+          <p key={count.id} className={`font-black drop-shadow-[0_6px_0_rgba(15,118,110,0.45)] animate-gamev2-count ${count.text === TA.go.ta ? 'text-7xl sm:text-9xl text-gold-400 font-tamil' : 'text-8xl sm:text-9xl text-white'}`}>
             {count.text}
           </p>
         )}
       </div>
       <div aria-live="polite" className="pointer-events-none absolute inset-x-0 top-[4.5rem] z-20 flex justify-center px-4">
         {banner && (
-          <p key={banner.id} className={`rounded-2xl px-5 py-2 text-lg sm:text-2xl font-black tracking-wide shadow-lg animate-gamev2-banner ${bannerTone}`}>
+          <p key={banner.id} className={`font-tamil rounded-2xl px-5 py-2 text-lg sm:text-2xl font-black tracking-wide shadow-lg animate-gamev2-banner ${bannerTone}`}>
             {banner.text}
           </p>
         )}
@@ -454,7 +457,7 @@ export function DriveGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
             }}
             className="rounded-2xl bg-white shadow-lg px-4 py-2 font-bold text-terracotta-700 inline-flex items-center gap-2 min-h-[44px]"
           >
-            <FiRotateCcw className="w-4 h-4" aria-hidden /> {hud.wrongWay ? 'Wrong way!' : 'Stuck?'} {touchUi ? 'Tap to reset' : 'Press R to reset'}
+            <FiRotateCcw className="w-4 h-4" aria-hidden /> <span className="font-tamil">{hud.wrongWay ? 'தவறான திசை!' : 'சிக்கிக்கொண்டீர்களா?'} {touchUi ? 'தொட்டு மீட்டமையுங்கள்' : 'R அழுத்தி மீட்டமையுங்கள்'}</span>
           </button>
         </div>
       )}
@@ -465,23 +468,23 @@ export function DriveGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
           <div role="status" className={`pointer-events-auto max-w-md w-full rounded-2xl shadow-xl border-2 px-4 py-3 bg-white ${feedback.correct ? 'border-primary-400' : 'border-terracotta-300'}`}>
             <p className={`flex items-center gap-2 text-lg font-black ${feedback.correct ? 'text-primary-700' : 'text-terracotta-700'}`}>
               {feedback.correct ? <FiCheckCircle className="w-5 h-5" aria-hidden /> : <FiXCircle className="w-5 h-5" aria-hidden />}
-              {feedback.correct ? `CORRECT! +${feedback.gain} boost` : 'NOT QUITE'}
+              <span className="font-tamil">{feedback.correct ? `${TA.correct.ta} +${feedback.gain} உந்துதல்` : TA.notQuite.ta}</span>
             </p>
             {!feedback.correct && (
               <div className="mt-1 text-sm text-stone-700 space-y-0.5">
                 <p>
-                  Your answer: <span className="font-tamil font-semibold">{feedback.answer}</span>
+                  <span className="font-tamil">{TA.yourAnswer.ta}:</span> <span className="font-tamil font-semibold">{feedback.answer}</span>
                 </p>
                 {feedback.right && (
                   <p>
-                    Correct answer: <span className="font-tamil font-bold text-primary-800">{feedback.right}</span>
+                    <span className="font-tamil">{TA.correctAnswer.ta}:</span> <span className="font-tamil font-bold text-primary-800">{feedback.right}</span>
                   </p>
                 )}
                 {feedback.explanation && <p className="font-tamil leading-relaxed text-stone-600">{feedback.explanation}</p>}
               </div>
             )}
             <button type="button" onClick={() => setFeedback(null)} className="sr-only">
-              Dismiss
+              மூடு · Dismiss
             </button>
           </div>
         </div>
@@ -492,12 +495,12 @@ export function DriveGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
         <div className="absolute inset-x-0 bottom-0 z-30 flex justify-center p-3 sm:p-5 [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="w-full max-w-lg max-h-[84vh] overflow-y-auto rounded-3xl bg-white/95 shadow-2xl border border-primary-100 p-3 sm:p-4">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary-700 mb-1">
-              {raceOver ? 'Last challenge before the podium' : 'Tamil checkpoint -- answer to charge your boost'}
+              <span className="font-tamil normal-case tracking-normal text-sm">{raceOver ? 'மேடைக்கு முன் கடைசிச் சவால்' : 'தமிழ்ச் சோதனைச் சாவடி -- விடையளித்து உந்துதலை நிரப்புங்கள்'}</span>
             </p>
             {showQuestion && session?.question ? (
               <QuestionOverlay variant="compact" sessionId={sessionId} question={session.question} questionIndex={session.currentIndex} remainingSeconds={session.remainingSeconds} onResult={handleAnswer} />
             ) : (
-              <p className="text-sm text-stone-500 py-4 text-center">Loading the question...</p>
+              <p className="text-sm text-stone-500 py-4 text-center font-tamil">கேள்வி ஏற்றப்படுகிறது...</p>
             )}
           </div>
         </div>
@@ -509,31 +512,31 @@ export function DriveGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
       )}
 
       {portraitPhone && raceBuilt && hud && !hud.started && (
-        <p className="absolute inset-x-0 bottom-4 z-20 text-center text-sm font-semibold text-white drop-shadow">Tip: turn your phone sideways for the best view.</p>
+        <p className="absolute inset-x-0 bottom-4 z-20 text-center text-sm font-semibold text-white drop-shadow"><span className="font-tamil">குறிப்பு: சிறந்த காட்சிக்குத் தொலைபேசியைப் பக்கவாட்டில் திருப்புங்கள்.</span></p>
       )}
 
       {/* Pause menu */}
       {paused && (
         <div className="absolute inset-0 z-40 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-sm rounded-3xl bg-white shadow-2xl p-5 text-center">
-            <h2 className="text-2xl font-black text-stone-800">Paused</h2>
+            <h2 className="text-2xl font-black text-stone-800"><Bi k="paused" /></h2>
             <p className="text-sm text-stone-500 mt-1">
-              {ORD[(hud?.place ?? 4) - 1]} place · lap {hud?.lap}/{LAPS}
+              <span className="font-tamil">{ORD_TA[(hud?.place ?? 4) - 1]} இடம் · {TA.lap.ta} {hud?.lap}/{LAPS}</span>
             </p>
             <div className="mt-4 grid gap-2">
               <button type="button" onClick={() => setPaused(false)} className="min-h-[52px] rounded-2xl bg-primary-700 hover:bg-primary-800 text-white font-extrabold text-lg inline-flex items-center justify-center gap-2">
-                <FiPlay className="w-5 h-5" aria-hidden /> Resume
+                <FiPlay className="w-5 h-5" aria-hidden /> <Bi k="resume" inline />
               </button>
               <button type="button" onClick={leave} className="min-h-[48px] rounded-2xl border border-stone-300 text-stone-700 font-semibold">
-                Exit race
+                <Bi k="exitGame" inline />
               </button>
             </div>
             <div className="mt-4 text-left text-xs text-stone-500 space-y-1">
               <p>
-                <span className="font-bold text-stone-700">Keyboard:</span> arrows or W A S D to drive · Space boost · R reset · Esc pause
+                <span className="font-bold text-stone-700"><span className="font-tamil">விசைப்பலகை</span> · Keyboard:</span> arrows or W A S D to drive · Space boost · R reset · Esc pause
               </p>
               <p>
-                <span className="font-bold text-stone-700">Touch:</span> left pad steers · GAS / BRAKE / BOOST on the right
+                <span className="font-bold text-stone-700"><span className="font-tamil">தொடுதிரை</span> · Touch:</span> left pad steers · GAS / BRAKE / BOOST on the right
               </p>
             </div>
           </div>
@@ -547,12 +550,12 @@ export function DriveGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
             <div className="flex items-baseline justify-between gap-2">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-terracotta-600">Game Room · Racing</p>
-                <h1 className="text-2xl font-black text-stone-900 leading-tight">Tamil Grand Prix</h1>
+                <h1 className="font-tamil text-2xl font-black text-stone-900 leading-tight">தமிழ்ப் பந்தயம்</h1>
               </div>
-              <p className="font-tamil text-base text-primary-700 font-bold">தமிழ் பந்தயம்</p>
+              <p className="text-sm text-primary-700 font-bold">Tamil Grand Prix</p>
             </div>
-            <p className="mt-1 text-sm text-stone-600">3 laps against Kayal, Mugil and Aruvi. Drive through the teal Tamil gates -- right answers charge your boost.</p>
-            <div className="mt-3 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Difficulty">
+            <p className="mt-1 text-sm text-stone-600"><span className="font-tamil block text-stone-800">கயல், முகில், அருவி ஆகியோருடன் 3 சுற்றுகள். பச்சை நிறத் தமிழ் வாயில்கள் வழியே ஓட்டுங்கள் -- சரியான விடைகள் உந்துதலை நிரப்பும்.</span>3 laps against Kayal, Mugil and Aruvi. Drive through the teal Tamil gates -- right answers charge your boost.</p>
+            <div className="mt-3 grid grid-cols-3 gap-2" role="radiogroup" aria-label={ta('difficulty', true)}>
               {DIFFS.map((d) => (
                 <button
                   key={d.id}
@@ -565,8 +568,9 @@ export function DriveGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
                   }}
                   className="rounded-2xl border-2 border-stone-200 hover:border-primary-500 hover:bg-primary-50 px-2 py-2.5 min-h-[64px] text-center transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-300"
                 >
-                  <span className="block font-extrabold text-stone-900">{d.label}</span>
-                  <span className="block text-[11px] text-stone-500 leading-tight">{d.blurb}</span>
+                  <span className="block font-tamil font-extrabold text-stone-900">{TA[d.id].ta}</span>
+                  <span className="block text-[11px] font-bold text-stone-500">{d.label}</span>
+                  <span className="block font-tamil text-[11px] text-stone-500 leading-tight">{d.blurb}</span>
                 </button>
               ))}
             </div>
@@ -579,13 +583,13 @@ export function DriveGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
       {difficulty && !raceBuilt && (
         <div className="absolute inset-0 z-30 flex items-center justify-center">
           <p className="rounded-2xl bg-white/90 px-5 py-3 font-bold text-stone-700 shadow-lg" role="status">
-            Cars to the grid...
+            <span className="font-tamil">கார்கள் தொடக்கக் கோட்டுக்கு...</span>
           </p>
         </div>
       )}
       {me && raceBuilt && hud?.finished && !raceOver && (
         <div className="pointer-events-none absolute inset-x-0 bottom-8 z-20 flex justify-center">
-          <p className="rounded-2xl bg-white/90 px-4 py-2 font-bold text-stone-700 shadow">Waiting for the others to cross the line...</p>
+          <p className="rounded-2xl bg-white/90 px-4 py-2 font-bold text-stone-700 shadow font-tamil">மற்றவர்கள் இலக்கைக் கடக்கக் காத்திருக்கிறோம்...</p>
         </div>
       )}
     </div>

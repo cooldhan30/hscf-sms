@@ -4,6 +4,7 @@ import { useEffect, useState, type ComponentType } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { GameV2Loading } from '@/components/gameRoomV2'
+import { ta } from '@/components/gameRoomV2/Bi'
 
 // Most engines have no visual layer of their own and mount
 // GameSessionRuntime directly (the "thin reference engine" path). Tower
@@ -21,7 +22,7 @@ import { GameV2Loading } from '@/components/gameRoomV2'
 // that needs its own board gets an entry in ENGINE_COMPONENTS the same way.
 type EngineProps = { sessionId: string; onExit: () => void; onPlayAgain?: () => void; onHome?: () => void }
 
-const engineLoading = () => <GameV2Loading label="Loading game..." />
+const engineLoading = () => <GameV2Loading label={ta('loadingGame', true)} />
 
 const ENGINE_COMPONENTS: Record<string, ComponentType<EngineProps>> = {
   'tower-defense': dynamic(() => import('@/components/gameRoomV2/towerDefense/TowerDefenseGame').then((m) => m.TowerDefenseGame), {
@@ -74,7 +75,7 @@ export function PlaySessionClient({ sessionId }: { sessionId: string }) {
     }
   }, [sessionId])
 
-  if (engineId === null) return <GameV2Loading label="Loading game..." />
+  if (engineId === null) return <GameV2Loading label={ta('loadingGame', true)} />
 
   // Leaving a game (finished or not) goes to the results page: saved
   // score, XP, topic/board progress and Recommended Next.

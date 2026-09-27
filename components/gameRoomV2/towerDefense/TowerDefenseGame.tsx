@@ -44,6 +44,8 @@ import {
 } from '@/lib/gameRoomV2/towerDefense'
 import { formatAnswer } from '@/lib/gameRoomV2/answerReveal'
 import type { BaseSessionStatePayload } from '@/lib/gameRoomV2/gameplay/sessionPolling'
+import { Bi, ta } from '@/components/gameRoomV2/Bi'
+import { TA } from '@/lib/gameRoomV2/i18n/ta'
 
 // Tower Defense -- the full-viewport game. The battlefield canvas IS the
 // screen; everything else floats over it: Tamizhi-styled HUD chips at the
@@ -217,10 +219,10 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
             break
           case 'bossSpawn':
             if (e.mini) {
-              showBanner({ title: 'IRUL CAPTAIN', sub: 'A tougher foe -- focus your fire', tone: 'boss' }, 2400)
+              showBanner({ kicker: 'Irul Captain', title: 'இருள் தளபதி', sub: 'வலிமையான எதிரி -- தாக்குதலைக் குவியுங்கள்', tone: 'boss' }, 2400)
             } else {
               fx.push({ kind: 'bossWarn' })
-              showBanner({ kicker: 'The final battle', title: 'IRUL KING', sub: 'Summons minions · enrages when hurt', tone: 'boss' }, 3200)
+              showBanner({ kicker: 'The final battle · Irul King', title: 'இருள் அரசன்', sub: 'படைவீரர்களை அழைப்பான் · காயம்பட்டால் சீறுவான்', tone: 'boss' }, 3200)
             }
             playSound('bossWarning', snd)
             break
@@ -229,19 +231,19 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
             break
           case 'enrage':
             fx.push({ kind: 'enrage', x: e.x, y: e.y })
-            showBanner({ title: 'ENRAGED!', sub: 'The Irul King moves faster -- use your abilities!', tone: 'danger' }, 2000)
+            showBanner({ kicker: 'Enraged!', title: 'சீற்றம்!', sub: 'இருள் அரசன் வேகமெடுக்கிறான் -- ஆற்றல்களைப் பயன்படுத்துங்கள்!', tone: 'danger' }, 2000)
             playSound('enrage', snd)
             break
           case 'waveStart':
             if (!e.boss) {
               const last = tdRef.current && e.wave >= tdRef.current.totalWaves - 1 && !isBossWave(e.wave, tdRef.current.totalWaves)
-              showBanner({ kicker: last ? 'Final wave before the boss' : undefined, title: `WAVE ${e.wave}`, tone: 'wave', enemies: waveMixRef.current }, 1700)
+              showBanner({ kicker: last ? `Wave ${e.wave} · final wave before the boss` : `Wave ${e.wave}`, title: `${TA.wave.ta} ${e.wave}`, sub: last ? 'தலைமை எதிரிக்கு முன் இறுதி அலை' : undefined, tone: 'wave', enemies: waveMixRef.current }, 1700)
             }
             playSound('waveStart', snd)
             break
           case 'waveCleared':
             fx.push({ kind: 'waveClear' })
-            showBanner({ title: 'WAVE CLEARED!', sub: `+${e.bonus} coins · build and answer to get ready`, tone: 'good' }, 2000)
+            showBanner({ kicker: 'Wave cleared!', title: TA.waveCleared.ta, sub: `+${e.bonus} ${TA.coins.ta} · கட்டுங்கள், விடையளியுங்கள், தயாராகுங்கள்`, tone: 'good' }, 2000)
             playSound('waveClear', snd)
             structural = true
             break
@@ -562,27 +564,27 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
           <div className="pointer-events-auto flex flex-wrap items-center gap-1 sm:gap-2 max-w-[60%]">
             <div className="flex items-center gap-1.5 rounded-2xl bg-white/90 shadow-md px-2.5 sm:px-3 py-2">
               <GiCrossedSwords className="w-5 h-5 text-terracotta-600" aria-hidden />
-              <span className="sr-only">Wave:</span>
+              <span className="sr-only">{ta('wave', true)}:</span>
               <span className="text-sm sm:text-base font-extrabold tabular-nums">
                 {hud.wave}/{hud.totalWaves}
               </span>
             </div>
             <div ref={(el) => { coinChipRef.current = el }} className="relative flex items-center gap-1.5 rounded-2xl bg-white/90 shadow-md px-3 py-2">
               <GiTwoCoins className="w-5 h-5 text-gold-600" aria-hidden />
-              <span className="sr-only">Coins:</span>
+              <span className="sr-only">{ta('coins', true)}:</span>
               <span key={hud.coins} className="inline-block text-sm sm:text-base font-extrabold tabular-nums text-gold-800 animate-gamev2-bump">
                 {hud.coins}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 rounded-2xl bg-white/90 shadow-md px-3 py-2" title="Scrolls power your abilities -- earn them with Tamil answers">
+            <div className="flex items-center gap-1.5 rounded-2xl bg-white/90 shadow-md px-3 py-2" title="சுவடிகள் ஆற்றல்களை இயக்கும் -- தமிழ் விடைகளால் பெறுங்கள் · Scrolls power your abilities">
               <GiScrollUnfurled className="w-5 h-5 text-primary-700" aria-hidden />
-              <span className="sr-only">Scrolls:</span>
+              <span className="sr-only">சுவடிகள் · Scrolls:</span>
               <span className="text-sm sm:text-base font-extrabold tabular-nums text-primary-800">{hud.charges}</span>
             </div>
             {hud.streak >= 2 && (
               <div className="hidden md:flex items-center gap-1 rounded-2xl bg-gold-400 shadow-md px-3 py-2 animate-gamev2-pop-in">
                 <FiZap className="w-4 h-4" aria-hidden />
-                <span className="sr-only">Answer streak:</span>
+                <span className="sr-only">{ta('streak', true)}:</span>
                 <span className="text-sm font-black">x{hud.streak}</span>
               </div>
             )}
@@ -598,23 +600,23 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
             <button
               type="button"
               onClick={() => setSpeed((s) => (s === 1 ? 2 : 1))}
-              aria-label={`Game speed ${speed}x`}
+              aria-label={`வேகம் · Game speed ${speed}x`}
               aria-pressed={speed === 2}
               className={`h-11 min-w-[44px] px-2 rounded-2xl shadow-md flex items-center justify-center gap-0.5 text-sm font-extrabold ${speed === 2 ? 'bg-gold-400 text-stone-900' : 'bg-white/90 text-stone-700'}`}
             >
               <FiFastForward className="w-4 h-4" aria-hidden />
               {speed}x
             </button>
-            <button type="button" onClick={() => setUserPaused((p) => !p)} aria-label={userPaused ? 'Resume' : 'Pause'} className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
+            <button type="button" onClick={() => setUserPaused((p) => !p)} aria-label={userPaused ? ta('resume', true) : ta('pause', true)} className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
               {userPaused ? <FiPlay className="w-5 h-5" /> : <FiPause className="w-5 h-5" />}
             </button>
-            <button type="button" onClick={toggleMusic} aria-pressed={musicEnabled} aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'} title="Music" className={`hidden sm:flex w-11 h-11 rounded-2xl shadow-md items-center justify-center ${musicEnabled ? 'bg-white/90 text-stone-700' : 'bg-white/70 text-stone-400'}`}>
+            <button type="button" onClick={toggleMusic} aria-pressed={musicEnabled} aria-label={`${ta('music', true)}: ${musicEnabled ? TA.on.ta : TA.off.ta}`} title={ta('music', true)} className={`hidden sm:flex w-11 h-11 rounded-2xl shadow-md items-center justify-center ${musicEnabled ? 'bg-white/90 text-stone-700' : 'bg-white/70 text-stone-400'}`}>
               <MusicIcon on={musicEnabled} />
             </button>
-            <button type="button" onClick={toggleSound} aria-pressed={soundEnabled} aria-label={soundEnabled ? 'Turn sound effects off' : 'Turn sound effects on'} title="Sound effects" className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
+            <button type="button" onClick={toggleSound} aria-pressed={soundEnabled} aria-label={`${ta('sounds', true)}: ${soundEnabled ? TA.on.ta : TA.off.ta}`} title={ta('sounds', true)} className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
               {soundEnabled ? <FiVolume2 className="w-5 h-5" /> : <FiVolumeX className="w-5 h-5" />}
             </button>
-            <button type="button" onClick={leave} aria-label="Exit game" className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
+            <button type="button" onClick={leave} aria-label={ta('exitGame', true)} className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
               <FiLogOut className="w-5 h-5" />
             </button>
           </div>
@@ -642,10 +644,10 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
           <div key={banner.id} className={`rounded-3xl border-4 px-6 sm:px-10 py-3 sm:py-4 text-center shadow-2xl animate-gamev2-banner ${bannerStyle}`} style={{ animationDuration: '2.8s' }}>
             {banner.tone === 'boss' && <GiCrown className="w-8 h-8 mx-auto text-gold-300" aria-hidden />}
             {banner.kicker && <p className="mb-1 text-[11px] sm:text-xs font-black uppercase tracking-[0.2em] opacity-80">{banner.kicker}</p>}
-            <p className="text-3xl sm:text-5xl font-black tracking-wide leading-none">{banner.title}</p>
-            {banner.sub && <p className="mt-1 text-sm sm:text-base font-semibold opacity-90">{banner.sub}</p>}
+            <p className="font-tamil text-3xl sm:text-5xl font-black tracking-wide leading-tight">{banner.title}</p>
+            {banner.sub && <p className="font-tamil mt-1 text-sm sm:text-base font-semibold opacity-90">{banner.sub}</p>}
             {banner.enemies && banner.enemies.length > 0 && (
-              <ul className="mt-2 flex items-center justify-center gap-1.5" aria-label="Enemies in this wave">
+              <ul className="mt-2 flex items-center justify-center gap-1.5" aria-label={ta('enemies', true)}>
                 {banner.enemies.slice(0, narrow ? 4 : 6).map((w) => (
                   <li key={w.kind} className="flex items-center rounded-xl bg-stone-100 pr-2">
                     <EnemyPreview kind={w.kind} size={narrow ? 28 : 34} />
@@ -695,12 +697,13 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
       {/* ---------------- Tutorial callouts ---------------- */}
       {tutorial === 'build' && invitePos && !selectedPadId && !challengeOpen && (
         <Callout x={invitePos.sx} y={invitePos.sy - (layout?.cell ?? 60) * 0.7} onSkip={finishTutorial}>
-          Tap here to build your first tower
+          <span className="font-tamil">முதல் கோபுரத்தை இங்கே கட்டுங்கள்</span>
+          <span className="block text-[11px] font-semibold opacity-70">Tap here to build your first tower</span>
         </Callout>
       )}
       {tutorial === 'auto' && (
         <div className="pointer-events-none absolute inset-x-0 top-[40%] z-30 flex justify-center">
-          <p className="rounded-2xl bg-white px-5 py-3 font-extrabold text-primary-800 shadow-xl animate-gamev2-pop-in">Great! Towers attack automatically.</p>
+          <p className="rounded-2xl bg-white px-5 py-3 font-extrabold text-primary-800 shadow-xl animate-gamev2-pop-in"><span className="font-tamil">அருமை! கோபுரங்கள் தானாகவே தாக்கும்.</span> <span className="text-sm opacity-70">Towers attack automatically.</span></p>
         </div>
       )}
 
@@ -713,17 +716,17 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
               <div className="flex items-center justify-between gap-2 mb-1">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary-700 flex items-center gap-1.5">
                   <GiScrollUnfurled className="w-4 h-4" aria-hidden />
-                  {battleOver ? 'Bank your progress' : `Tamil challenge · ${dueNow} before wave ${hud?.wave}`}
+                  {battleOver ? <Bi k="bankProgress" inline /> : <span><span className="font-tamil normal-case tracking-normal">{TA.tamilChallenge.ta} · அலை {hud?.wave}க்கு முன் {dueNow}</span></span>}
                 </p>
                 <span className="inline-flex items-center gap-1 rounded-full bg-gold-100 px-2 py-0.5 text-[11px] font-black text-gold-800">
-                  <GiTwoCoins className="w-3.5 h-3.5" aria-hidden /> +30 &amp; a scroll
+                  <GiTwoCoins className="w-3.5 h-3.5" aria-hidden /> +30 <span className="font-tamil">&amp; ஒரு சுவடி</span>
                 </span>
               </div>
-              {tutorial === 'learn' && <p className="mb-1 text-xs font-semibold text-terracotta-700">Answer Tamil challenges between waves to strengthen your defence.</p>}
+              {tutorial === 'learn' && <p className="mb-1 text-xs font-semibold text-terracotta-700"><span className="font-tamil">அலைகளுக்கு இடையே தமிழ்ச் சவால்களுக்கு விடையளித்து கோட்டையை வலுப்படுத்துங்கள்.</span></p>}
               {showQuestion && session?.question ? (
                 <QuestionOverlay variant="compact" sessionId={sessionId} question={session.question} questionIndex={session.currentIndex} remainingSeconds={session.remainingSeconds} onResult={handleAnswer} />
               ) : (
-                <p className="py-6 text-center text-sm text-stone-500">Unrolling the next scroll...</p>
+                <p className="py-6 text-center text-sm text-stone-500"><span className="font-tamil">அடுத்த சுவடி விரிகிறது...</span></p>
               )}
             </div>
           </div>
@@ -734,21 +737,21 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
           {feedback.correct ? (
             <div key={feedback.id} role="status" className="rounded-3xl bg-gradient-to-b from-primary-500 to-primary-700 text-white border-4 border-gold-300 shadow-2xl px-6 py-2.5 text-center animate-gamev2-pop-in">
               <p className="flex items-center justify-center gap-2 text-2xl sm:text-3xl font-black tracking-wide">
-                <FiCheckCircle className="w-6 h-6" aria-hidden /> CORRECT!
+                <FiCheckCircle className="w-6 h-6" aria-hidden /> <span className="font-tamil">{TA.correct.ta}</span>
               </p>
               <p className="mt-0.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-sm sm:text-base font-extrabold">
                 <span className="inline-flex items-center gap-1 text-gold-200">
-                  <GiTwoCoins className="w-4 h-4" aria-hidden />+{feedback.coins} COINS
+                  <GiTwoCoins className="w-4 h-4" aria-hidden />+{feedback.coins} <span className="font-tamil">{TA.coins.ta}</span>
                 </span>
                 {feedback.charges > 0 && (
                   <span className="inline-flex items-center gap-1">
-                    <GiScrollUnfurled className="w-4 h-4" aria-hidden />+{feedback.charges} SCROLL{feedback.charges > 1 ? 'S' : ''}
+                    <GiScrollUnfurled className="w-4 h-4" aria-hidden />+{feedback.charges} <span className="font-tamil">சுவடி</span>
                   </span>
                 )}
                 {feedback.streak >= 2 && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-gold-400 px-2 text-stone-900">
                     <FiZap className="w-3.5 h-3.5" aria-hidden />
-                    STREAK ×{feedback.streak}
+                    <span className="font-tamil">{TA.streak.ta}</span> ×{feedback.streak}
                   </span>
                 )}
               </p>
@@ -757,24 +760,24 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
             <div key={feedback.id} role="status" className="pointer-events-auto max-w-md w-full rounded-2xl bg-white shadow-xl border-2 border-terracotta-300 px-4 py-3 animate-gamev2-pop-in">
               <div className="flex items-start justify-between gap-2">
                 <p className="flex items-center gap-2 text-lg font-black text-terracotta-700">
-                  <FiXCircle className="w-5 h-5" aria-hidden /> NOT QUITE
+                  <FiXCircle className="w-5 h-5" aria-hidden /> <Bi k="notQuite" inline />
                 </p>
                 <button type="button" onClick={() => setFeedback(null)} className="min-h-[36px] rounded-xl px-3 text-sm font-bold text-primary-800 hover:bg-primary-50">
-                  Got it
+                  <Bi k="gotIt" inline />
                 </button>
               </div>
               <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm text-stone-700">
-                <dt className="font-semibold text-stone-500">Your answer</dt>
+                <dt className="font-semibold text-stone-500 font-tamil">{TA.yourAnswer.ta}</dt>
                 <dd className="font-tamil font-semibold line-through decoration-terracotta-400">{feedback.answer}</dd>
                 {feedback.right && (
                   <>
-                    <dt className="font-semibold text-stone-500">Correct answer</dt>
+                    <dt className="font-semibold text-stone-500 font-tamil">{TA.correctAnswer.ta}</dt>
                     <dd className="font-tamil font-bold text-primary-800">{feedback.right}</dd>
                   </>
                 )}
                 {feedback.explanation && (
                   <>
-                    <dt className="font-semibold text-stone-500">Why</dt>
+                    <dt className="font-semibold text-stone-500 font-tamil">{TA.why.ta}</dt>
                     <dd className="font-tamil leading-relaxed text-stone-600">{feedback.explanation}</dd>
                   </>
                 )}
@@ -792,7 +795,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
             {hud.phase === 'prep' ? (
               <div className="rounded-3xl bg-white/95 shadow-xl border border-white px-3 py-2 flex items-center gap-3">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-stone-500">{bossNext ? 'Boss wave next!' : `Wave ${hud.wave} incoming`}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-stone-500"><span className="font-tamil normal-case tracking-normal">{bossNext ? 'அடுத்தது தலைமை எதிரி!' : `அலை ${hud.wave} வருகிறது`}</span></p>
                   <ul className="flex items-center gap-1.5 mt-0.5">
                     {nextWave.slice(0, narrow ? 3 : 6).map((w) => (
                       <li key={w.kind} className="flex items-center rounded-xl bg-stone-50 pr-2" title={ENEMY_DEFINITIONS[w.kind].name}>
@@ -814,17 +817,17 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
                   className={`min-h-[52px] px-4 sm:px-5 rounded-2xl font-extrabold text-white inline-flex items-center gap-2 shadow-teal disabled:opacity-50 ${bossNext ? 'bg-purple-700 hover:bg-purple-800' : 'bg-primary-700 hover:bg-primary-800'}`}
                 >
                   <FiShield className="w-5 h-5" aria-hidden />
-                  {canStartWave ? `Start wave ${hud.wave}` : 'Answer first'}
+                  <span className="font-tamil">{canStartWave ? `அலை ${hud.wave} தொடங்கு` : 'முதலில் விடையளி'}</span>
                 </button>
               </div>
             ) : (
               <div className="whitespace-nowrap rounded-2xl bg-white/90 shadow-md px-3 py-2 text-sm font-extrabold text-stone-700 tabular-nums">
-                {hud.enemiesLeft} <span className="hidden sm:inline">enemies </span>left
+                {hud.enemiesLeft} <span className="font-tamil">எதிரிகள் மீதம்</span>
               </div>
             )}
           </div>
           {/* Ability bar (on a phone it only appears during a wave, when abilities can be used). */}
-          <div className={`pointer-events-auto items-end gap-1.5 sm:gap-2 ${narrow && hud.phase === 'prep' ? 'hidden' : 'flex'}`} role="group" aria-label="Abilities">
+          <div className={`pointer-events-auto items-end gap-1.5 sm:gap-2 ${narrow && hud.phase === 'prep' ? 'hidden' : 'flex'}`} role="group" aria-label="ஆற்றல்கள் · Abilities">
             {ABILITIES.map((a, i) => {
               const Icon = ABILITY_ICON[a.id]
               const ready = hud.phase === 'wave' && abilityReady(td, a.id)
@@ -837,7 +840,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
                   type="button"
                   disabled={!ready}
                   onClick={() => fireAbility(a.id)}
-                  aria-label={`${a.name} (${a.charges} scrolls)`}
+                  aria-label={`${a.tamilName} · ${a.name} (${a.charges} சுவடி)`}
                   title={a.description}
                   className="relative flex flex-col items-center disabled:cursor-not-allowed group"
                 >
@@ -849,7 +852,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
                   <span className={`absolute -top-1 -right-1 min-w-[22px] h-[22px] rounded-full border-2 border-white text-[11px] font-black flex items-center justify-center px-1 ${affordable ? 'bg-primary-700 text-white' : 'bg-stone-200 text-stone-500'}`} aria-hidden>
                     {a.charges}
                   </span>
-                  {!narrow && <span className="mt-0.5 rounded-full bg-white/90 px-1.5 text-[10px] font-bold text-stone-700 shadow">{a.name}</span>}
+                  {!narrow && <span className="font-tamil mt-0.5 rounded-full bg-white/90 px-1.5 text-[10px] font-bold text-stone-700 shadow">{a.tamilName}</span>}
                 </button>
               )
             })}
@@ -860,9 +863,9 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
         <div className="absolute inset-x-0 bottom-24 z-30 flex justify-center px-3">
           <div className="rounded-2xl bg-white shadow-xl px-4 py-2 text-sm font-bold text-terracotta-700 flex items-center gap-3">
             <GiFallingRocks className="w-5 h-5" aria-hidden />
-            Tap the battlefield to drop Stone Rain
+            <span className="font-tamil">கல்மழை பொழிய போர்க்களத்தைத் தொடுங்கள்</span>
             <button type="button" onClick={() => setStrikeMode(false)} className="underline min-h-[36px] text-stone-600">
-              Cancel
+              <span className="font-tamil">ரத்து</span>
             </button>
           </div>
         </div>
@@ -872,27 +875,27 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
       {userPaused && (
         <div className="absolute inset-0 z-50 bg-stone-900/45 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-sm rounded-3xl bg-white shadow-2xl p-5 text-center">
-            <h2 className="text-2xl font-black">Paused</h2>
+            <h2 className="text-2xl font-black"><Bi k="paused" /></h2>
             <p className="text-sm text-stone-500 mt-1">
-              Wave {hud?.wave} of {hud?.totalWaves} · Fort {hud?.baseHp}/{hud?.maxBaseHp}
+              <span className="font-tamil">{TA.wave.ta} {hud?.wave}/{hud?.totalWaves} · கோட்டை {hud?.baseHp}/{hud?.maxBaseHp}</span>
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button type="button" onClick={toggleMusic} aria-pressed={musicEnabled} className={`min-h-[48px] rounded-2xl border font-bold inline-flex items-center justify-center gap-2 ${musicEnabled ? 'border-primary-300 bg-primary-50 text-primary-800' : 'border-stone-300 text-stone-500'}`}>
-                <MusicIcon on={musicEnabled} /> Music {musicEnabled ? 'on' : 'off'}
+                <MusicIcon on={musicEnabled} /> <span className="font-tamil">{TA.music.ta}</span> {musicEnabled ? '✓' : '✕'}
               </button>
               <button type="button" onClick={toggleSound} aria-pressed={soundEnabled} className={`min-h-[48px] rounded-2xl border font-bold inline-flex items-center justify-center gap-2 ${soundEnabled ? 'border-primary-300 bg-primary-50 text-primary-800' : 'border-stone-300 text-stone-500'}`}>
-                {soundEnabled ? <FiVolume2 className="w-5 h-5" aria-hidden /> : <FiVolumeX className="w-5 h-5" aria-hidden />} Sounds {soundEnabled ? 'on' : 'off'}
+                {soundEnabled ? <FiVolume2 className="w-5 h-5" aria-hidden /> : <FiVolumeX className="w-5 h-5" aria-hidden />} <span className="font-tamil">{TA.sounds.ta}</span> {soundEnabled ? '✓' : '✕'}
               </button>
             </div>
             <div className="mt-2 grid gap-2">
               <button type="button" onClick={() => setUserPaused(false)} className="min-h-[52px] rounded-2xl bg-primary-700 hover:bg-primary-800 text-white font-extrabold text-lg inline-flex items-center justify-center gap-2">
-                <FiPlay className="w-5 h-5" aria-hidden /> Resume
+                <FiPlay className="w-5 h-5" aria-hidden /> <Bi k="resume" inline />
               </button>
               <button type="button" onClick={leave} className="min-h-[48px] rounded-2xl border border-stone-300 font-semibold text-stone-700">
-                Exit game
+                <Bi k="exitGame" inline />
               </button>
             </div>
-            <p className="mt-4 text-xs text-stone-500 text-left">Tap a stone base to build. Tap a tower to upgrade, sell or change its target. Abilities: keys 1-4. Esc to pause.</p>
+            <p className="mt-4 text-xs text-stone-500 text-left"><span className="font-tamil block mb-1">கல் மேடையைத் தொட்டுக் கோபுரம் கட்டுங்கள். கோபுரத்தைத் தொட்டு மேம்படுத்துங்கள், விற்கலாம் அல்லது இலக்கை மாற்றலாம்.</span>Tap a stone base to build. Tap a tower to upgrade, sell or change its target. Abilities: keys 1-4. Esc to pause.</p>
           </div>
         </div>
       )}
@@ -909,7 +912,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
       {difficulty && !built && (
         <div className="absolute inset-0 z-40 flex items-center justify-center">
           <p className="rounded-2xl bg-white/95 px-5 py-3 font-bold shadow-lg" role="status">
-            Preparing the battlefield...
+            <span className="font-tamil">போர்க்களம் தயாராகிறது...</span>
           </p>
         </div>
       )}
@@ -931,7 +934,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
         />
       )}
       {outcome && momentDone && !showResults && remainingQuestions === 0 && sessionDone === false && (
-        <p className="absolute inset-x-0 bottom-6 z-30 text-center text-sm font-bold text-white drop-shadow">Saving your progress...</p>
+        <p className="absolute inset-x-0 bottom-6 z-30 text-center text-sm font-bold text-white drop-shadow"><span className="font-tamil">{TA.saving.ta}</span></p>
       )}
     </div>
   )
@@ -940,7 +943,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
 function FortChip({ hp, max, hurt }: { hp: number; max: number; hurt: number }) {
   const pct = Math.max(0, Math.min(100, (hp / max) * 100))
   return (
-    <div key={hurt} className={`flex items-center gap-2 rounded-2xl bg-white/90 shadow-md px-3 py-1.5 ${hurt ? 'animate-gamev2-shake' : ''}`} aria-label={`Fort: ${hp} of ${max}`}>
+    <div key={hurt} className={`flex items-center gap-2 rounded-2xl bg-white/90 shadow-md px-3 py-1.5 ${hurt ? 'animate-gamev2-shake' : ''}`} aria-label={`கோட்டை · Fort: ${hp} / ${max}`}>
       <GiCastle className={`w-5 h-5 ${pct > 50 ? 'text-primary-700' : pct > 25 ? 'text-gold-600' : 'text-rose-600'}`} aria-hidden />
       <div className="w-28 sm:w-40 h-3 rounded-full bg-stone-200 overflow-hidden">
         <div className={`h-full rounded-full transition-all duration-300 ${pct > 50 ? 'bg-primary-500' : pct > 25 ? 'bg-gold-400' : 'bg-rose-500'}`} style={{ width: `${pct}%` }} />
@@ -957,11 +960,11 @@ function BossBar({ boss }: { boss: { hp: number; maxHp: number; enraged: boolean
   return (
     <div className={`flex items-center gap-2 rounded-2xl px-3 py-1.5 shadow-lg border-2 ${boss.enraged ? 'bg-rose-700 border-rose-300' : 'bg-purple-800 border-gold-400'} text-white animate-gamev2-pop-in`} aria-label={`${boss.mini ? 'Irul Captain' : 'Irul King'}: ${Math.round(pct)}% health`}>
       <GiCrown className="w-5 h-5 text-gold-300" aria-hidden />
-      <span className="text-xs font-black tracking-wide">{boss.mini ? 'IRUL CAPTAIN' : 'IRUL KING'}</span>
+      <span className="text-xs font-black tracking-wide font-tamil">{boss.mini ? 'இருள் தளபதி' : 'இருள் அரசன்'}</span>
       <div className="w-32 sm:w-48 h-3 rounded-full bg-black/30 overflow-hidden">
         <div className={`h-full rounded-full transition-all duration-200 ${boss.enraged ? 'bg-rose-300' : 'bg-gold-400'}`} style={{ width: `${pct}%` }} />
       </div>
-      {boss.enraged && <span className="text-[10px] font-black">ENRAGED</span>}
+      {boss.enraged && <span className="text-[10px] font-black font-tamil">சீற்றம்</span>}
     </div>
   )
 }
@@ -977,7 +980,7 @@ function Callout({ x, y, children, onSkip }: { x: number; y: number; children: R
       <div className="rounded-2xl bg-white shadow-xl border-2 border-primary-300 px-3 py-2 text-sm font-extrabold text-primary-800 text-center">
         {children}
         <button type="button" onClick={onSkip} className="pointer-events-auto ml-2 text-[11px] font-semibold text-stone-500 underline min-h-[32px]">
-          Skip tutorial
+          <span className="font-tamil">பயிற்சியைத் தவிர்</span>
         </button>
       </div>
       <div className="w-0 h-0 border-x-8 border-x-transparent border-t-8 border-t-white" style={{ marginLeft: `calc(50% + ${x - left}px - 8px)` }} aria-hidden />
@@ -1007,22 +1010,23 @@ function EndMoment({ kind, td, reduced }: { kind: 'victory' | 'defeat'; td: TdSt
         {win ? (
           <>
             <GiCrown className="mx-auto w-14 h-14 sm:w-20 sm:h-20 text-gold-300 drop-shadow-[0_4px_0_rgba(120,53,15,0.6)]" aria-hidden />
-            <p className="text-6xl sm:text-8xl font-black tracking-wider text-gold-300 [-webkit-text-stroke:2px_#78350f] drop-shadow-[0_6px_0_rgba(120,53,15,0.55)]">VICTORY!</p>
+            <p className="text-6xl sm:text-8xl font-black tracking-wider text-gold-300 [-webkit-text-stroke:2px_#78350f] drop-shadow-[0_6px_0_rgba(120,53,15,0.55)] font-tamil leading-tight">{TA.victory.ta}</p>
             <p className="mt-2 inline-block rounded-full bg-stone-900/60 px-4 py-1.5 text-base sm:text-xl font-extrabold text-white">
-              {s.bossDefeated ? 'The Irul King is defeated -- the fort stands!' : 'The fort stands!'}
+              <span className="font-tamil">{s.bossDefeated ? 'இருள் அரசன் வீழ்ந்தான் -- கோட்டை நிலைத்தது!' : 'கோட்டை நிலைத்தது!'}</span>
             </p>
           </>
         ) : (
           <div className="rounded-3xl bg-white/95 shadow-2xl border-4 border-terracotta-200 px-6 py-5 sm:px-10">
             <GiCastle className="mx-auto w-12 h-12 text-terracotta-600" aria-hidden />
-            <p className="text-4xl sm:text-6xl font-black text-terracotta-700">THE FORT FELL</p>
-            <p className="mt-1 font-semibold text-stone-600">A brave defence. Here&apos;s what you achieved:</p>
+            <p className="text-4xl sm:text-6xl font-black text-terracotta-700 font-tamil leading-tight">கோட்டை வீழ்ந்தது</p>
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-terracotta-500">The fort fell</p>
+            <p className="mt-1 font-semibold text-stone-600 font-tamil">வீரமான தற்காப்பு! நீங்கள் சாதித்தவை:</p>
             <div className="mt-3 flex flex-wrap justify-center gap-2 text-sm font-extrabold text-stone-800">
               <span className="rounded-2xl bg-primary-50 px-3 py-1.5">
-                {s.wavesCleared} wave{s.wavesCleared === 1 ? '' : 's'} survived
+                <span className="font-tamil">{s.wavesCleared} அலைகளைத் தாங்கினீர்கள்</span>
               </span>
-              <span className="rounded-2xl bg-primary-50 px-3 py-1.5">{s.enemiesDefeated} enemies defeated</span>
-              {s.bestStreak > 1 && <span className="rounded-2xl bg-gold-100 px-3 py-1.5">Best streak ×{s.bestStreak}</span>}
+              <span className="rounded-2xl bg-primary-50 px-3 py-1.5"><span className="font-tamil">{s.enemiesDefeated} எதிரிகளை வென்றீர்கள்</span></span>
+              {s.bestStreak > 1 && <span className="rounded-2xl bg-gold-100 px-3 py-1.5"><span className="font-tamil">{TA.bestStreak.ta}</span> ×{s.bestStreak}</span>}
             </div>
           </div>
         )}

@@ -9,6 +9,8 @@ import { playSound } from '@/components/gameRoomV2/gameplay/playSound'
 import { getAchievement } from '@/lib/gameRoomV2/progression'
 import type { GameResult } from '@/lib/gameRoomV2/domain'
 import type { TdState } from '@/lib/gameRoomV2/towerDefense'
+import { Bi, ta } from '@/components/gameRoomV2/Bi'
+import { TA } from '@/lib/gameRoomV2/i18n/ta'
 
 // End of battle, presented over the (dimmed) battlefield rather than
 // jumping to a separate page: VICTORY with confetti, or a warm "the fort
@@ -42,14 +44,14 @@ export function TdResults({
   const s = td.stats
   const items = useMemo<RevealItem[]>(() => {
     const out: RevealItem[] = []
-    if (result) out.push({ id: 'xp', label: 'XP earned', value: `+${result.xpEarned}`, tone: 'xp', icon: <FiStar className="w-4 h-4" aria-hidden /> })
-    if (result) out.push({ id: 'acc', label: 'Tamil answers', value: `${result.accuracyPct}%`, tone: 'good', icon: <FiTarget className="w-4 h-4" aria-hidden /> })
-    if (result) out.push({ id: 'correct', label: 'Correct answers', value: `${result.correctCount}/${result.totalQuestions}`, tone: 'good' })
-    if (result) out.push({ id: 'streak', label: 'Best streak', value: `x${result.bestStreak}`, icon: <FiZap className="w-4 h-4" aria-hidden /> })
-    if (result) out.push({ id: 'coins', label: 'Coins', value: `+${result.coinsEarned}`, tone: 'gold' })
+    if (result) out.push({ id: 'xp', label: ta('xp', true), value: `+${result.xpEarned}`, tone: 'xp', icon: <FiStar className="w-4 h-4" aria-hidden /> })
+    if (result) out.push({ id: 'acc', label: 'தமிழ் விடைகள் · Tamil answers', value: `${result.accuracyPct}%`, tone: 'good', icon: <FiTarget className="w-4 h-4" aria-hidden /> })
+    if (result) out.push({ id: 'correct', label: ta('correctAnswers', true), value: `${result.correctCount}/${result.totalQuestions}`, tone: 'good' })
+    if (result) out.push({ id: 'streak', label: ta('bestStreak', true), value: `x${result.bestStreak}`, icon: <FiZap className="w-4 h-4" aria-hidden /> })
+    if (result) out.push({ id: 'coins', label: ta('coins', true), value: `+${result.coinsEarned}`, tone: 'gold' })
     for (const id of result?.newlyEarnedAchievementIds ?? []) {
       const a = getAchievement(id)
-      if (a) out.push({ id: `ach-${id}`, label: 'Achievement unlocked', value: a.name, tone: 'record', icon: <FiAward className="w-4 h-4" aria-hidden /> })
+      if (a) out.push({ id: `ach-${id}`, label: 'புதிய சாதனை · Achievement', value: a.name, tone: 'record', icon: <FiAward className="w-4 h-4" aria-hidden /> })
     }
     return out
   }, [result])
@@ -57,7 +59,7 @@ export function TdResults({
   const stat = (label: string, value: string | number) => (
     <div className="rounded-2xl bg-stone-50 border border-stone-200 px-3 py-2 text-center">
       <p className="text-lg font-black text-stone-800 tabular-nums">{value}</p>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">{label}</p>
+      <p className="font-tamil text-[11px] font-semibold tracking-wide text-stone-500">{label}</p>
     </div>
   )
 
@@ -70,45 +72,45 @@ export function TdResults({
             <span className={`mx-auto w-16 h-16 rounded-2xl flex items-center justify-center ${victory ? 'bg-gold-100 text-gold-700' : 'bg-primary-50 text-primary-700'}`}>
               {victory ? <GiCrown className="w-10 h-10" aria-hidden /> : <GiCastle className="w-10 h-10" aria-hidden />}
             </span>
-            <p className="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-terracotta-600">Guard the Fort</p>
-            <h1 className={`text-4xl sm:text-5xl font-black ${victory ? 'text-gold-600' : 'text-primary-700'}`}>{victory ? 'VICTORY!' : 'THE FORT FELL'}</h1>
-            <p className="mt-1 text-stone-600 font-medium">
+            <p className="mt-2 text-sm font-bold text-terracotta-600 font-tamil">கோட்டை காப்போம் <span className="text-xs uppercase tracking-[0.2em] font-sans opacity-80">· Guard the Fort</span></p>
+            <h1 className={`font-tamil leading-tight text-4xl sm:text-5xl font-black ${victory ? 'text-gold-600' : 'text-primary-700'}`}>{victory ? TA.victory.ta : 'கோட்டை வீழ்ந்தது'}</h1>
+            <p className="mt-1 text-stone-600 font-medium font-tamil">
               {victory
                 ? s.bossDefeated
-                  ? 'You defeated the Irul King and held every wave!'
-                  : 'You held every wave!'
-                : `Rebuild your defence and try again -- you survived ${s.wavesCleared} wave${s.wavesCleared === 1 ? '' : 's'} and defeated ${s.enemiesDefeated} enemies.`}
+                  ? 'இருள் அரசனை வென்று, எல்லா அலைகளையும் தாங்கினீர்கள்!'
+                  : 'எல்லா அலைகளையும் தாங்கினீர்கள்!'
+                : `தற்காப்பை மீண்டும் கட்டி முயலுங்கள் -- ${s.wavesCleared} அலைகளைத் தாங்கி, ${s.enemiesDefeated} எதிரிகளை வென்றீர்கள்.`}
             </p>
           </div>
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {stat('Waves survived', `${s.wavesCleared}/${td.totalWaves}`)}
-            {stat('Enemies defeated', s.enemiesDefeated)}
-            {stat('Fort health', `${td.baseHp}/${td.maxBaseHp}`)}
-            {stat('Boss', s.bossDefeated ? 'Defeated' : 'Standing')}
-            {stat('Towers built', s.towersBuilt)}
-            {stat('Upgrades', s.upgrades)}
-            {stat('Abilities used', s.abilitiesUsed)}
-            {stat('Coins earned', s.coinsEarned)}
+            {stat('தாங்கிய அலைகள்', `${s.wavesCleared}/${td.totalWaves}`)}
+            {stat('வென்ற எதிரிகள்', s.enemiesDefeated)}
+            {stat('கோட்டை வலிமை', `${td.baseHp}/${td.maxBaseHp}`)}
+            {stat(TA.boss.ta, s.bossDefeated ? 'வீழ்ந்தது' : 'நிற்கிறது')}
+            {stat('கட்டிய கோபுரங்கள்', s.towersBuilt)}
+            {stat('மேம்பாடுகள்', s.upgrades)}
+            {stat('பயன்படுத்திய ஆற்றல்கள்', s.abilitiesUsed)}
+            {stat('ஈட்டிய நாணயங்கள்', s.coinsEarned)}
           </div>
           <div className="mt-3 rounded-3xl border border-primary-100 bg-primary-50/40 p-3">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary-700 mb-2 flex items-center gap-1.5">
-              <GiCrossedSwords className="w-4 h-4" aria-hidden /> Your Tamil
+              <GiCrossedSwords className="w-4 h-4" aria-hidden /> <span className="font-tamil normal-case tracking-normal text-sm">உங்கள் தமிழ்</span> · Your Tamil
             </p>
-            {result ? <RewardReveal items={items} soundEnabled={soundEnabled} reducedMotion={reducedMotion} /> : <p className="text-sm text-stone-500 text-center py-3">Saving your XP...</p>}
+            {result ? <RewardReveal items={items} soundEnabled={soundEnabled} reducedMotion={reducedMotion} /> : <p className="text-sm text-stone-500 text-center py-3 font-tamil">{ta('saving')}</p>}
           </div>
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
             {onPlayAgain && (
               <button type="button" onClick={onPlayAgain} className="min-h-[52px] rounded-2xl bg-primary-700 hover:bg-primary-800 text-white font-extrabold text-lg shadow-teal inline-flex items-center justify-center gap-2">
-                <FiRepeat className="w-5 h-5" aria-hidden /> {victory ? 'Play again' : 'Try again'}
+                <FiRepeat className="w-5 h-5" aria-hidden /> {victory ? <Bi k="playAgain" inline /> : <Bi k="tryAgain" inline />}
               </button>
             )}
             {onNext && (
               <button type="button" onClick={onNext} className="min-h-[52px] rounded-2xl border-2 border-primary-700 text-primary-800 font-bold bg-white hover:bg-primary-50">
-                Next activity
+                <Bi k="nextActivity" inline />
               </button>
             )}
             <button type="button" onClick={onBack} className="min-h-[52px] rounded-2xl border border-stone-300 text-stone-700 font-semibold bg-white hover:bg-stone-50">
-              Back to Game Room
+              <Bi k="backToGameRoom" inline />
             </button>
           </div>
         </div>

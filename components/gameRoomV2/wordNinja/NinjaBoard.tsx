@@ -109,7 +109,7 @@ export function NinjaBoard({
         <rect x="0" y="210" width="400" height="76" fill="#ef4444" opacity="0.06" />
       </svg>
 
-      {slowed && <p className="absolute top-2 left-1/2 -translate-x-1/2 text-xs font-bold uppercase tracking-widest text-sky-300">Slow time</p>}
+      {slowed && <p className="absolute top-2 left-1/2 -translate-x-1/2 text-xs font-bold tracking-widest text-sky-300 font-tamil">மெதுநேரம்</p>}
       {shielded && <div className="absolute inset-x-0 bottom-0 h-3 bg-cyan-300/70 shadow-[0_0_18px_rgba(103,232,249,0.9)]" aria-hidden />}
 
       {words.map((w) => {
@@ -126,7 +126,7 @@ export function NinjaBoard({
               e.preventDefault()
               onTarget(w.id)
             }}
-            aria-label={`${w.item}${w.golden ? ', golden word' : ''}${isTarget ? ', selected' : ''}`}
+            aria-label={`${w.item}${w.golden ? ', பொன் சொல்' : ''}${isTarget ? ', தேர்ந்தெடுக்கப்பட்டது' : ''}`}
             aria-pressed={isTarget}
             style={{ transform: 'translate(-50%, 0px)', left: '50%' }}
             className={`absolute top-3 px-4 py-2 rounded-2xl font-tamil leading-relaxed font-extrabold text-lg sm:text-xl whitespace-nowrap border-2 shadow-lg will-change-transform data-[danger='1']:shadow-red-500/60 ${

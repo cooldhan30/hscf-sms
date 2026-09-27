@@ -54,7 +54,7 @@ export function Track({
                         : 'bg-gamev2coral-100 dark:bg-gamev2coral-500/20 text-gamev2coral-700 dark:text-gamev2coral-300'
                     }`}
                   >
-                    {racer.effect.kind === 'boost' ? 'Boost!' : 'Slowed'}
+                    <span className="font-tamil">{racer.effect.kind === 'boost' ? 'உந்துதல்!' : 'மெதுவானது'}</span>
                   </span>
                 )}
               </div>

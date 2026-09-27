@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { GameV2Card, GameV2Button } from '@/components/gameRoomV2'
 import { RACE_THEMES, RACING_DIFFICULTY_SETTINGS, type RaceThemeId, type RacingDifficulty } from '@/lib/gameRoomV2/racing'
+import { TA } from '@/lib/gameRoomV2/i18n/ta'
 
 // The pre-race setup screen: pick a visual theme (pure reskin, zero
 // effect on physics) and a difficulty (gameplay parameters only --
@@ -30,13 +31,15 @@ export function RaceSetupPicker({
       <div className="text-5xl mb-2" aria-hidden>
         {'\u{1F3C1}'}
       </div>
-      <h2 className="text-2xl font-extrabold text-gamev2ink-900 dark:text-white">Tamil Racing</h2>
+      <h2 className="font-tamil leading-snug text-2xl font-extrabold text-gamev2ink-900 dark:text-white">தமிழ்ப் பந்தயம்</h2>
+      <p className="text-sm font-semibold text-gamev2ink-500">Tamil Racing</p>
       <p className="mt-2 text-sm text-gamev2ink-500 dark:text-gamev2ink-400">
-        Answer correctly to boost forward. Accuracy wins the race -- not how fast you tap.
+        <span className="font-tamil block text-gamev2ink-700 dark:text-gamev2ink-200">சரியாக விடையளித்து முன்னேறுங்கள். வேகமாகத் தட்டுவது அல்ல -- துல்லியமே பந்தயத்தை வெல்லும்.</span>
+        Answer correctly to boost forward.
       </p>
 
       <p className="mt-6 text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500 mb-2 text-left">
-        Choose a theme
+        <span className="font-tamil normal-case tracking-normal text-sm">கருப்பொருளைத் தேர்ந்தெடுங்கள்</span> · Choose a theme
       </p>
       <div className="grid grid-cols-3 gap-2">
         {RACE_THEMES.map((t) => (
@@ -52,7 +55,7 @@ export function RaceSetupPicker({
             <span className="text-2xl" aria-hidden>
               {t.racerEmoji}
             </span>
-            <span className="text-[11px] font-bold text-gamev2ink-800 dark:text-gamev2ink-100 leading-tight text-center">{t.tamilName}</span>
+            <span className="font-tamil text-[11px] font-bold text-gamev2ink-800 dark:text-gamev2ink-100 leading-tight text-center">{t.tamilName}</span>
           </button>
         ))}
       </div>
@@ -60,16 +63,16 @@ export function RaceSetupPicker({
       {fixedDifficulty ? (
         <div className="mt-6">
           <GameV2Button variant="spark" fullWidth onClick={() => onStart(theme, fixedDifficulty)}>
-            Ready to Race
+            <span className="font-tamil">பந்தயத்துக்குத் தயார்</span> · Ready to race
           </GameV2Button>
           <p className="mt-2 text-[11px] text-gamev2ink-400 dark:text-gamev2ink-500">
-            Your teacher set this race to <strong>{RACING_DIFFICULTY_SETTINGS.find((d) => d.id === fixedDifficulty)?.label}</strong> difficulty for everyone.
+            <span className="font-tamil">உங்கள் ஆசிரியர் அனைவருக்கும் <strong>{TA[fixedDifficulty].ta}</strong> கடினநிலையை அமைத்துள்ளார்.</span>
           </p>
         </div>
       ) : (
         <>
           <p className="mt-6 text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500 mb-2 text-left">
-            Choose difficulty
+            <span className="font-tamil normal-case tracking-normal text-sm">{TA.chooseDifficulty.ta}</span> · Choose difficulty
           </p>
           <div className="grid gap-3">
             {RACING_DIFFICULTY_SETTINGS.map((d) => (
@@ -78,7 +81,7 @@ export function RaceSetupPicker({
                 onClick={() => onStart(theme, d.id)}
                 className="text-left rounded-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 hover:border-gamev2spark-400 dark:hover:border-gamev2spark-500 bg-gamev2ink-50 dark:bg-gamev2ink-800/50 p-4 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gamev2spark-400"
               >
-                <p className="font-extrabold text-gamev2ink-900 dark:text-white">{d.label}</p>
+                <p className="font-extrabold text-gamev2ink-900 dark:text-white"><span className="font-tamil">{TA[d.id].ta}</span> <span className="text-xs font-semibold opacity-70">· {d.label}</span></p>
                 <p className="text-xs text-gamev2ink-500 dark:text-gamev2ink-400 mt-0.5">{d.description}</p>
               </button>
             ))}
@@ -87,7 +90,7 @@ export function RaceSetupPicker({
       )}
 
       <p className="mt-5 text-[11px] text-gamev2ink-400 dark:text-gamev2ink-500">
-        Question difficulty always comes from your teacher&apos;s Question Set, not from this setting.
+        <span className="font-tamil">கேள்விகளின் கடினம் உங்கள் ஆசிரியரின் கேள்வித் தொகுப்பைப் பொறுத்தது.</span>
       </p>
     </GameV2Card>
   )

@@ -28,7 +28,7 @@ export function MemoryBoard({ round, disabled, onFlip }: { round: MemoryRoundSta
             state={state}
             disabled={disabled || isMatched || (round.flippedCardIds.length >= 2 && !round.flippedCardIds.includes(card.id))}
             onActivate={() => onFlip(card.id)}
-            ariaLabel={isMatched ? `${card.label}, matched` : faceUp ? card.label : 'Face-down card, tap to flip'}
+            ariaLabel={isMatched ? `${card.label}, பொருந்தியது` : faceUp ? card.label : 'மூடிய அட்டை, திருப்பத் தொடுங்கள் · Face-down card'}
           />
         )
       })}

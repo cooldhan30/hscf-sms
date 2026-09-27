@@ -27,6 +27,8 @@ import {
   type MatchingDifficulty,
 } from '@/lib/gameRoomV2/matching'
 import type { BaseSessionStatePayload } from '@/lib/gameRoomV2/gameplay/sessionPolling'
+import { Bi, ta } from '@/components/gameRoomV2/Bi'
+import { TA } from '@/lib/gameRoomV2/i18n/ta'
 
 interface MatchQuestion {
   id: string
@@ -125,7 +127,7 @@ export function MatchingGame({ sessionId, onExit, onPlayAgain, onHome }: { sessi
       .catch(() => {
         if (cancelled) return
         setRound((prev) => (prev ? cancelAttempt(prev) : prev))
-        setToast('Could not check that pair -- try again')
+        setToast('இணையைச் சரிபார்க்க முடியவில்லை -- மீண்டும் முயலுங்கள்')
         schedule(() => setToast(null), 2000)
       })
     return () => {
@@ -177,7 +179,7 @@ export function MatchingGame({ sessionId, onExit, onPlayAgain, onHome }: { sessi
 
   if (!difficulty) return <MatchingSetupPicker onStart={setDifficulty} />
   if (error && !session) return <GameV2Error description={error} onRetry={poll} />
-  if (!session) return <GameV2Loading label="Shuffling the cards..." />
+  if (!session) return <GameV2Loading label="அட்டைகள் கலக்கப்படுகின்றன... · Shuffling the cards..." />
 
   if (result) {
     const stars = log.reduce((a, r) => a + r.stars, 0)
@@ -186,14 +188,14 @@ export function MatchingGame({ sessionId, onExit, onPlayAgain, onHome }: { sessi
       <div className="min-h-screen w-full bg-slate-950 px-4 py-8">
         <GameResultsScreen
           result={result}
-          headline={perfect === log.length && log.length > 0 ? 'Perfect pairing!' : 'All pairs found'}
-          subline={perfect === log.length ? 'Every pair right first time.' : 'Rounds with a mix-up count as practice -- play again to get them first time.'}
+          headline={perfect === log.length && log.length > 0 ? 'அனைத்தும் சரியான இணைகள்!' : 'எல்லா இணைகளும் கண்டுபிடிக்கப்பட்டன'}
+          subline={perfect === log.length ? 'ஒவ்வொரு இணையும் முதல் முயற்சியிலேயே சரி.' : 'குழப்பம் இருந்த சுற்றுகள் பயிற்சியாகக் கணக்கிடப்படும் -- மீண்டும் விளையாடி முதல் முயற்சியிலேயே வெல்லுங்கள்.'}
           gameStats={[
-            { label: 'Stars', value: `${stars} of ${log.length * 3}` },
-            { label: 'First-try rounds', value: `${perfect} of ${log.length}` },
-            { label: 'Pairs found', value: log.reduce((a, r) => a + r.pairs, 0) },
-            { label: 'Mix-ups', value: log.reduce((a, r) => a + r.mistakes, 0) },
-            { label: 'Best streak', value: `x${bestStreak}` },
+            { label: 'நட்சத்திரங்கள்', value: `${stars}/${log.length * 3}` },
+            { label: 'முதல் முயற்சிச் சுற்றுகள்', value: `${perfect}/${log.length}` },
+            { label: 'கண்டுபிடித்த இணைகள்', value: log.reduce((a, r) => a + r.pairs, 0) },
+            { label: 'குழப்பங்கள்', value: log.reduce((a, r) => a + r.mistakes, 0) },
+            { label: TA.bestStreak.ta, value: `x${bestStreak}` },
           ]}
           onPlayAgain={onPlayAgain ? again : undefined}
           onExit={onExit}
@@ -211,11 +213,11 @@ export function MatchingGame({ sessionId, onExit, onPlayAgain, onHome }: { sessi
     <div className="min-h-screen w-full bg-slate-950 text-white">
       <ArenaHud
         stats={[
-          { icon: FiLayers, label: 'Round', value: `${Math.min(session.currentIndex + 1, session.totalQuestions)}/${session.totalQuestions}` },
-          { icon: FiStar, label: 'Pairs', value: `${found}/${pairsTotal}`, tone: 'gold' },
-          { icon: FiRepeat, label: 'Mix-ups', value: round?.mistakes ?? 0, tone: round && round.mistakes > 0 ? 'bad' : 'default' },
-          ...(round && round.currentStreak >= 2 ? [{ icon: FiZap, label: 'Streak', value: `x${round.currentStreak}`, tone: 'good' as const }] : []),
-          ...(roundSecondsRemaining !== null ? [{ icon: FiClock, label: 'Time', value: timedOut ? "Time's up" : `${roundSecondsRemaining}s`, tone: roundSecondsRemaining <= 5 ? ('bad' as const) : ('default' as const) }] : []),
+          { icon: FiLayers, label: ta('round', true), value: `${Math.min(session.currentIndex + 1, session.totalQuestions)}/${session.totalQuestions}` },
+          { icon: FiStar, label: ta('pairs', true), value: `${found}/${pairsTotal}`, tone: 'gold' },
+          { icon: FiRepeat, label: 'குழப்பங்கள் · Mix-ups', value: round?.mistakes ?? 0, tone: round && round.mistakes > 0 ? 'bad' : 'default' },
+          ...(round && round.currentStreak >= 2 ? [{ icon: FiZap, label: ta('streak', true), value: `x${round.currentStreak}`, tone: 'good' as const }] : []),
+          ...(roundSecondsRemaining !== null ? [{ icon: FiClock, label: ta('time', true), value: timedOut ? TA.timeUp.ta : `${roundSecondsRemaining}s`, tone: roundSecondsRemaining <= 5 ? ('bad' as const) : ('default' as const) }] : []),
         ]}
         paused={paused}
         onTogglePause={() => togglePause()}
@@ -228,37 +230,37 @@ export function MatchingGame({ sessionId, onExit, onPlayAgain, onHome }: { sessi
           <p className="text-center font-tamil leading-relaxed text-base sm:text-lg font-bold text-slate-100">{session.question.prompt}</p>
         )}
         {toast && (
-          <p role="status" className="text-center text-sm font-bold text-amber-300">
+          <p role="status" className="font-tamil text-center text-sm font-bold text-amber-300">
             {toast}
           </p>
         )}
         {paused ? (
           <div className="rounded-2xl bg-slate-900 border border-white/10 p-8 text-center">
-            <p className="font-bold text-lg">Paused</p>
+            <p className="font-bold text-lg"><Bi k="paused" /></p>
             <button type="button" onClick={() => togglePause()} className="mt-4 inline-flex items-center gap-2 min-h-[48px] px-6 rounded-2xl bg-amber-400 text-slate-900 font-bold">
-              <FiPlay className="w-5 h-5" aria-hidden /> Resume
+              <FiPlay className="w-5 h-5" aria-hidden /> <Bi k="resume" inline />
             </button>
           </div>
         ) : cleared ? (
           <div role="status" className="rounded-2xl bg-slate-900 border border-white/10 p-8 text-center animate-gamev2-pop-in">
             <RoundStars stars={cleared.stars} />
-            <p className="mt-3 text-xl font-bold">{cleared.perfect ? 'Every pair right first time!' : 'Round cleared'}</p>
-            {!cleared.perfect && <p className="text-sm text-slate-300 mt-1">{cleared.mistakes} mix-up{cleared.mistakes === 1 ? '' : 's'} on the way.</p>}
+            <p className="font-tamil mt-3 text-xl font-bold">{cleared.perfect ? 'ஒவ்வொரு இணையும் முதல் முயற்சியிலேயே சரி!' : 'சுற்று முடிந்தது'}</p>
+            {!cleared.perfect && <p className="font-tamil text-sm text-slate-300 mt-1">வழியில் {cleared.mistakes} குழப்பங்கள்.</p>}
           </div>
         ) : round ? (
           <MatchingBoard round={round} disabled={submitting} onSelect={handleSelect} />
         ) : (
-          <GameV2Loading label={session.status === 'COMPLETED' ? 'Calculating your results...' : 'Dealing the next round...'} />
+          <GameV2Loading label={session.status === 'COMPLETED' ? ta('calculating', true) : 'அடுத்த சுற்று... · Dealing the next round...'} />
         )}
         {submitError && (
           <p className="text-sm text-red-300 text-center">
             {submitError}{' '}
             <button type="button" onClick={() => setSubmitError(null)} className="underline font-bold min-h-[44px] px-2">
-              Try again
+              <Bi k="tryAgain" inline />
             </button>
           </p>
         )}
-        {round && !cleared && !paused && <p className="text-xs text-slate-400 text-center">Tap a card on the left, then its partner on the right.</p>}
+        {round && !cleared && !paused && <p className="text-xs text-slate-400 text-center"><span className="font-tamil">இடப்பக்க அட்டையைத் தொட்டு, பிறகு வலப்பக்கத்தில் அதன் இணையைத் தொடுங்கள்.</span></p>}
       </div>
     </div>
   )

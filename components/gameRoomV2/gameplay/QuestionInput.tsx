@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { AnswerOption, GameV2Button } from '@/components/gameRoomV2'
 import type { GameRoomQuestionType } from '@/lib/gameRoomV2/domain'
+import { Bi, ta } from '@/components/gameRoomV2/Bi'
 
 // Renders the right input control for a question type, and calls
 // onSubmit with the raw answer value once the student commits -- this
@@ -44,7 +45,7 @@ export function QuestionInput({
     case 'FILL_BLANK':
       return <FillBlankInput blankCount={(payload.blankCount as number) ?? 0} disabled={disabled} onSubmit={onSubmit} />
     default:
-      return <p className="text-center text-sm text-gamev2ink-400">This question type isn&apos;t playable yet.</p>
+      return <p className="text-center text-sm text-gamev2ink-400"><Bi k="notPlayable" /></p>
   }
 }
 
@@ -82,8 +83,8 @@ function ChoiceInput({
 function TrueFalseInput({ disabled, pendingAnswer, onSubmit }: { disabled: boolean; pendingAnswer: unknown; onSubmit: (a: unknown) => void }) {
   return (
     <div className="grid grid-cols-2 gap-3">
-      <AnswerOption label="True" state={pendingAnswer === true ? 'selected' : 'idle'} disabled={disabled} onClick={() => onSubmit(true)} />
-      <AnswerOption label="False" state={pendingAnswer === false ? 'selected' : 'idle'} disabled={disabled} onClick={() => onSubmit(false)} />
+      <AnswerOption label={ta('trueWord', true)} state={pendingAnswer === true ? 'selected' : 'idle'} disabled={disabled} onClick={() => onSubmit(true)} />
+      <AnswerOption label={ta('falseWord', true)} state={pendingAnswer === false ? 'selected' : 'idle'} disabled={disabled} onClick={() => onSubmit(false)} />
     </div>
   )
 }
@@ -134,12 +135,12 @@ function TextInput({ disabled, onSubmit }: { disabled: boolean; onSubmit: (a: un
         onChange={(e) => setValue(e.target.value)}
         disabled={disabled}
         lang="ta"
-        aria-label="Your answer"
+        aria-label={ta('yourAnswer', true)}
         className="flex-1 px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil leading-relaxed text-lg"
-        placeholder="Type your answer..."
+        placeholder={ta('typeAnswer')}
       />
       <GameV2Button type="submit" size="md" disabled={disabled || !value.trim()}>
-        Submit
+        <Bi k="submit" inline />
       </GameV2Button>
     </form>
   )
@@ -178,7 +179,7 @@ function OrderInput({ items, disabled, onSubmit }: { items: string[]; disabled: 
         ))}
       </div>
       <GameV2Button fullWidth disabled={disabled || order.length !== items.length} onClick={() => onSubmit(order)}>
-        Submit Order
+        <Bi k="submitOrder" inline />
       </GameV2Button>
     </div>
   )
@@ -208,7 +209,7 @@ function CategorizeInput({
             onChange={(e) => setAssignments({ ...assignments, [item]: e.target.value })}
             className="px-3 py-2 rounded-xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil leading-relaxed"
           >
-            <option value="">Choose...</option>
+            <option value="">{ta('choose')}</option>
             {categories.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -222,7 +223,7 @@ function CategorizeInput({
         disabled={disabled || items.some((i) => !assignments[i])}
         onClick={() => onSubmit(assignments)}
       >
-        Submit
+        <Bi k="submit" inline />
       </GameV2Button>
     </div>
   )
@@ -271,7 +272,7 @@ function MatchInput({ left, right, disabled, onSubmit }: { left: string[]; right
         </div>
       </div>
       <GameV2Button fullWidth disabled={disabled || Object.keys(matches).length !== left.length} onClick={() => onSubmit(matches)}>
-        Submit Matches
+        <Bi k="submitMatches" inline />
       </GameV2Button>
     </div>
   )
@@ -289,13 +290,13 @@ function FillBlankInput({ blankCount, disabled, onSubmit }: { blankCount: number
           onChange={(e) => setAnswers(answers.map((a, idx) => (idx === i ? e.target.value : a)))}
           disabled={disabled}
           lang="ta"
-          aria-label={`Blank ${i + 1}`}
-          placeholder={`Blank ${i + 1}`}
+          aria-label={`${ta('blank')} ${i + 1}`}
+          placeholder={`${ta('blank')} ${i + 1}`}
           className="w-full px-4 py-3 rounded-2xl border-2 border-gamev2ink-200 dark:border-gamev2ink-700 bg-white dark:bg-gamev2ink-900 font-tamil leading-relaxed text-lg"
         />
       ))}
       <GameV2Button fullWidth disabled={disabled || answers.some((a) => !a.trim())} onClick={() => onSubmit(answers)}>
-        Submit
+        <Bi k="submit" inline />
       </GameV2Button>
     </div>
   )

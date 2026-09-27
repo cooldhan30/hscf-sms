@@ -6,6 +6,7 @@ import { FiPause, FiPlay, FiVolume2, FiVolumeX, FiX, FiHeart } from 'react-icons
 import { GameV2Timer, GameV2XPDisplay, GameV2CoinDisplay, GameV2ProgressBar, useGameV2Motion } from '@/components/gameRoomV2'
 import { playSound } from './playSound'
 import { vibrate } from './useHaptics'
+import { ta } from '@/components/gameRoomV2/Bi'
 
 // The persistent in-game HUD strip -- progress, timer, streak, lives,
 // XP/coins, and the Pause/Sound/Exit controls -- shared by every game
@@ -77,7 +78,7 @@ export function GameHUD({
         <button
           type="button"
           onClick={handleExit}
-          aria-label="Exit game"
+          aria-label={ta('exitGame', true)}
           // min-w/h-11 (44px) -- the padding alone (p-2 + a 20px icon =
           // 36px) fell short of the widely-recommended 44x44px minimum
           // touch target; the icon itself stays the same visual size,
@@ -92,7 +93,7 @@ export function GameHUD({
             <GameV2Timer secondsRemaining={remainingSeconds} totalSeconds={questionTimeLimitSeconds} soundEnabled={soundEnabled} />
           )}
           {maxLives > 0 && (
-            <div className="flex items-center gap-0.5" aria-label={`${lives} of ${maxLives} lives remaining`}>
+            <div className="flex items-center gap-0.5" aria-label={`${ta('lives', true)}: ${lives} / ${maxLives}`}>
               {Array.from({ length: maxLives }, (_, i) => (
                 <FiHeart key={i} className={`w-4 h-4 ${i < lives ? 'text-gamev2coral-500 fill-current' : 'text-gamev2ink-200 dark:text-gamev2ink-700'}`} />
               ))}
@@ -117,7 +118,7 @@ export function GameHUD({
           <button
             type="button"
             onClick={onToggleSound}
-            aria-label={soundEnabled ? 'Mute sound' : 'Unmute sound'}
+            aria-label={soundEnabled ? ta('muteSound', true) : ta('soundOn', true)}
             aria-pressed={!soundEnabled}
             className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white hover:bg-gamev2ink-100 dark:hover:bg-gamev2ink-800 transition-colors"
           >
@@ -126,7 +127,7 @@ export function GameHUD({
           <button
             type="button"
             onClick={handleTogglePause}
-            aria-label={paused ? 'Resume game' : 'Pause game'}
+            aria-label={paused ? ta('resume', true) : ta('pause', true)}
             className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white hover:bg-gamev2ink-100 dark:hover:bg-gamev2ink-800 transition-colors"
           >
             {paused ? <FiPlay className="w-4 h-4" /> : <FiPause className="w-4 h-4" />}
@@ -134,7 +135,7 @@ export function GameHUD({
         </div>
       </div>
 
-      <GameV2ProgressBar value={currentIndex} max={totalQuestions} label={`Question ${Math.min(currentIndex + 1, totalQuestions)} of ${totalQuestions}`} />
+      <GameV2ProgressBar value={currentIndex} max={totalQuestions} label={`${ta('question')} ${Math.min(currentIndex + 1, totalQuestions)} / ${totalQuestions}`} />
 
       <div className="flex items-center justify-center gap-2">
         <GameV2XPDisplay xp={xpEarned} />

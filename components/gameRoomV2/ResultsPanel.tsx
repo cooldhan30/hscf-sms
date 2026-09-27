@@ -38,7 +38,7 @@ export function ResultsPanel({
       >
         <FiAward className="w-7 h-7" />
       </motion.div>
-      <h2 className="text-2xl font-bold text-primary-900 dark:text-white">Game complete</h2>
+      <h2 className="text-2xl font-bold text-primary-900 dark:text-white"><span className="font-tamil">விளையாட்டு முடிந்தது!</span></h2>
 
       <div className="mt-6 flex items-center justify-center gap-8">
         <div>

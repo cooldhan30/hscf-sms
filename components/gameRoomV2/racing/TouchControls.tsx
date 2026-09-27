@@ -100,7 +100,7 @@ export function TouchControls({
       <div
         ref={padRef}
         role="slider"
-        aria-label="Steering"
+        aria-label="திசைமாற்றி · Steering"
         aria-valuemin={-1}
         aria-valuemax={1}
         aria-valuenow={Math.round(knob * 100) / 100}
@@ -129,19 +129,20 @@ export function TouchControls({
       <div className="pointer-events-auto flex items-end gap-2 sm:gap-3">
         <button
           type="button"
-          aria-label="Brake"
+          aria-label="நிறுத்தி · Brake"
           aria-pressed={brake}
           {...hold('brake')}
           className={`touch-none h-20 w-20 sm:h-24 sm:w-24 rounded-2xl font-extrabold text-sm border-2 border-white shadow-lg transition-transform ${
             brake ? 'bg-stone-700 text-white scale-95' : 'bg-white/85 text-stone-700'
           }`}
         >
-          BRAKE
+          <span className="font-tamil block">நிறுத்து</span>
+          <span className="block text-[10px] opacity-70">BRAKE</span>
         </button>
         <div className="flex flex-col items-center gap-2">
           <button
             type="button"
-            aria-label="Boost"
+            aria-label="உந்துதல் · Boost"
             disabled={!boostReady}
             onPointerDown={(e) => {
               e.preventDefault()
@@ -151,18 +152,20 @@ export function TouchControls({
               boosting ? 'bg-terracotta-500 text-white animate-pulse' : boostReady ? 'bg-gold-400 text-stone-900 shadow-terracotta' : 'bg-white/60 text-stone-400'
             }`}
           >
-            BOOST
+            <span className="font-tamil block">உந்து</span>
+            <span className="block text-[10px] opacity-70">BOOST</span>
           </button>
           <button
             type="button"
-            aria-label="Accelerate"
+            aria-label="முடுக்கி · Accelerate"
             aria-pressed={gas}
             {...hold('gas')}
             className={`touch-none h-24 w-24 sm:h-28 sm:w-28 rounded-full font-black text-lg border-4 border-white shadow-teal transition-transform ${
               gas ? 'bg-primary-800 text-white scale-95' : 'bg-primary-600 text-white'
             }`}
           >
-            GAS
+            <span className="font-tamil block text-base">ஓட்டு</span>
+            <span className="block text-[10px] opacity-80">GAS</span>
           </button>
         </div>
       </div>

@@ -6,6 +6,7 @@ import { QuestionOverlay, type QuestionOverlayQuestion } from './QuestionOverlay
 import { GameResultsScreen } from './GameResultsScreen'
 import { useSoundPreference } from './useSoundPreference'
 import { useGameSessionState } from './useGameSessionState'
+import { Bi, ta } from '@/components/gameRoomV2/Bi'
 
 interface StatePayload {
   status: 'CREATED' | 'READY' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ABANDONED'
@@ -77,7 +78,7 @@ export function GameSessionRuntime({
   }
 
   if (!state) {
-    return <GameV2Loading label="Loading game..." />
+    return <GameV2Loading label={ta('loadingGame', true)} />
   }
 
   if (result) {
@@ -90,14 +91,14 @@ export function GameSessionRuntime({
         <p className="text-2xl mb-2" aria-hidden>
           👋
         </p>
-        <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100">Game exited</p>
-        <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400 mt-1">No rewards are given for an exited game.</p>
+        <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100"><Bi k="gameExited" /></p>
+        <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400 mt-1"><Bi k="noRewardsExited" inline /></p>
       </GameV2Card>
     )
   }
 
   if (state.status === 'COMPLETED') {
-    return <GameV2Loading label="Calculating your results..." />
+    return <GameV2Loading label={ta('calculating', true)} />
   }
 
   return (
@@ -124,9 +125,9 @@ export function GameSessionRuntime({
           <p className="text-3xl mb-2" aria-hidden>
             ⏸️
           </p>
-          <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100">Paused</p>
+          <p className="font-extrabold text-gamev2ink-800 dark:text-gamev2ink-100"><Bi k="paused" /></p>
           <p className="text-sm text-gamev2ink-500 dark:text-gamev2ink-400 mt-1">
-            {pausing ? 'Resuming...' : "Your timer is on hold. Tap play when you're ready."}
+            {pausing ? <span className="font-tamil">தொடர்கிறது...</span> : <><span className="font-tamil">நேரம் நிறுத்தப்பட்டுள்ளது. தயாரானதும் ▶ அழுத்துங்கள்.</span> <span className="opacity-70">Your timer is on hold.</span></>}
           </p>
         </GameV2Card>
       )}

@@ -32,7 +32,7 @@ export function GameV2ProgressBar({
     <div className="w-full">
       {label && (
         <div className="flex items-center justify-between text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5">
-          <span>{label}</span>
+          <span className="font-tamil">{label}</span>
           <span className="tabular-nums">
             {value}/{max}
           </span>

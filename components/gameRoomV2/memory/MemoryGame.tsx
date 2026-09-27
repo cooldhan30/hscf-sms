@@ -25,6 +25,8 @@ import {
   type MemoryDifficulty,
 } from '@/lib/gameRoomV2/memory'
 import type { BaseSessionStatePayload } from '@/lib/gameRoomV2/gameplay/sessionPolling'
+import { Bi, ta } from '@/components/gameRoomV2/Bi'
+import { TA } from '@/lib/gameRoomV2/i18n/ta'
 
 interface MatchQuestion {
   id: string
@@ -95,7 +97,7 @@ export function MemoryGame({ sessionId, onExit, onPlayAgain, onHome }: { session
       })
       .catch(() => {
         if (cancelled) return
-        setToast('Could not check that pair -- try again')
+        setToast('இணையைச் சரிபார்க்க முடியவில்லை -- மீண்டும் முயலுங்கள்')
         schedule(() => setToast(null), 2000)
         setRound((prev) => (prev ? { ...prev, flippedCardIds: [] } : prev))
       })
@@ -154,7 +156,7 @@ export function MemoryGame({ sessionId, onExit, onPlayAgain, onHome }: { session
 
   if (!difficulty) return <MemorySetupPicker onStart={setDifficulty} />
   if (error && !session) return <GameV2Error description={error} onRetry={poll} />
-  if (!session) return <GameV2Loading label="Laying out the cards..." />
+  if (!session) return <GameV2Loading label="அட்டைகள் அடுக்கப்படுகின்றன... · Laying out the cards..." />
 
   if (result) {
     const stars = log.reduce((a, r) => a + r.stars, 0)
@@ -162,13 +164,13 @@ export function MemoryGame({ sessionId, onExit, onPlayAgain, onHome }: { session
       <div className="min-h-screen w-full bg-slate-950 px-4 py-8">
         <GameResultsScreen
           result={result}
-          headline={stars === log.length * 3 && log.length > 0 ? 'Perfect memory!' : 'Every pair found'}
-          subline="Fewer flips earn more stars -- try to remember where each card was."
+          headline={stars === log.length * 3 && log.length > 0 ? 'அற்புதமான நினைவாற்றல்!' : 'எல்லா இணைகளும் கண்டுபிடிக்கப்பட்டன'}
+          subline="குறைவான திருப்பல்களுக்கு அதிக நட்சத்திரங்கள் -- ஒவ்வொரு அட்டையும் எங்கே இருந்தது என்று நினைவில் வையுங்கள்."
           gameStats={[
-            { label: 'Stars', value: `${stars} of ${log.length * 3}` },
-            { label: 'Pairs found', value: log.reduce((a, r) => a + r.pairs, 0) },
-            { label: 'Flips (pairs of cards)', value: log.reduce((a, r) => a + r.moves, 0) },
-            { label: 'Best streak', value: `x${bestStreak}` },
+            { label: 'நட்சத்திரங்கள்', value: `${stars}/${log.length * 3}` },
+            { label: 'கண்டுபிடித்த இணைகள்', value: log.reduce((a, r) => a + r.pairs, 0) },
+            { label: 'திருப்பல்கள்', value: log.reduce((a, r) => a + r.moves, 0) },
+            { label: TA.bestStreak.ta, value: `x${bestStreak}` },
           ]}
           onPlayAgain={onPlayAgain ? again : undefined}
           onExit={onExit}
@@ -185,10 +187,10 @@ export function MemoryGame({ sessionId, onExit, onPlayAgain, onHome }: { session
     <div className="min-h-screen w-full bg-slate-950 text-white">
       <ArenaHud
         stats={[
-          { icon: FiLayers, label: 'Round', value: `${Math.min(session.currentIndex + 1, session.totalQuestions)}/${session.totalQuestions}` },
-          { icon: FiStar, label: 'Pairs', value: `${found}/${round ? totalPairs(round) : 0}`, tone: 'gold' },
-          { icon: FiRepeat, label: 'Flips', value: round?.moves ?? 0 },
-          ...(round && round.currentStreak >= 2 ? [{ icon: FiZap, label: 'Streak', value: `x${round.currentStreak}`, tone: 'good' as const }] : []),
+          { icon: FiLayers, label: ta('round', true), value: `${Math.min(session.currentIndex + 1, session.totalQuestions)}/${session.totalQuestions}` },
+          { icon: FiStar, label: ta('pairs', true), value: `${found}/${round ? totalPairs(round) : 0}`, tone: 'gold' },
+          { icon: FiRepeat, label: 'திருப்பல்கள் · Flips', value: round?.moves ?? 0 },
+          ...(round && round.currentStreak >= 2 ? [{ icon: FiZap, label: ta('streak', true), value: `x${round.currentStreak}`, tone: 'good' as const }] : []),
         ]}
         paused={paused}
         onTogglePause={() => togglePause()}
@@ -201,32 +203,32 @@ export function MemoryGame({ sessionId, onExit, onPlayAgain, onHome }: { session
           <p className="text-center font-tamil leading-relaxed text-base sm:text-lg font-bold text-slate-100">{session.question.prompt}</p>
         )}
         {toast && (
-          <p role="status" className="text-center text-sm font-bold text-amber-300">
+          <p role="status" className="font-tamil text-center text-sm font-bold text-amber-300">
             {toast}
           </p>
         )}
         {paused ? (
           <div className="rounded-2xl bg-slate-900 border border-white/10 p-8 text-center">
-            <p className="font-bold text-lg">Paused</p>
+            <p className="font-bold text-lg"><Bi k="paused" /></p>
             <button type="button" onClick={() => togglePause()} className="mt-4 inline-flex items-center gap-2 min-h-[48px] px-6 rounded-2xl bg-amber-400 text-slate-900 font-bold">
-              <FiPlay className="w-5 h-5" aria-hidden /> Resume
+              <FiPlay className="w-5 h-5" aria-hidden /> <Bi k="resume" inline />
             </button>
           </div>
         ) : cleared ? (
           <div role="status" className="rounded-2xl bg-slate-900 border border-white/10 p-8 text-center animate-gamev2-pop-in">
             <RoundStars stars={cleared.stars} />
-            <p className="mt-3 text-xl font-bold">Round cleared in {cleared.moves} flips</p>
+            <p className="font-tamil mt-3 text-xl font-bold">{cleared.moves} திருப்பல்களில் சுற்று முடிந்தது</p>
           </div>
         ) : round ? (
           <MemoryBoard round={round} disabled={submitting} onFlip={handleFlip} />
         ) : (
-          <GameV2Loading label={session.status === 'COMPLETED' ? 'Calculating your results...' : 'Dealing the next round...'} />
+          <GameV2Loading label={session.status === 'COMPLETED' ? ta('calculating', true) : 'அடுத்த சுற்று... · Dealing the next round...'} />
         )}
         {submitError && (
           <p className="text-sm text-red-300 text-center">
             {submitError}{' '}
             <button type="button" onClick={() => setSubmitError(null)} className="underline font-bold min-h-[44px] px-2">
-              Try again
+              <Bi k="tryAgain" inline />
             </button>
           </p>
         )}

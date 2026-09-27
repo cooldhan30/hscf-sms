@@ -11,7 +11,7 @@ import { useGameV2Motion } from './useGameV2Motion'
 // state), unlike the interactive components above which each stand
 // alone.
 
-export function GameV2Loading({ label = 'Loading...' }: { label?: string }) {
+export function GameV2Loading({ label = 'ஏற்றுகிறது... · Loading...' }: { label?: string }) {
   const { reduced } = useGameV2Motion()
 
   return (
@@ -23,7 +23,7 @@ export function GameV2Loading({ label = 'Loading...' }: { label?: string }) {
         role="status"
         aria-label={label}
       />
-      <p className="text-sm font-semibold">{label}</p>
+      <p className="font-tamil text-sm font-semibold">{label}</p>
     </div>
   )
 }
@@ -49,7 +49,7 @@ export function GameV2Empty({
       <div className="w-12 h-12 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-400 dark:text-stone-500">
         <Icon className="w-5 h-5" aria-hidden />
       </div>
-      <p className="font-semibold text-stone-700 dark:text-stone-200">{title}</p>
+      <p className="font-tamil font-semibold text-stone-700 dark:text-stone-200">{title}</p>
       {description && <p className="text-sm text-stone-500 dark:text-stone-400 max-w-sm">{description}</p>}
       {actionLabel && onAction && (
         <GameV2Button variant="ghost" size="md" onClick={onAction} className="mt-1">
@@ -61,7 +61,7 @@ export function GameV2Empty({
 }
 
 export function GameV2Error({
-  title = 'Something went wrong',
+  title = 'ஏதோ தவறு நடந்துவிட்டது · Something went wrong',
   description,
   onRetry,
 }: {
@@ -74,11 +74,11 @@ export function GameV2Error({
       <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/40 flex items-center justify-center text-red-600 dark:text-red-400">
         <FiAlertTriangle className="w-5 h-5" aria-hidden />
       </div>
-      <p className="font-semibold text-stone-700 dark:text-stone-200">{title}</p>
+      <p className="font-tamil font-semibold text-stone-700 dark:text-stone-200">{title}</p>
       {description && <p className="text-sm text-stone-500 dark:text-stone-400 max-w-sm">{description}</p>}
       {onRetry && (
         <GameV2Button variant="danger" size="md" onClick={onRetry} className="mt-1">
-          Try Again
+          <span className="font-tamil">மீண்டும் முயல்க</span> · Try again
         </GameV2Button>
       )}
     </div>

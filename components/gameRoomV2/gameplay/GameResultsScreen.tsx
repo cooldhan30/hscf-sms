@@ -1,10 +1,12 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { FiAward, FiStar } from 'react-icons/fi'
 import { GameV2Card, GameV2Button, GameV2Badge, useGameV2Motion } from '@/components/gameRoomV2'
 import { getAchievement } from '@/lib/gameRoomV2/progression/achievements'
 import type { GameResult } from '@/lib/gameRoomV2/domain'
+import { Bi } from '@/components/gameRoomV2/Bi'
 
 // The full Results screen per the spec: Score, Accuracy, Correct,
 // Incorrect, XP earned, Coins earned, Streak, Skills practiced. Every
@@ -49,35 +51,35 @@ export function GameResultsScreen({
       >
         <FiAward className="w-7 h-7" />
       </motion.div>
-      <h2 className="text-2xl font-bold text-primary-900 dark:text-white">{headline ?? 'Game complete'}</h2>
-      {subline && <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">{subline}</p>}
+      <h2 className="font-tamil leading-snug text-2xl font-bold text-primary-900 dark:text-white">{headline ?? <Bi k="gameComplete" />}</h2>
+      {subline && <p className="font-tamil text-sm text-stone-500 dark:text-stone-400 mt-1">{subline}</p>}
 
       {gameStats && gameStats.length > 0 && (
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-2">
           {gameStats.map((s) => (
             <div key={s.label} className="rounded-xl bg-stone-50 dark:bg-stone-800 px-3 py-2">
               <p className="text-lg font-bold text-stone-800 dark:text-stone-100 tabular-nums">{s.value}</p>
-              <p className="text-xs text-stone-500 dark:text-stone-400">{s.label}</p>
+              <p className="font-tamil text-xs text-stone-500 dark:text-stone-400">{s.label}</p>
             </div>
           ))}
         </div>
       )}
 
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <Stat value={result.score} label="Score" tone="text-stone-800 dark:text-stone-100" />
-        <Stat value={`${result.accuracyPct}%`} label="Accuracy" tone="text-emerald-700 dark:text-emerald-400" />
-        <Stat value={result.correctCount} label="Correct" tone="text-emerald-700 dark:text-emerald-400" />
-        <Stat value={result.incorrectCount} label="Incorrect" tone="text-red-600 dark:text-red-400" />
-        <Stat value={result.bestStreak} label="Best Streak" tone="text-gold-700 dark:text-gold-400" />
-        <Stat value={result.totalQuestions} label="Questions" tone="text-stone-800 dark:text-stone-100" />
+        <Stat value={result.score} label={<Bi k="score" />} tone="text-stone-800 dark:text-stone-100" />
+        <Stat value={`${result.accuracyPct}%`} label={<Bi k="accuracy" />} tone="text-emerald-700 dark:text-emerald-400" />
+        <Stat value={result.correctCount} label={<Bi k="correctAnswers" />} tone="text-emerald-700 dark:text-emerald-400" />
+        <Stat value={result.incorrectCount} label={<Bi k="incorrect" />} tone="text-red-600 dark:text-red-400" />
+        <Stat value={result.bestStreak} label={<Bi k="bestStreak" />} tone="text-gold-700 dark:text-gold-400" />
+        <Stat value={result.totalQuestions} label={<Bi k="questions" />} tone="text-stone-800 dark:text-stone-100" />
       </div>
 
       <div className="mt-6 flex items-center justify-center gap-4">
         <div className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary-50 dark:bg-primary-950 text-primary-800 dark:text-primary-200 font-semibold">
-          <FiStar className="w-4 h-4" aria-hidden /> +{result.xpEarned} XP
+          <FiStar className="w-4 h-4" aria-hidden /> +{result.xpEarned} <Bi k="xp" inline />
         </div>
         <div className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 font-semibold">
-          +{result.coinsEarned} coins
+          +{result.coinsEarned} <Bi k="coins" inline />
         </div>
       </div>
 
@@ -89,7 +91,7 @@ export function GameResultsScreen({
           className="mt-6"
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-gold-700 dark:text-gold-400 mb-2">
-            Achievement Unlocked!
+            <span className="font-tamil normal-case">புதிய சாதனை திறந்தது!</span> · Achievement unlocked
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             {newAchievements.map((a) => (
@@ -102,7 +104,7 @@ export function GameResultsScreen({
       {result.skillsPracticed.length > 0 && (
         <div className="mt-6">
           <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-2">
-            Skills Practiced
+            <span className="font-tamil normal-case">பயிற்சி செய்த திறன்கள்</span> · Skills practised
           </p>
           <div className="flex flex-wrap justify-center gap-1.5">
             {result.skillsPracticed.map((skill) => (
@@ -120,17 +122,17 @@ export function GameResultsScreen({
       <div className="mt-8 flex flex-col sm:flex-row gap-3">
         {onPlayAgain && (
           <GameV2Button variant="spark" fullWidth onClick={onPlayAgain}>
-            Play again
+            <Bi k="playAgain" inline />
           </GameV2Button>
         )}
         {onExit && (
           <GameV2Button variant="ghost" fullWidth onClick={onExit}>
-            {onHome ? 'Next activity' : 'See my progress'}
+            {onHome ? <Bi k="nextActivity" inline /> : <Bi k="seeProgress" inline />}
           </GameV2Button>
         )}
         {onHome && (
           <GameV2Button variant="ghost" fullWidth onClick={onHome}>
-            Back to Game Room
+            <Bi k="backToGameRoom" inline />
           </GameV2Button>
         )}
       </div>
@@ -138,7 +140,7 @@ export function GameResultsScreen({
   )
 }
 
-function Stat({ value, label, tone }: { value: string | number; label: string; tone: string }) {
+function Stat({ value, label, tone }: { value: string | number; label: ReactNode; tone: string }) {
   return (
     <div>
       <p className={`text-2xl sm:text-3xl font-bold tabular-nums ${tone}`}>{value}</p>

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { FiClock } from 'react-icons/fi'
 import { useGameV2Motion } from './useGameV2Motion'
 import { playSound } from './gameplay/playSound'
+import { ta } from '@/components/gameRoomV2/Bi'
 
 // The three HUD readouts every engine's play screen needs. Kept as
 // small, focused components (not one monolithic "HUD bar") so an
@@ -50,7 +51,7 @@ export function GameV2Timer({
       }`}
       role="timer"
       aria-live="polite"
-      aria-label={`${secondsRemaining} seconds remaining`}
+      aria-label={`${ta('time', true)}: ${secondsRemaining}`}
     >
       <FiClock className="w-4 h-4" aria-hidden />
       <span className="tabular-nums">{secondsRemaining}s</span>

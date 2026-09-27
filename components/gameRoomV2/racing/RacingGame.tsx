@@ -13,6 +13,8 @@ import {
   type RacingDifficulty,
   type LiveRaceResponse,
 } from '@/lib/gameRoomV2/racing'
+import { Bi, ta } from '@/components/gameRoomV2/Bi'
+import { TA } from '@/lib/gameRoomV2/i18n/ta'
 
 // Live multiplayer polling is DELIBERATELY much coarser than the solo
 // 100ms local tick -- racer distance is meaningful gameplay state, not
@@ -181,11 +183,11 @@ function MultiplayerRacingGame({
   }
 
   if (error && !sessionState) return <GameV2Error description={error} onRetry={poll} />
-  if (!sessionState || !liveRace) return <GameV2Loading label="Lining up at the starting line..." />
+  if (!sessionState || !liveRace) return <GameV2Loading label="தொடக்கக் கோட்டில் அணிவகுக்கிறோம்... · Lining up..." />
   if (result) return <GameResultsScreen result={result} onPlayAgain={undefined} onExit={onExit} />
 
   const allFinished = liveRace.racers.length > 0 && liveRace.racers.every((r) => r.finished)
-  if (sessionState.status === 'COMPLETED' && allFinished) return <GameV2Loading label="Calculating your results..." />
+  if (sessionState.status === 'COMPLETED' && allFinished) return <GameV2Loading label={ta('calculating', true)} />
 
   if (allFinished) {
     return <MultiplayerFinishScreen racers={liveRace.racers} myParticipantId={myParticipantId} onExit={handleExit} />
@@ -197,13 +199,13 @@ function MultiplayerRacingGame({
     <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-4 px-4 py-6">
       <div className="w-full flex items-center justify-between">
         <button onClick={handleExit} className="text-sm font-bold text-gamev2ink-400 hover:text-gamev2coral-500">
-          Exit
+          <Bi k="exit" inline />
         </button>
         <span className="text-sm font-extrabold text-gamev2ink-800 dark:text-white">
-          Question {Math.min(sessionState.currentIndex + 1, sessionState.totalQuestions)} of {sessionState.totalQuestions}
+          <span className="font-tamil">{TA.question.ta}</span> {Math.min(sessionState.currentIndex + 1, sessionState.totalQuestions)}/{sessionState.totalQuestions}
         </span>
         <button onClick={handleTogglePause} className="text-sm font-bold text-gamev2ink-400 hover:text-gamev2ink-700 dark:hover:text-white">
-          {sessionState.status === 'PAUSED' ? 'Resume' : 'Pause'}
+          {sessionState.status === 'PAUSED' ? <Bi k="resume" inline /> : <Bi k="pause" inline />}
         </button>
       </div>
 
@@ -211,9 +213,9 @@ function MultiplayerRacingGame({
 
       {sessionState.status === 'PAUSED' && (
         <GameV2Card padding="md" className="w-full text-center">
-          <p className="font-extrabold text-gamev2ink-800 dark:text-white">Race Paused</p>
+          <p className="font-extrabold text-gamev2ink-800 dark:text-white"><span className="font-tamil">பந்தயம் இடைநிறுத்தம்</span> · Race paused</p>
           <GameV2Button variant="spark" size="md" className="mt-3" onClick={handleTogglePause}>
-            Resume
+            <Bi k="resume" inline />
           </GameV2Button>
         </GameV2Card>
       )}

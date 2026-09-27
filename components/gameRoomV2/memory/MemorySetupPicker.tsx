@@ -8,17 +8,21 @@ import { MEMORY_DIFFICULTY_SETTINGS, type MemoryDifficulty } from '@/lib/gameRoo
 // mismatch-reveal duration/streak bonus -- never question difficulty,
 // which always comes from the session's Question Set), matching every
 // prior engine's single-decision setup precedent.
+const LEVEL_TA: Record<MemoryDifficulty, string> = { easy: 'எளிது', medium: 'நடுத்தரம்', hard: 'கடினம்' }
+
 export function MemorySetupPicker({ onStart }: { onStart: (difficulty: MemoryDifficulty) => void }) {
   return (
     <GameV2Card padding="lg" className="max-w-xl w-full mx-auto text-center">
       <FiGrid className="w-10 h-10 mx-auto mb-2 text-gamev2spark-500" aria-hidden />
-      <h2 className="text-2xl font-extrabold text-gamev2ink-900 dark:text-white">Memory</h2>
+      <h2 className="font-tamil leading-snug text-2xl font-extrabold text-gamev2ink-900 dark:text-white">நினைவுப் பெட்டகம்</h2>
+      <p className="text-sm font-semibold text-gamev2ink-500">Memory</p>
       <p className="mt-2 text-sm text-gamev2ink-500 dark:text-gamev2ink-400">
+        <span className="font-tamil block text-gamev2ink-700 dark:text-gamev2ink-200">ஒரே நேரத்தில் இரண்டு அட்டைகளைத் திருப்பி, ஒவ்வொரு இணையும் எங்கே மறைந்துள்ளது என்று நினைவில் வையுங்கள். குறைவான திருப்பல்களுக்கு அதிக நட்சத்திரங்கள்.</span>
         Flip two cards at a time and remember where each pair is hiding. Fewer flips earn more stars. No timer -- just your recall.
       </p>
 
       <p className="mt-6 text-xs font-bold uppercase tracking-wide text-gamev2ink-400 dark:text-gamev2ink-500 mb-2 text-left">
-        Choose your challenge
+        <span className="font-tamil normal-case tracking-normal text-sm">சவாலைத் தேர்ந்தெடுங்கள்</span> · Choose your challenge
       </p>
       <div className="grid gap-3">
         {MEMORY_DIFFICULTY_SETTINGS.map((d) => (
@@ -28,14 +32,14 @@ export function MemorySetupPicker({ onStart }: { onStart: (difficulty: MemoryDif
             onClick={() => onStart(d.id)}
             className="text-left rounded-2xl border-2 border-gamev2ink-100 dark:border-gamev2ink-800 hover:border-gamev2spark-400 dark:hover:border-gamev2spark-500 bg-gamev2ink-50 dark:bg-gamev2ink-800/50 p-4 transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gamev2spark-400"
           >
-            <p className="font-extrabold text-gamev2ink-900 dark:text-white">{d.label}</p>
+            <p className="font-extrabold text-gamev2ink-900 dark:text-white"><span className="font-tamil">{LEVEL_TA[d.id]}</span> <span className="text-xs font-semibold opacity-70">· {d.label}</span></p>
             <p className="text-xs text-gamev2ink-500 dark:text-gamev2ink-400 mt-0.5">{d.description}</p>
           </button>
         ))}
       </div>
 
       <p className="mt-5 text-[11px] text-gamev2ink-400 dark:text-gamev2ink-500">
-        Question difficulty always comes from your teacher&apos;s Question Set, not from this setting.
+        <span className="font-tamil">கேள்விகளின் கடினம் உங்கள் ஆசிரியரின் கேள்வித் தொகுப்பைப் பொறுத்தது.</span>
       </p>
     </GameV2Card>
   )

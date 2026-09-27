@@ -37,6 +37,8 @@ import { BrawlSetup } from './BrawlSetup'
 import { BrawlResults } from './BrawlResults'
 import { BrawlMusic } from './music'
 import { UPGRADE_ICON, UPGRADE_TINT } from './icons'
+import { Bi, ta } from '@/components/gameRoomV2/Bi'
+import { TA } from '@/lib/gameRoomV2/i18n/ta'
 
 // Solo Boss Battle: a real-time arena brawler (see
 // lib/gameRoomV2/bossBattle/brawl/sim.ts). The arena canvas IS the
@@ -95,10 +97,10 @@ type Feedback =
   | { correct: false; answer: string; right: string | null; explanation: string | null; id: number }
 
 const WAVE_NEWS: Record<number, string> = {
-  1: 'Shades and Darters -- keep moving!',
-  2: 'Spitters and Mites join. A guardian stirs...',
-  3: 'Brutes charge when they glow -- dash aside',
-  4: 'Everything at once. Hold on!',
+  1: 'நிழல்களும் பாய்வீரர்களும் -- நகர்ந்துகொண்டே இருங்கள்!',
+  2: 'உமிழ்வோரும் சிறுபூச்சிகளும் சேர்கின்றனர். ஒரு காவலன் விழிக்கிறான்...',
+  3: 'ஒளிரும்போது முரடர்கள் பாய்வார்கள் -- விலகிப் பாயுங்கள்',
+  4: 'எல்லாம் ஒரே நேரத்தில். தாக்குப்பிடியுங்கள்!',
 }
 
 function useViewport() {
@@ -203,29 +205,29 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
             if (e.kind !== 'spit' && e.kind !== 'brute') playSound('countdown', snd)
             break
           case 'waveStart':
-            showBanner({ kicker: e.stage === TOTAL_WAVES ? 'Final wave' : undefined, title: `WAVE ${e.stage}`, sub: WAVE_NEWS[e.stage], tone: 'wave' }, 2200)
+            showBanner({ kicker: e.stage === TOTAL_WAVES ? `Wave ${e.stage} · final wave` : `Wave ${e.stage}`, title: e.stage === TOTAL_WAVES ? TA.finalWave.ta : `${TA.wave.ta} ${e.stage}`, sub: WAVE_NEWS[e.stage], tone: 'wave' }, 2200)
             playSound('waveStart', snd)
             structural = true
             break
           case 'waveCleared':
-            showBanner({ title: 'WAVE CLEARED!', sub: e.stage === TOTAL_WAVES ? 'Something stirs in the dark...' : 'A shrine checkpoint awaits', tone: 'good' }, 2000)
+            showBanner({ kicker: 'Wave cleared!', title: TA.waveCleared.ta, sub: e.stage === TOTAL_WAVES ? 'இருளில் ஏதோ அசைகிறது...' : 'ஒரு கோயில் சோதனைச் சாவடி காத்திருக்கிறது', tone: 'good' }, 2000)
             playSound('waveClear', snd)
             structural = true
             break
           case 'bossSpawn':
-            if (e.boss === 'golem') showBanner({ kicker: 'Mini-boss', title: 'STONE GUARDIAN', sub: 'Step out of the red circles!', tone: 'boss' }, 2600)
-            else showBanner({ kicker: 'The final battle', title: 'IRUL KING', sub: 'Red means danger -- dash through it or run', tone: 'boss' }, 3200)
+            if (e.boss === 'golem') showBanner({ kicker: 'Mini-boss · Stone Guardian', title: 'கல் காவலன்', sub: 'சிவப்பு வட்டங்களிலிருந்து விலகுங்கள்!', tone: 'boss' }, 2600)
+            else showBanner({ kicker: 'The final battle · Irul King', title: 'இருள் அரசன்', sub: 'சிவப்பு = ஆபத்து -- பாய்ந்து கடந்திடுங்கள் அல்லது ஓடுங்கள்', tone: 'boss' }, 3200)
             playSound('bossWarning', snd)
             structural = true
             break
           case 'bossPhase':
-            showBanner({ kicker: 'Phase 2', title: 'THE KING RAGES', sub: 'Shadow pools, charges and spirals -- stay sharp', tone: 'danger' }, 2400)
+            showBanner({ kicker: 'Phase 2 · The king rages', title: 'அரசன் சீறுகிறான்!', sub: 'நிழல் குளங்கள், பாய்ச்சல்கள், சுழல்கள் -- கவனமாக!', tone: 'danger' }, 2400)
             playSound('enrage', snd)
             structural = true
             break
           case 'bossDefeated':
             playSound('achievement', snd)
-            if (e.boss === 'golem') showBanner({ title: 'GUARDIAN DEFEATED!', tone: 'good' }, 1800)
+            if (e.boss === 'golem') showBanner({ kicker: 'Guardian defeated!', title: 'காவலன் வீழ்ந்தான்!', tone: 'good' }, 1800)
             structural = true
             break
           case 'checkpoint':
@@ -264,7 +266,7 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
     brawlRef.current = createBrawl({ seed: seedFromString(sessionId), difficulty, arenaId, totalQuestions: session.totalQuestions })
     setBuilt(true)
     refreshHud()
-    schedule(() => showBanner({ kicker: ARENAS.find((a) => a.id === arenaId)!.name, title: 'WAVE 1', sub: WAVE_NEWS[1], tone: 'wave' }, 2200), 200)
+    schedule(() => showBanner({ kicker: `${ARENAS.find((a) => a.id === arenaId)!.tamilName} · Wave 1`, title: `${TA.wave.ta} 1`, sub: WAVE_NEWS[1], tone: 'wave' }, 2200), 200)
   }, [difficulty, session, sessionId, built, arenaId, refreshHud, schedule, showBanner])
 
   const s = brawlRef.current
@@ -424,16 +426,16 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
       {built && hud && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2 sm:p-3 [padding-top:max(0.5rem,env(safe-area-inset-top))]">
           <div className="pointer-events-auto flex flex-wrap items-center gap-1.5 sm:gap-2 max-w-[62%]">
-            <div className="flex items-center gap-2 rounded-2xl bg-white/90 shadow-md px-2.5 sm:px-3 py-1.5" aria-label={`Health ${hud.hp} of ${hud.maxHp}`}>
+            <div className="flex items-center gap-2 rounded-2xl bg-white/90 shadow-md px-2.5 sm:px-3 py-1.5" aria-label={`${ta('health', true)}: ${hud.hp} / ${hud.maxHp}`}>
               <FiHeart className={`w-5 h-5 ${hpPct > 50 ? 'text-rose-500' : hpPct > 25 ? 'text-gold-600' : 'text-rose-700 animate-pulse'}`} aria-hidden />
               <div className="w-20 sm:w-36 h-3 rounded-full bg-stone-200 overflow-hidden">
                 <div className={`h-full rounded-full transition-all duration-200 ${hpPct > 50 ? 'bg-rose-500' : hpPct > 25 ? 'bg-gold-400' : 'bg-rose-700'}`} style={{ width: `${hpPct}%` }} />
               </div>
               <span className="text-xs font-extrabold tabular-nums text-stone-700">{hud.hp}</span>
             </div>
-            <div className="flex items-center gap-2 rounded-2xl bg-white/90 shadow-md px-2.5 sm:px-3 py-1.5" aria-label={`Level ${hud.level}`}>
+            <div className="flex items-center gap-2 rounded-2xl bg-white/90 shadow-md px-2.5 sm:px-3 py-1.5" aria-label={`${ta('level', true)} ${hud.level}`}>
               <FiStar className="w-4 h-4 text-gold-600" aria-hidden />
-              <span className="text-sm font-black tabular-nums">Lv {hud.level}</span>
+              <span className="text-sm font-black tabular-nums"><span className="font-tamil">{TA.level.ta}</span> {hud.level}</span>
               <div className="w-12 sm:w-20 h-2 rounded-full bg-stone-200 overflow-hidden" aria-hidden>
                 <div className="h-full rounded-full bg-sky-500 transition-all duration-200" style={{ width: `${Math.min(100, (hud.xp / hud.xpNext) * 100)}%` }} />
               </div>
@@ -446,16 +448,16 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
           </div>
 
           <div className="pointer-events-auto flex items-center gap-1 sm:gap-1.5 shrink-0">
-            <button type="button" onClick={toggleMusic} aria-pressed={musicEnabled} aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'} title="Music" className={`hidden sm:flex w-11 h-11 rounded-2xl shadow-md items-center justify-center ${musicEnabled ? 'bg-white/90 text-stone-700' : 'bg-white/70 text-stone-400'}`}>
+            <button type="button" onClick={toggleMusic} aria-pressed={musicEnabled} aria-label={`${ta('music', true)}: ${musicEnabled ? TA.on.ta : TA.off.ta}`} title={ta('music', true)} className={`hidden sm:flex w-11 h-11 rounded-2xl shadow-md items-center justify-center ${musicEnabled ? 'bg-white/90 text-stone-700' : 'bg-white/70 text-stone-400'}`}>
               <MusicIcon on={musicEnabled} />
             </button>
-            <button type="button" onClick={toggleSound} aria-pressed={soundEnabled} aria-label={soundEnabled ? 'Turn sound effects off' : 'Turn sound effects on'} title="Sound effects" className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
+            <button type="button" onClick={toggleSound} aria-pressed={soundEnabled} aria-label={`${ta('sounds', true)}: ${soundEnabled ? TA.on.ta : TA.off.ta}`} title={ta('sounds', true)} className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
               {soundEnabled ? <FiVolume2 className="w-5 h-5" /> : <FiVolumeX className="w-5 h-5" />}
             </button>
-            <button type="button" onClick={() => setUserPaused((p) => !p)} aria-label={userPaused ? 'Resume' : 'Pause'} className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
+            <button type="button" onClick={() => setUserPaused((p) => !p)} aria-label={userPaused ? ta('resume', true) : ta('pause', true)} className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
               {userPaused ? <FiPlay className="w-5 h-5" /> : <FiPause className="w-5 h-5" />}
             </button>
-            <button type="button" onClick={leave} aria-label="Exit game" className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
+            <button type="button" onClick={leave} aria-label={ta('exitGame', true)} className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
               <FiLogOut className="w-5 h-5" />
             </button>
           </div>
@@ -493,8 +495,8 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
           <div key={banner.id} className={`rounded-3xl border-4 px-6 sm:px-10 py-3 sm:py-4 text-center shadow-2xl animate-gamev2-banner ${bannerStyle}`} style={{ animationDuration: '2.8s' }}>
             {banner.tone === 'boss' && <GiCrown className="w-8 h-8 mx-auto text-gold-300" aria-hidden />}
             {banner.kicker && <p className="mb-1 text-[11px] sm:text-xs font-black uppercase tracking-[0.2em] opacity-80">{banner.kicker}</p>}
-            <p className="text-3xl sm:text-5xl font-black tracking-wide leading-none">{banner.title}</p>
-            {banner.sub && <p className="mt-1 text-sm sm:text-base font-semibold opacity-90">{banner.sub}</p>}
+            <p className="font-tamil text-3xl sm:text-5xl font-black tracking-wide leading-tight">{banner.title}</p>
+            {banner.sub && <p className="font-tamil mt-1 text-sm sm:text-base font-semibold opacity-90">{banner.sub}</p>}
           </div>
         )}
       </div>
@@ -504,9 +506,9 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
         <div className="absolute inset-0 z-40 bg-stone-900/45 backdrop-blur-[1px] overflow-y-auto">
           <div className="min-h-full flex items-center justify-center p-3 sm:p-6">
             <div className="w-full max-w-3xl text-center animate-gamev2-pop-in">
-              <p className={`text-xs font-black uppercase tracking-[0.2em] ${blessedPick ? 'text-gold-300' : 'text-white/80'}`}>{blessedPick ? 'Tamil blessing · every choice grants 2 levels' : hud.betweenStages ? 'Shrine reward' : `Level ${hud.level}`}</p>
-              <h2 className={`text-3xl sm:text-5xl font-black tracking-wide ${blessedPick ? 'text-gold-300' : 'text-white'} drop-shadow`}>{blessedPick ? 'GOLDEN UPGRADE!' : 'LEVEL UP!'}</h2>
-              <p className="mt-1 text-sm font-semibold text-white/85">Choose one{narrow ? '' : ' · keys 1-3'}</p>
+              <p className={`text-xs font-black uppercase tracking-[0.2em] ${blessedPick ? 'text-gold-300' : 'text-white/80'}`}><span className="font-tamil normal-case tracking-normal text-sm">{blessedPick ? 'தமிழ் அருள் · ஒவ்வொரு தேர்வும் 2 நிலைகள் தரும்' : hud.betweenStages ? 'கோயில் பரிசு' : `${TA.level.ta} ${hud.level}`}</span></p>
+              <h2 className={`text-3xl sm:text-5xl font-black tracking-wide ${blessedPick ? 'text-gold-300' : 'text-white'} drop-shadow`}><span className="font-tamil">{blessedPick ? 'பொன் மேம்பாடு!' : TA.levelUp.ta}</span></h2>
+              <p className="mt-1 text-sm font-semibold text-white/85"><span className="font-tamil">ஒன்றைத் தேர்ந்தெடுங்கள்</span> · Choose one{narrow ? '' : ' (1-3)'}</p>
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                 {hud.choices.map((c, i) => (
                   <UpgradeCard key={`${c.id}-${i}`} choice={c} index={i} current={brawlRef.current?.levels[c.id] ?? 0} onPick={() => choose(i)} narrow={narrow} />
@@ -526,23 +528,23 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
               <div className="flex items-center justify-between gap-2 mb-1">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary-700 flex items-center gap-1.5">
                   <GiScrollUnfurled className="w-4 h-4" aria-hidden />
-                  {over ? 'Bank your progress' : `Shrine checkpoint · ${Math.min(cp!.answered + 1, cp!.due)} of ${cp!.due}`}
+                  {over ? <Bi k="bankProgress" inline /> : <span className="font-tamil normal-case tracking-normal">கோயில் சோதனைச் சாவடி · {Math.min(cp!.answered + 1, cp!.due)}/{cp!.due}</span>}
                 </p>
                 {!over && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-gold-100 px-2 py-0.5 text-[11px] font-black text-gold-800">
-                    <FiHeart className="w-3 h-3" aria-hidden /> Heal · golden upgrade
+                    <FiHeart className="w-3 h-3" aria-hidden /> <span className="font-tamil">குணம் · பொன் மேம்பாடு</span>
                   </span>
                 )}
               </div>
               {!over && cp && (
-                <p className="mb-1 text-xs font-semibold text-stone-500">
-                  Answer {Math.ceil(cp.due / 2)} of {cp.due} correctly to unlock a golden upgrade{cp.answered > 0 ? ` · ${cp.correct} correct so far` : ''}.
+                <p className="mb-1 text-xs font-semibold text-stone-500 font-tamil">
+                  பொன் மேம்பாட்டைத் திறக்க {cp.due} இல் {Math.ceil(cp.due / 2)} கேள்விகளுக்குச் சரியாக விடையளியுங்கள்{cp.answered > 0 ? ` · இதுவரை ${cp.correct} சரி` : ''}.
                 </p>
               )}
               {showQuestion && session?.question ? (
                 <QuestionOverlay variant="compact" sessionId={sessionId} question={session.question} questionIndex={session.currentIndex} remainingSeconds={session.remainingSeconds} onResult={handleAnswer} />
               ) : (
-                <p className="py-6 text-center text-sm text-stone-500">Unrolling the next scroll...</p>
+                <p className="py-6 text-center text-sm text-stone-500"><span className="font-tamil">அடுத்த சுவடி விரிகிறது...</span></p>
               )}
             </div>
           </div>
@@ -553,21 +555,21 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
           {feedback.correct ? (
             <div key={feedback.id} role="status" className="rounded-3xl bg-gradient-to-b from-primary-500 to-primary-700 text-white border-4 border-gold-300 shadow-2xl px-6 py-2.5 text-center animate-gamev2-pop-in">
               <p className="flex items-center justify-center gap-2 text-2xl sm:text-3xl font-black tracking-wide">
-                <FiCheckCircle className="w-6 h-6" aria-hidden /> CORRECT!
+                <FiCheckCircle className="w-6 h-6" aria-hidden /> <span className="font-tamil">{TA.correct.ta}</span>
               </p>
               <p className="mt-0.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-sm sm:text-base font-extrabold">
                 {feedback.heal > 0 && (
                   <span className="inline-flex items-center gap-1 text-rose-100">
-                    <FiHeart className="w-4 h-4" aria-hidden />+{feedback.heal} HEALTH
+                    <FiHeart className="w-4 h-4" aria-hidden />+{feedback.heal} <span className="font-tamil">{TA.health.ta}</span>
                   </span>
                 )}
                 <span className="inline-flex items-center gap-1 text-gold-200">
-                  <GiCrown className="w-4 h-4" aria-hidden /> Blessing power
+                  <GiCrown className="w-4 h-4" aria-hidden /> <span className="font-tamil">அருள் ஆற்றல்</span>
                 </span>
                 {feedback.streak >= 2 && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-gold-400 px-2 text-stone-900">
                     <FiZap className="w-3.5 h-3.5" aria-hidden />
-                    STREAK ×{feedback.streak}
+                    <span className="font-tamil">{TA.streak.ta}</span> ×{feedback.streak}
                   </span>
                 )}
               </p>
@@ -576,24 +578,24 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
             <div key={feedback.id} role="status" className="pointer-events-auto max-w-md w-full rounded-2xl bg-white shadow-xl border-2 border-terracotta-300 px-4 py-3 animate-gamev2-pop-in">
               <div className="flex items-start justify-between gap-2">
                 <p className="flex items-center gap-2 text-lg font-black text-terracotta-700">
-                  <FiXCircle className="w-5 h-5" aria-hidden /> NOT QUITE
+                  <FiXCircle className="w-5 h-5" aria-hidden /> <Bi k="notQuite" inline />
                 </p>
                 <button type="button" onClick={() => setFeedback(null)} className="min-h-[36px] rounded-xl px-3 text-sm font-bold text-primary-800 hover:bg-primary-50">
-                  Got it
+                  <Bi k="gotIt" inline />
                 </button>
               </div>
               <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm text-stone-700">
-                <dt className="font-semibold text-stone-500">Your answer</dt>
+                <dt className="font-semibold text-stone-500 font-tamil">{TA.yourAnswer.ta}</dt>
                 <dd className="font-tamil font-semibold line-through decoration-terracotta-400">{feedback.answer}</dd>
                 {feedback.right && (
                   <>
-                    <dt className="font-semibold text-stone-500">Correct answer</dt>
+                    <dt className="font-semibold text-stone-500 font-tamil">{TA.correctAnswer.ta}</dt>
                     <dd className="font-tamil font-bold text-primary-800">{feedback.right}</dd>
                   </>
                 )}
                 {feedback.explanation && (
                   <>
-                    <dt className="font-semibold text-stone-500">Why</dt>
+                    <dt className="font-semibold text-stone-500 font-tamil">{TA.why.ta}</dt>
                     <dd className="font-tamil leading-relaxed text-stone-600">{feedback.explanation}</dd>
                   </>
                 )}
@@ -607,29 +609,29 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
       {userPaused && (
         <div className="absolute inset-0 z-50 bg-stone-900/45 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-sm rounded-3xl bg-white shadow-2xl p-5 text-center">
-            <h2 className="text-2xl font-black">Paused</h2>
+            <h2 className="text-2xl font-black"><Bi k="paused" /></h2>
             {hud && (
               <p className="text-sm text-stone-500 mt-1">
-                {hud.stage >= BOSS_STAGE ? 'Boss fight' : `Wave ${hud.stage} of ${TOTAL_WAVES}`} · Level {hud.level} · Health {hud.hp}/{hud.maxHp}
+                <span className="font-tamil">{hud.stage >= BOSS_STAGE ? 'தலைமை எதிரியுடன் போர்' : `${TA.wave.ta} ${hud.stage}/${TOTAL_WAVES}`} · {TA.level.ta} {hud.level} · {TA.health.ta} {hud.hp}/{hud.maxHp}</span>
               </p>
             )}
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button type="button" onClick={toggleMusic} aria-pressed={musicEnabled} className={`min-h-[48px] rounded-2xl border font-bold inline-flex items-center justify-center gap-2 ${musicEnabled ? 'border-primary-300 bg-primary-50 text-primary-800' : 'border-stone-300 text-stone-500'}`}>
-                <MusicIcon on={musicEnabled} /> Music {musicEnabled ? 'on' : 'off'}
+                <MusicIcon on={musicEnabled} /> <span className="font-tamil">{TA.music.ta}</span> {musicEnabled ? '✓' : '✕'}
               </button>
               <button type="button" onClick={toggleSound} aria-pressed={soundEnabled} className={`min-h-[48px] rounded-2xl border font-bold inline-flex items-center justify-center gap-2 ${soundEnabled ? 'border-primary-300 bg-primary-50 text-primary-800' : 'border-stone-300 text-stone-500'}`}>
-                {soundEnabled ? <FiVolume2 className="w-5 h-5" aria-hidden /> : <FiVolumeX className="w-5 h-5" aria-hidden />} Sounds {soundEnabled ? 'on' : 'off'}
+                {soundEnabled ? <FiVolume2 className="w-5 h-5" aria-hidden /> : <FiVolumeX className="w-5 h-5" aria-hidden />} <span className="font-tamil">{TA.sounds.ta}</span> {soundEnabled ? '✓' : '✕'}
               </button>
             </div>
             <div className="mt-2 grid gap-2">
               <button type="button" onClick={() => setUserPaused(false)} className="min-h-[52px] rounded-2xl bg-primary-700 hover:bg-primary-800 text-white font-extrabold text-lg inline-flex items-center justify-center gap-2">
-                <FiPlay className="w-5 h-5" aria-hidden /> Resume
+                <FiPlay className="w-5 h-5" aria-hidden /> <Bi k="resume" inline />
               </button>
               <button type="button" onClick={leave} className="min-h-[48px] rounded-2xl border border-stone-300 font-semibold text-stone-700">
-                Exit game
+                <Bi k="exitGame" inline />
               </button>
             </div>
-            <p className="mt-4 text-xs text-stone-500 text-left">Move: WASD / arrow keys, or drag anywhere on a touch screen. Dash: Space or the shield button -- you can&apos;t be hurt mid-dash. Your weapons fire on their own. Red circles and lines are attacks about to land.</p>
+            <p className="mt-4 text-xs text-stone-500 text-left"><span className="font-tamil block mb-1">நகர: WASD / அம்புக் குறிகள், அல்லது திரையில் இழுங்கள். பாய்ச்சல்: Space அல்லது கேடய பொத்தான். ஆயுதங்கள் தானாகச் சுடும். சிவப்பு வட்டங்கள் வரவிருக்கும் தாக்குதல்கள்.</span>Move: WASD / arrow keys, or drag anywhere on a touch screen. Dash: Space or the shield button -- you can&apos;t be hurt mid-dash. Your weapons fire on their own. Red circles and lines are attacks about to land.</p>
           </div>
         </div>
       )}
@@ -648,7 +650,7 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
       {difficulty && !built && (
         <div className="absolute inset-0 z-40 flex items-center justify-center">
           <p className="rounded-2xl bg-white/95 px-5 py-3 font-bold shadow-lg" role="status">
-            Opening the arena...
+            <span className="font-tamil">போர்க்களம் திறக்கிறது...</span>
           </p>
         </div>
       )}
@@ -658,7 +660,7 @@ export function BrawlGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionI
         <BrawlResults victory={outcome === 'victory'} s={s} result={result} soundEnabled={soundEnabled} reducedMotion={reduced} onPlayAgain={onPlayAgain ? again : undefined} onNext={onHome} onBack={onHome ?? onExit} />
       )}
       {outcome && momentDone && !showResults && remainingQuestions === 0 && !sessionDone && (
-        <p className="absolute inset-x-0 bottom-6 z-30 text-center text-sm font-bold text-white drop-shadow">Saving your progress...</p>
+        <p className="absolute inset-x-0 bottom-6 z-30 text-center text-sm font-bold text-white drop-shadow"><span className="font-tamil">{TA.saving.ta}</span></p>
       )}
     </div>
   )
@@ -670,9 +672,9 @@ function StageChip({ hud }: { hud: Hud }) {
   return (
     <div className="flex items-center gap-2 rounded-2xl bg-white/90 shadow-md px-3 py-1.5">
       <GiCrossedSwords className="w-4 h-4 text-terracotta-600" aria-hidden />
-      <span className="text-sm font-black tracking-wide">{boss ? 'BOSS' : `WAVE ${hud.stage}/${TOTAL_WAVES}`}</span>
+      <span className="text-sm font-black tracking-wide font-tamil">{boss ? TA.boss.ta : `${TA.wave.ta} ${hud.stage}/${TOTAL_WAVES}`}</span>
       {!boss && hud.status === 'fighting' && (
-        <span className="text-xs font-bold tabular-nums text-stone-500">{secs > 0 ? `0:${String(secs).padStart(2, '0')}` : 'clear the field'}</span>
+        <span className="text-xs font-bold tabular-nums text-stone-500">{secs > 0 ? `0:${String(secs).padStart(2, '0')}` : <span className="font-tamil">களத்தைச் சுத்தமாக்குங்கள்</span>}</span>
       )}
     </div>
   )
@@ -682,14 +684,14 @@ function BossBar({ boss }: { boss: NonNullable<Hud['boss']> }) {
   const pct = Math.max(0, (boss.hp / boss.maxHp) * 100)
   const rage = boss.phase === 2
   return (
-    <div className={`flex items-center gap-2 rounded-2xl px-3 py-1.5 shadow-lg border-2 ${rage ? 'bg-rose-700 border-rose-300' : boss.kind === 'golem' ? 'bg-stone-700 border-gold-300' : 'bg-purple-800 border-gold-400'} text-white animate-gamev2-pop-in`} aria-label={`${boss.name}: ${Math.round(pct)}% health`}>
+    <div className={`flex items-center gap-2 rounded-2xl px-3 py-1.5 shadow-lg border-2 ${rage ? 'bg-rose-700 border-rose-300' : boss.kind === 'golem' ? 'bg-stone-700 border-gold-300' : 'bg-purple-800 border-gold-400'} text-white animate-gamev2-pop-in`} aria-label={`${boss.kind === 'irul' ? 'இருள் அரசன்' : 'கல் காவலன்'} · ${boss.name}: ${Math.round(pct)}%`}>
       {boss.kind === 'irul' ? <GiCrown className="w-5 h-5 text-gold-300" aria-hidden /> : <GiSkullCrossedBones className="w-5 h-5 text-gold-200" aria-hidden />}
-      <span className="text-xs font-black tracking-wide uppercase whitespace-nowrap">{boss.name}</span>
+      <span className="font-tamil text-xs font-black tracking-wide whitespace-nowrap">{boss.kind === 'irul' ? 'இருள் அரசன்' : 'கல் காவலன்'}</span>
       <div className="relative w-32 sm:w-56 h-3 rounded-full bg-black/30 overflow-hidden">
         <div className={`h-full rounded-full transition-all duration-200 ${rage ? 'bg-rose-300' : 'bg-gold-400'}`} style={{ width: `${boss.intro ? 100 : pct}%` }} />
         {boss.kind === 'irul' && <span className="absolute inset-y-0 left-1/2 w-0.5 bg-white/70" aria-hidden />}
       </div>
-      {boss.kind === 'irul' && <span className="text-[10px] font-black">{rage ? 'PHASE 2' : 'PHASE 1'}</span>}
+      {boss.kind === 'irul' && <span className="text-[10px] font-black font-tamil">{rage ? 'கட்டம் 2' : 'கட்டம் 1'}</span>}
     </div>
   )
 }
@@ -713,10 +715,10 @@ function UpgradeCard({ choice, index, current, onPick, narrow }: { choice: Upgra
         <div className="min-w-0">
           <p className="text-[11px] font-black uppercase tracking-wide text-stone-500">
             {!narrow && <span className="mr-1 rounded bg-stone-100 px-1.5 text-stone-600">{index + 1}</span>}
-            {isNew ? (def.kind === 'weapon' ? 'New weapon' : 'New boon') : `Level ${current} → ${choice.toLevel}`}
+            <span className="font-tamil normal-case">{isNew ? (def.kind === 'weapon' ? 'புதிய ஆயுதம்' : 'புதிய வரம்') : `${TA.level.ta} ${current} → ${choice.toLevel}`}</span>
           </p>
-          <p className="text-lg font-black text-stone-900 leading-tight">{def.name}</p>
-          <p className="font-tamil text-xs text-primary-700">{def.tamilName}</p>
+          <p className="font-tamil text-lg font-black text-stone-900 leading-tight">{def.tamilName}</p>
+          <p className="text-xs text-primary-700">{def.name}</p>
         </div>
       </div>
       <ul className="relative mt-2 space-y-0.5 text-sm font-semibold text-stone-700">
@@ -729,7 +731,7 @@ function UpgradeCard({ choice, index, current, onPick, narrow }: { choice: Upgra
           </li>
         ))}
       </ul>
-      <div className="relative mt-2 flex gap-1" aria-label={`Level ${choice.toLevel} of 5`}>
+      <div className="relative mt-2 flex gap-1" aria-label={`${ta('level', true)} ${choice.toLevel} / 5`}>
         {[1, 2, 3, 4, 5].map((lv) => (
           <span key={lv} className={`h-1.5 flex-1 rounded-full ${lv <= current ? 'bg-primary-500' : lv <= choice.toLevel ? (choice.blessed ? 'bg-gold-400' : 'bg-primary-300') : 'bg-stone-200'}`} />
         ))}
@@ -758,18 +760,18 @@ function EndMoment({ kind, s, reduced }: { kind: 'victory' | 'defeat'; s: BrawlS
         {win ? (
           <>
             <GiCrown className="mx-auto w-14 h-14 sm:w-20 sm:h-20 text-gold-300 drop-shadow-[0_4px_0_rgba(120,53,15,0.6)]" aria-hidden />
-            <p className="text-6xl sm:text-8xl font-black tracking-wider text-gold-300 [-webkit-text-stroke:2px_#78350f] drop-shadow-[0_6px_0_rgba(120,53,15,0.55)]">VICTORY!</p>
-            <p className="mt-2 inline-block rounded-full bg-stone-900/60 px-4 py-1.5 text-base sm:text-xl font-extrabold text-white">The Irul King falls -- the arena is free!</p>
+            <p className="text-6xl sm:text-8xl font-black tracking-wider text-gold-300 [-webkit-text-stroke:2px_#78350f] drop-shadow-[0_6px_0_rgba(120,53,15,0.55)] font-tamil leading-tight">{TA.victory.ta}</p>
+            <p className="font-tamil mt-2 inline-block rounded-full bg-stone-900/60 px-4 py-1.5 text-base sm:text-xl font-extrabold text-white">இருள் அரசன் வீழ்ந்தான் -- களம் விடுதலை பெற்றது!</p>
           </>
         ) : (
           <div className="rounded-3xl bg-white/95 shadow-2xl border-4 border-terracotta-200 px-6 py-5 sm:px-10">
             <GiCrossedSwords className="mx-auto w-12 h-12 text-terracotta-600" aria-hidden />
-            <p className="text-4xl sm:text-6xl font-black text-terracotta-700">DEFEATED</p>
-            <p className="mt-1 font-semibold text-stone-600">A brave fight. Here&apos;s what you achieved:</p>
+            <p className="font-tamil leading-tight text-4xl sm:text-6xl font-black text-terracotta-700">{TA.defeat.ta}</p>
+            <p className="font-tamil mt-1 font-semibold text-stone-600">வீரமான போர்! நீங்கள் சாதித்தவை:</p>
             <div className="mt-3 flex flex-wrap justify-center gap-2 text-sm font-extrabold text-stone-800">
-              <span className="rounded-2xl bg-primary-50 px-3 py-1.5">{s.stage >= BOSS_STAGE ? 'Reached the Irul King' : `Wave ${s.stage} of ${TOTAL_WAVES}`}</span>
-              <span className="rounded-2xl bg-primary-50 px-3 py-1.5">{st.kills} enemies defeated</span>
-              <span className="rounded-2xl bg-gold-100 px-3 py-1.5">Level {st.bestLevel}</span>
+              <span className="rounded-2xl bg-primary-50 px-3 py-1.5"><span className="font-tamil">{s.stage >= BOSS_STAGE ? 'இருள் அரசனை அடைந்தீர்கள்' : `${TA.wave.ta} ${s.stage}/${TOTAL_WAVES}`}</span></span>
+              <span className="rounded-2xl bg-primary-50 px-3 py-1.5"><span className="font-tamil">{st.kills} எதிரிகளை வென்றீர்கள்</span></span>
+              <span className="rounded-2xl bg-gold-100 px-3 py-1.5"><span className="font-tamil">{TA.level.ta}</span> {st.bestLevel}</span>
             </div>
           </div>
         )}

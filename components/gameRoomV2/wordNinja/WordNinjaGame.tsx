@@ -29,6 +29,8 @@ import {
 } from '@/lib/gameRoomV2/wordNinja'
 import { seedFromString } from '@/lib/gameRoomV2/gameplay/rng'
 import type { BaseSessionStatePayload } from '@/lib/gameRoomV2/gameplay/sessionPolling'
+import { Bi, ta } from '@/components/gameRoomV2/Bi'
+import { TA } from '@/lib/gameRoomV2/i18n/ta'
 
 // Word Ninja: an arcade dojo. Each CATEGORIZE question is one round --
 // its items fall and the player slashes each into a category lane before
@@ -81,7 +83,7 @@ function snap(s: NinjaState): Hud {
   }
 }
 
-const POWER_LABEL: Record<PowerId, string> = { slow: 'Slow Time', shield: 'Shield' }
+const POWER_LABEL: Record<PowerId, string> = { slow: 'மெதுநேரம்', shield: 'கேடயம்' }
 const POWER_KEY: Record<PowerId, string> = { slow: 'Z', shield: 'X' }
 
 export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sessionId: string; onExit: () => void; onPlayAgain?: () => void; onHome?: () => void }) {
@@ -145,7 +147,7 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
         } else if (e.type === 'miss') {
           changed = true
           if (e.shielded) {
-            addFx({ kind: 'block', x: 0.5, y: 0.82, text: 'Blocked!' })
+            addFx({ kind: 'block', x: 0.5, y: 0.82, text: 'தடுத்தாயிற்று!' })
             playSound('ability', snd)
           } else {
             addFx({ kind: 'miss', x: 0.5, y: 0.82, text: `-1 heart` })
@@ -190,7 +192,7 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
     if (!Array.isArray(items) || items.length === 0) return
     setRoundIndex(currentIndex)
     setVerdict(null)
-    flash(`Round ${currentIndex + 1}`, 1100)
+    flash(`${TA.round.ta} ${currentIndex + 1}`, 1100)
     playSound('waveStart', soundRef.current)
     beginRound(s, items.map(String))
     refresh()
@@ -281,8 +283,8 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
         setVerdict({
           correct: data.isCorrect,
           text: data.isCorrect
-            ? `Clean round! +${j?.bonus ?? 0} score${j?.heart ? ' and a heart back' : ''}`
-            : `A word landed in the wrong lane -- ${WRONG_ROUND_HEARTS} hearts lost`,
+            ? `முழுச் சரி! +${j?.bonus ?? 0} புள்ளிகள்${j?.heart ? ', ஓர் இதயம் திரும்பக் கிடைத்தது' : ''}`
+            : `ஒரு சொல் தவறான பாதையில் விழுந்தது -- ${WRONG_ROUND_HEARTS} இதயங்கள் இழப்பு`,
           explanation: typeof data.explanation === 'string' ? data.explanation : null,
         })
         playSound(data.isCorrect ? 'correct' : 'incorrect', soundRef.current)
@@ -333,7 +335,7 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
 
   if (!difficulty) return <NinjaSetupPicker onStart={setDifficulty} />
   if (error && !session) return <GameV2Error description={error} onRetry={poll} />
-  if (!session || !hud || !ninjaRef.current) return <GameV2Loading label="Opening the dojo..." />
+  if (!session || !hud || !ninjaRef.current) return <GameV2Loading label="சொல் பயிற்சிக் கூடம் திறக்கிறது... · Opening the dojo..." />
   const s = ninjaRef.current
 
   if (result) {
@@ -342,15 +344,15 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
       <div className="min-h-screen w-full bg-slate-950 px-4 py-8">
         <GameResultsScreen
           result={result}
-          headline={won ? 'Dojo mastered!' : 'Out of hearts'}
-          subline={won ? `You cleared every round with ${s.lives} heart${s.lives === 1 ? '' : 's'} to spare.` : 'Slash earlier, and use Slow Time when the words pile up.'}
+          headline={won ? 'பயிற்சிக் கூடத்தை வென்றீர்கள்!' : 'இதயங்கள் தீர்ந்தன'}
+          subline={won ? `${s.lives} இதயங்கள் மீதமிருக்க எல்லாச் சுற்றுகளையும் முடித்தீர்கள்.` : 'சீக்கிரமே வெட்டுங்கள்; சொற்கள் குவிந்தால் மெதுநேரத்தைப் பயன்படுத்துங்கள்.'}
           gameStats={[
-            { label: 'Ninja score', value: s.score },
-            { label: 'Clean rounds', value: `${s.stats.cleanRounds} of ${s.stats.rounds}` },
-            { label: 'Words slashed', value: s.stats.slashed },
-            { label: 'Best combo', value: `x${s.stats.bestCombo}` },
-            { label: 'Golden words', value: s.stats.goldens },
-            { label: 'Words dropped', value: s.stats.missed },
+            { label: 'வீரர் மதிப்பெண்', value: s.score },
+            { label: 'முழுச் சரியான சுற்றுகள்', value: `${s.stats.cleanRounds}/${s.stats.rounds}` },
+            { label: 'வெட்டிய சொற்கள்', value: s.stats.slashed },
+            { label: 'சிறந்த தொடர் அடி', value: `x${s.stats.bestCombo}` },
+            { label: 'பொன் சொற்கள்', value: s.stats.goldens },
+            { label: 'தவறவிட்ட சொற்கள்', value: s.stats.missed },
           ]}
           onPlayAgain={onPlayAgain ? again : undefined}
           onExit={onExit}
@@ -367,13 +369,13 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
     <div className="min-h-screen w-full bg-slate-950 text-white">
       <ArenaHud
         stats={[
-          { icon: FiLayers, label: 'Round', value: `${Math.min(currentIndex + 1, totalRounds)}/${totalRounds}` },
-          { icon: FiStar, label: 'Score', value: hud.score, tone: 'gold' },
-          { icon: FiZap, label: 'Combo', value: `x${hud.combo}`, tone: hud.combo >= 3 ? 'good' : 'default' },
-          { icon: FiTrendingUp, label: 'Speed', value: `${hud.speed.toFixed(1)}x` },
+          { icon: FiLayers, label: ta('round', true), value: `${Math.min(currentIndex + 1, totalRounds)}/${totalRounds}` },
+          { icon: FiStar, label: ta('score', true), value: hud.score, tone: 'gold' },
+          { icon: FiZap, label: ta('combo', true), value: `x${hud.combo}`, tone: hud.combo >= 3 ? 'good' : 'default' },
+          { icon: FiTrendingUp, label: 'வேகம் · Speed', value: `${hud.speed.toFixed(1)}x` },
           {
             icon: FiHeart,
-            label: 'Hearts',
+            label: 'இதயங்கள் · Hearts',
             tone: 'bad',
             value: (
               <span className="inline-flex items-center gap-0.5" aria-label={`${hud.lives} of ${hud.maxLives}`}>
@@ -396,15 +398,15 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
         {runOver ? (
           <div className="rounded-2xl bg-slate-900/80 border border-amber-300/30 p-4 space-y-3">
             <p className="text-lg font-bold flex items-center gap-2">
-              <FiHeart className="w-5 h-5 text-red-400" aria-hidden /> Out of hearts
+              <FiHeart className="w-5 h-5 text-red-400" aria-hidden /> <span className="font-tamil">இதயங்கள் தீர்ந்தன</span>
             </p>
-            <p className="text-sm text-slate-300">
-              Score {hud.score} · best combo x{s.stats.bestCombo}. Sort the last {remaining} set{remaining === 1 ? '' : 's'} below to save your XP and progress.
+            <p className="text-sm text-slate-300 font-tamil">
+              {TA.score.ta} {hud.score} · சிறந்த தொடர் அடி x{s.stats.bestCombo}. உங்கள் முன்னேற்றத்தைச் சேமிக்க, மீதமுள்ள {remaining} தொகுப்புகளைக் கீழே வகைப்படுத்துங்கள்.
             </p>
             {question ? (
               <QuestionOverlay variant="compact" sessionId={sessionId} question={question} questionIndex={currentIndex} remainingSeconds={session.remainingSeconds} onResult={() => poll()} />
             ) : (
-              <GameV2Loading label={sessionDone ? 'Calculating your results...' : 'Next set...'} />
+              <GameV2Loading label={sessionDone ? ta('calculating', true) : 'அடுத்த தொகுப்பு... · Next set...'} />
             )}
           </div>
         ) : (
@@ -427,16 +429,16 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
                 shielded={hud.shield}
               />
               <div aria-live="polite" className="pointer-events-none absolute inset-x-0 top-12 flex justify-center">
-                {banner && <p className="rounded-2xl bg-slate-900/90 border border-white/20 px-5 py-2 text-lg font-bold animate-gamev2-pop-in">{banner}</p>}
+                {banner && <p className="font-tamil rounded-2xl bg-slate-900/90 border border-white/20 px-5 py-2 text-lg font-bold animate-gamev2-pop-in">{banner}</p>}
               </div>
               {(hud.phase === 'judging' || (hud.phase === 'idle' && !sessionDone)) && !userPaused && (
                 <div className="absolute inset-0 flex items-center justify-center p-4">
                   <div role="status" className="rounded-2xl bg-slate-900/90 border border-white/15 px-5 py-4 text-center max-w-sm">
                     {hud.phase === 'judging' || !verdict ? (
-                      <p className="font-bold">{hud.phase === 'judging' ? 'Checking your lanes...' : 'Next round...'}</p>
+                      <p className="font-bold font-tamil">{hud.phase === 'judging' ? 'உங்கள் பாதைகள் சரிபார்க்கப்படுகின்றன...' : 'அடுத்த சுற்று...'}</p>
                     ) : (
                       <>
-                        <p className={`font-bold ${verdict.correct ? 'text-emerald-300' : 'text-red-300'}`}>{verdict.text}</p>
+                        <p className={`font-bold font-tamil ${verdict.correct ? 'text-emerald-300' : 'text-red-300'}`}>{verdict.text}</p>
                         {verdict.explanation && <p className="mt-1 text-sm text-slate-300 font-tamil leading-relaxed">{verdict.explanation}</p>}
                       </>
                     )}
@@ -446,14 +448,14 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
               {userPaused && (
                 <div className="absolute inset-0 rounded-3xl bg-slate-950/80 flex items-center justify-center">
                   <button type="button" onClick={() => setUserPaused(false)} className="inline-flex items-center gap-2 min-h-[52px] px-6 rounded-2xl bg-amber-400 text-slate-900 font-bold text-lg">
-                    <FiPlay className="w-5 h-5" aria-hidden /> Resume
+                    <FiPlay className="w-5 h-5" aria-hidden /> <Bi k="resume" inline />
                   </button>
                 </div>
               )}
             </div>
 
             {/* Lanes: the slash buttons, in thumb reach under the dojo. */}
-            <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.max(1, lanes.length)}, minmax(0, 1fr))` }} role="group" aria-label="Slash into a lane">
+            <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.max(1, lanes.length)}, minmax(0, 1fr))` }} role="group" aria-label="பாதையில் வெட்டு · Slash into a lane">
               {lanes.map((c, i) => (
                 <button
                   key={c}
@@ -488,13 +490,13 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
                     type="button"
                     onClick={() => doPower(p)}
                     disabled={!ready || userPaused}
-                    aria-label={`${POWER_LABEL[p]} (${hud.charges[p]} charge${hud.charges[p] === 1 ? '' : 's'})`}
+                    aria-label={`${POWER_LABEL[p]} (${hud.charges[p]})`}
                     className={`flex-1 min-h-[48px] rounded-xl border px-3 flex items-center justify-center gap-2 text-sm font-bold ${
                       active ? 'bg-cyan-400/20 border-cyan-300 text-cyan-200' : 'bg-white/5 border-white/10 hover:bg-white/10 disabled:opacity-40'
                     }`}
                   >
                     <Icon className="w-4 h-4" aria-hidden />
-                    {POWER_LABEL[p]}
+                    <span className="font-tamil">{POWER_LABEL[p]}</span>
                     <span className="tabular-nums text-amber-300">x{hud.charges[p]}</span>
                     <span className="hidden sm:inline text-[11px] text-slate-400">({POWER_KEY[p]})</span>
                   </button>
@@ -502,13 +504,13 @@ export function WordNinjaGame({ sessionId, onExit, onPlayAgain, onHome }: { sess
               })}
             </div>
             <p className="text-xs text-slate-400 text-center">
-              {hud.phase === 'falling' ? `${hud.placedCount}/${hud.itemsInRound} words sorted this round · tap a word to aim at it, otherwise the lowest word is slashed` : ' '}
+              {hud.phase === 'falling' ? `இந்தச் சுற்றில் ${hud.placedCount}/${hud.itemsInRound} சொற்கள் வகைப்படுத்தப்பட்டன · ஒரு சொல்லைத் தொட்டு இலக்காக்கலாம்; இல்லையெனில் கீழுள்ள சொல் வெட்டப்படும்` : ' '}
             </p>
             {submitError && (
               <p className="text-sm text-red-300 text-center">
                 {submitError}{' '}
                 <button type="button" onClick={() => setSubmitError(null)} className="underline font-bold min-h-[44px] px-2">
-                  Try again
+                  <Bi k="tryAgain" inline />
                 </button>
               </p>
             )}
