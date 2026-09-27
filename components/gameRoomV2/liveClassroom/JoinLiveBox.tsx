@@ -89,7 +89,7 @@ export function JoinLiveBox({ variant = 'banner' }: { variant?: 'banner' | 'card
             inputMode="text"
             aria-invalid={!!error}
             aria-describedby={error ? errorId : undefined}
-            className="min-w-0 flex-1 min-h-[48px] px-4 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-950 text-lg font-bold tracking-[0.18em] uppercase text-stone-900 dark:text-white placeholder:tracking-normal placeholder:font-semibold placeholder:text-stone-400 placeholder:text-base focus:outline-none focus:ring-4 focus:ring-primary-300"
+            className="min-w-0 flex-1 min-h-[48px] px-4 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-950 text-base sm:text-lg font-bold tracking-[0.06em] sm:tracking-[0.18em] uppercase text-stone-900 dark:text-white placeholder:tracking-normal placeholder:font-semibold placeholder:text-stone-400 placeholder:text-base focus:outline-none focus:ring-4 focus:ring-primary-300"
           />
           <button
             type="submit"

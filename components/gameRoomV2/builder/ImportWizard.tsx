@@ -438,7 +438,7 @@ Answer: சென்னை`}</pre>
           <div className="flex flex-wrap gap-2">
             {(
               [
-                ['choices', 'Multiple choice', 'Wrong options are taken from the other answers in this file. Works in every quiz-style game.'],
+                ['choices', 'Multiple choice', 'Wrong options come from other answers of the same kind in this file (or nearby numbers). If there are too few, that question is typed instead.'],
                 ['typed', 'Typed answer', 'Students type the answer. Works in Classic Quiz and Boss Battle.'],
               ] as const
             ).map(([id, label, hint]) => (

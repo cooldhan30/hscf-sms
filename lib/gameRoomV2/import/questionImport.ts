@@ -349,10 +349,12 @@ export interface BuiltQuestion {
 // 1. The row names a type -> that type.
 // 2. Wrong answers are given -> multiple choice with exactly those.
 // 3. The answer is True/False (or சரி/தவறு) -> true/false.
-// 4. "choices" style: multiple choice, with up to three wrong answers
-//    borrowed from OTHER questions' answers in the same file (similar
-//    script and length first), so the set works in every game;
-//    too few other answers -> typed answer.
+// 4. "choices" style: multiple choice with three wrong answers of the
+//    same kind as the answer -- borrowed from OTHER questions' answers in
+//    the same file (same script: Tamil with Tamil, English with English,
+//    closest length first), or, for a whole-number answer, nearby
+//    numbers. Fewer than three of the same kind -> typed answer, rather
+//    than options a student could rule out at a glance.
 // 5. "typed" style -> typed answer; "a | b" in the answer = both accepted.
 export function buildQuestion(row: ImportRow, all: ImportRow[], style: AnswerStyle): BuiltQuestion {
   const t = row.type.trim().toLowerCase()
@@ -372,7 +374,7 @@ export function buildQuestion(row: ImportRow, all: ImportRow[], style: AnswerSty
   }
   if (!wantsTyped && (style === 'choices' || wantsChoice)) {
     const distractors = borrowDistractors(main, all)
-    if (distractors.length >= (wantsChoice ? 1 : 3)) {
+    if (distractors.length >= 3 || (wantsChoice && distractors.length >= 1)) {
       return { ...base, questionType: 'MULTIPLE_CHOICE', payload: { options: shuffled([main, ...distractors], row.question), correctAnswer: main } }
     }
   }
@@ -394,11 +396,22 @@ function borrowDistractors(answer: string, all: ImportRow[]): string[] {
   )
   const sc = script(answer)
   const rand = mulberry32(seedFromString(answer))
-  return pool
-    .map((a) => ({ a, score: (script(a) === sc ? 0 : 10) + Math.abs(a.length - answer.length) / Math.max(4, answer.length) + rand() * 0.5 }))
+  const same = pool
+    .filter((a) => script(a) === sc)
+    .map((a) => ({ a, score: Math.abs(a.length - answer.length) / Math.max(4, answer.length) + rand() * 0.5 }))
     .sort((x, y) => x.score - y.score)
     .slice(0, 3)
     .map((x) => x.a)
+  if (same.length >= 3 || !/^\d{1,6}$/.test(answer.trim())) return same
+  // Whole numbers: top up with nearby numbers ("how many ...?").
+  const n = Number(answer.trim())
+  const out = [...same]
+  for (const d of [2, -2, 6, -6, 1, -1, 4, -4, 10]) {
+    const v = n + d
+    if (out.length >= 3) break
+    if (v >= 0 && v !== n && !out.includes(String(v))) out.push(String(v))
+  }
+  return out
 }
 
 function shuffled(items: string[], seedText: string): string[] {

@@ -254,6 +254,12 @@ console.log('5. Built questions')
   assert(typed.questionType === 'TEXT_INPUT' && gradeAnswer('TEXT_INPUT', typed.payload, ' சென்னை '), 'typed style -> typed answer, graded with trimming')
   const alt = buildQuestion(rows[7], rows, 'choices')
   assert(alt.questionType === 'TEXT_INPUT' && gradeAnswer('TEXT_INPUT', alt.payload, 'சிவப்பு') && gradeAnswer('TEXT_INPUT', alt.payload, 'RED'), '"a | b" answers both accepted; Type: text honoured')
+  const mixed = parseTxt('Question: capital?\nAnswer: Chennai\n\nQuestion: noun?\nAnswer: பெயர்ச்சொல்\n\nQuestion: two?\nAnswer: இரண்டு\n\nQuestion: vowels?\nAnswer: 12').rows
+  assert(buildQuestion(mixed[0], mixed, 'choices').questionType === 'TEXT_INPUT', 'English answer never gets Tamil/number options -> typed answer')
+  assert(buildQuestion(mixed[1], mixed, 'choices').questionType === 'TEXT_INPUT', 'too few same-script answers -> typed answer')
+  const num = buildQuestion(mixed[3], mixed, 'choices')
+  const numOpts = (num.payload as { options?: string[] }).options ?? []
+  assert(num.questionType === 'MULTIPLE_CHOICE' && numOpts.length === 4 && numOpts.every((o) => /^\d+$/.test(o)) && new Set(numOpts).size === 4, `number answer -> nearby numbers (${numOpts.join(',')})`)
   const lonely = parseTxt('Question: only one?\nAnswer: yes-ish').rows
   assert(buildQuestion(lonely[0], lonely, 'choices').questionType === 'TEXT_INPUT', 'too few other answers -> falls back to typed answer')
   const tagged = parseCsv('question,answer,topic,skill\nq?,a,எழுத்துகள்,Reading').rows[0]
