@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import Link from 'next/link'
-import { FiPlus } from 'react-icons/fi'
+import { FiPlus, FiUpload } from 'react-icons/fi'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
 import { fetchQuestionSetUsageCounts } from '@/lib/gameRoomV2/questionSetUsage'
 import { GameV2Error } from '@/components/gameRoomV2'
 import { GameRoomShell, GameRoomUnavailable } from '@/components/gameRoomV2/shell/GameRoomShell'
-import { PageHeader, primaryLinkButton } from '@/components/gameRoomV2/shell/ui'
+import { PageHeader, primaryLinkButton, secondaryLinkButton } from '@/components/gameRoomV2/shell/ui'
 import { ensureBuiltinContent } from '@/lib/gameRoomV2/builtin/ensure'
 import { isBuiltinSetId } from '@/lib/gameRoomV2/builtin/catalog'
 import { allTopicSummaries } from '@/lib/gameRoomV2/builtin/summaries'
@@ -122,9 +122,14 @@ export default async function QuestionSetLibraryPage({ searchParams }: { searchP
           backHref="/gameroom-v2"
           backLabel="Game Room"
           actions={
-            <Link href="/gameroom-v2/builder/new" className={primaryLinkButton}>
-              <FiPlus className="w-4 h-4" aria-hidden /> Create Question Set
-            </Link>
+            <>
+              <Link href="/gameroom-v2/library/import" className={secondaryLinkButton}>
+                <FiUpload className="w-4 h-4" aria-hidden /> Import from file
+              </Link>
+              <Link href="/gameroom-v2/builder/new" className={primaryLinkButton}>
+                <FiPlus className="w-4 h-4" aria-hidden /> Create Question Set
+              </Link>
+            </>
           }
         />
 
