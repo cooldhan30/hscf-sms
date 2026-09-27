@@ -10,6 +10,11 @@ import { toScreen, type TdLayout } from './layout'
 
 type Ctx = CanvasRenderingContext2D
 
+// Height of a ground circle relative to its width in the raised 3/4 view.
+// Kept gentle (not a flat 0.4) so round things read as round, not
+// stretched sideways.
+export const TILT = 0.64
+
 function ellipse(g: Ctx, x: number, y: number, rx: number, ry: number, fill: string) {
   g.fillStyle = fill
   g.beginPath()
@@ -44,6 +49,8 @@ export interface TowerDrawOpts {
   build: number // 0..1 construction progress (1 = done)
   rally: boolean
   selected: boolean
+  // 0..1 how close a slow tower is to its next shot (charge-up glow).
+  charge?: number
 }
 
 const LEVEL_SCALE = [1, 1.1, 1.22]
@@ -53,11 +60,11 @@ function stoneBase(g: Ctx, x: number, y: number, w: number, h: number, top: stri
   g.beginPath()
   g.moveTo(x - w, y)
   g.lineTo(x - w, y + h)
-  g.ellipse(x, y + h, w, w * 0.42, 0, Math.PI, 0, true)
+  g.ellipse(x, y + h, w, w * TILT, 0, Math.PI, 0, true)
   g.lineTo(x + w, y)
   g.closePath()
   g.fill()
-  ellipse(g, x, y, w, w * 0.42, top)
+  ellipse(g, x, y, w, w * TILT, top)
 }
 
 function stars(g: Ctx, x: number, y: number, c: number, level: number) {
@@ -98,8 +105,8 @@ function drawVel(g: Ctx, x: number, y: number, c: number, level: number, o: Towe
     g.stroke()
   }
   // Platform.
-  ellipse(g, x, y - h, c * 0.24 * s, c * 0.1 * s, '#0f766e')
-  ellipse(g, x, y - h - c * 0.02, c * 0.2 * s, c * 0.08 * s, '#14b8a6')
+  ellipse(g, x, y - h, c * 0.24 * s, c * 0.24 * s * TILT, '#0f766e')
+  ellipse(g, x, y - h - c * 0.02, c * 0.2 * s, c * 0.2 * s * TILT, '#14b8a6')
   // Spear thrower (aims).
   g.save()
   g.translate(x, y - h - c * 0.05)
@@ -118,6 +125,11 @@ function drawVel(g: Ctx, x: number, y: number, c: number, level: number, o: Towe
     [c * 0.34, 0],
     [c * 0.26, c * 0.035],
   ], '#cbd5e1')
+  if (o.recoil > 0.55) {
+    // Launch flash.
+    const f = (o.recoil - 0.55) / 0.45
+    ellipse(g, c * 0.4, 0, c * 0.09 * f, c * 0.05 * f, `rgba(254,240,138,${0.9 * f})`)
+  }
   if (level >= 3) {
     g.strokeStyle = '#fde68a'
     g.beginPath()
@@ -162,21 +174,21 @@ function drawYanai(g: Ctx, x: number, y: number, c: number, level: number, o: To
   g.lineWidth = Math.max(1, c * 0.015)
   for (let k = 1; k < 3; k++) {
     g.beginPath()
-    g.ellipse(x, y - h + (h * k) / 3, w, w * 0.42, 0, 0.15, Math.PI - 0.15)
+    g.ellipse(x, y - h + (h * k) / 3, w, w * TILT, 0, 0.15, Math.PI - 0.15)
     g.stroke()
   }
   if (level >= 2) {
     g.strokeStyle = '#44403c'
     g.lineWidth = Math.max(2, c * 0.035)
     g.beginPath()
-    g.ellipse(x, y - h * 0.35, w, w * 0.42, 0, 0.1, Math.PI - 0.1)
+    g.ellipse(x, y - h * 0.35, w, w * TILT, 0, 0.1, Math.PI - 0.1)
     g.stroke()
   }
   if (level >= 3) {
     g.strokeStyle = '#eab308'
     g.lineWidth = Math.max(2, c * 0.03)
     g.beginPath()
-    g.ellipse(x, y - h, w, w * 0.42, 0, 0, Math.PI * 2)
+    g.ellipse(x, y - h, w, w * TILT, 0, 0, Math.PI * 2)
     g.stroke()
     // Tusks on the front.
     g.strokeStyle = '#fafaf9'
@@ -191,7 +203,7 @@ function drawYanai(g: Ctx, x: number, y: number, c: number, level: number, o: To
     g.lineCap = 'butt'
   }
   // Cannon on a turntable.
-  ellipse(g, x, y - h, w * 0.55, w * 0.24, '#57534e')
+  ellipse(g, x, y - h, w * 0.55, w * 0.55 * TILT, '#57534e')
   g.save()
   g.translate(x, y - h - c * 0.05)
   g.rotate(o.angle)
@@ -204,6 +216,8 @@ function drawYanai(g: Ctx, x: number, y: number, c: number, level: number, o: To
   g.fillRect(c * 0.26 * s, -c * 0.12 * s, c * 0.08, c * 0.24 * s)
   g.fillStyle = '#1c1917'
   ellipse(g, c * 0.34 * s, 0, c * 0.03, c * 0.08 * s, '#1c1917')
+  const ch = o.charge ?? 0
+  if (ch > 0.7) ellipse(g, c * 0.35 * s, 0, c * 0.05 * ((ch - 0.7) / 0.3), c * 0.07 * s * ((ch - 0.7) / 0.3), `rgba(251,146,60,${(ch - 0.7) / 0.3})`)
   g.restore()
   ellipse(g, x, y - h - c * 0.05, c * 0.1, c * 0.07, '#78350f')
   if (o.recoil > 0.5) {
@@ -220,7 +234,7 @@ function drawPani(g: Ctx, x: number, y: number, c: number, level: number, o: Tow
   // Pillars.
   g.fillStyle = '#e2e8f0'
   for (const px of [-0.2, 0.2]) g.fillRect(x + px * c * s - c * 0.035, y - c * 0.32 * s, c * 0.07, c * 0.32 * s)
-  ellipse(g, x, y - c * 0.32 * s, c * 0.28 * s, c * 0.1 * s, '#bae6fd')
+  ellipse(g, x, y - c * 0.32 * s, c * 0.28 * s, c * 0.28 * s * TILT, '#bae6fd')
   const bob = Math.sin(o.time / 400) * c * 0.04
   const glow = 0.35 + 0.4 * o.recoil
   ellipse(g, x, y - c * 0.62 * s + bob, c * 0.22 * s, c * 0.22 * s, `rgba(125,211,252,${glow})`)
@@ -309,19 +323,21 @@ function drawKuri(g: Ctx, x: number, y: number, c: number, level: number, o: Tow
     g.moveTo(-pull, 0)
     g.lineTo(c * 0.3, 0)
     g.stroke()
+    const ch = o.charge ?? 0
+    if (ch > 0.6) ellipse(g, c * 0.31, 0, c * 0.07 * ((ch - 0.6) / 0.4), c * 0.07 * ((ch - 0.6) / 0.4), `rgba(216,180,254,${0.8 * ((ch - 0.6) / 0.4)})`)
   }
   g.restore()
 }
 
 export function drawTower(g: Ctx, type: TowerTypeId, level: number, x: number, y: number, c: number, o: TowerDrawOpts) {
   const b = Math.max(0.001, o.build)
-  shadow(g, x + c * 0.06, y + c * 0.12, c * 0.4, c * 0.16)
-  if (o.rally) ellipse(g, x, y + c * 0.05, c * (0.45 + 0.05 * Math.sin(o.time / 90)), c * 0.2, 'rgba(249,115,22,0.35)')
+  shadow(g, x + c * 0.06, y + c * 0.12, c * 0.4, c * 0.4 * TILT * 0.75)
+  if (o.rally) { const rr = c * (0.45 + 0.05 * Math.sin(o.time / 90)); ellipse(g, x, y + c * 0.05, rr, rr * TILT, 'rgba(249,115,22,0.35)') }
   if (o.selected) {
     g.strokeStyle = '#facc15'
     g.lineWidth = Math.max(2, c * 0.04)
     g.beginPath()
-    g.ellipse(x, y + c * 0.08, c * 0.44, c * 0.19, 0, 0, Math.PI * 2)
+    g.ellipse(x, y + c * 0.08, c * 0.44, c * 0.44 * TILT, 0, 0, Math.PI * 2)
     g.stroke()
   }
   g.save()
@@ -339,20 +355,20 @@ export function drawTower(g: Ctx, type: TowerTypeId, level: number, x: number, y
 }
 
 export function drawPad(g: Ctx, x: number, y: number, c: number, time: number, highlight: boolean, invite: boolean) {
-  shadow(g, x + c * 0.03, y + c * 0.1, c * 0.34, c * 0.14, 0.18)
+  shadow(g, x + c * 0.03, y + c * 0.1, c * 0.34, c * 0.34 * TILT * 0.8, 0.18)
   stoneBase(g, x, y, c * 0.32, c * 0.07, '#d6d3d1', '#a8a29e')
   // Kolam-style dots on the foundation.
   g.fillStyle = 'rgba(255,255,255,0.8)'
   for (let k = 0; k < 8; k++) {
     const a = (k / 8) * Math.PI * 2
-    ellipse(g, x + Math.cos(a) * c * 0.2, y + Math.sin(a) * c * 0.085, c * 0.018, c * 0.012, 'rgba(255,255,255,0.85)')
+    ellipse(g, x + Math.cos(a) * c * 0.2, y + Math.sin(a) * c * 0.2 * TILT, c * 0.018, c * 0.013, 'rgba(255,255,255,0.85)')
   }
   const pulse = invite ? 0.5 + 0.5 * Math.sin(time / 260) : 0
   if (highlight || invite) {
     g.strokeStyle = highlight ? '#facc15' : `rgba(255,255,255,${0.5 + pulse * 0.5})`
     g.lineWidth = Math.max(2, c * (highlight ? 0.05 : 0.03))
     g.beginPath()
-    g.ellipse(x, y, c * (0.36 + pulse * 0.04), c * (0.155 + pulse * 0.02), 0, 0, Math.PI * 2)
+    g.ellipse(x, y, c * (0.36 + pulse * 0.04), c * (0.36 + pulse * 0.04) * TILT, 0, 0, Math.PI * 2)
     g.stroke()
   }
   // Plus sign.
@@ -381,6 +397,11 @@ export interface EnemyDrawOpts {
   enraged: boolean
   alpha?: number
   scale?: number
+  // 0..1 squash from a fresh hit, and a spinning defeat.
+  squash?: number
+  spin?: number
+  // The boss raising its staff to summon.
+  casting?: boolean
 }
 
 function eyes(g: Ctx, x: number, y: number, r: number, dir: number, color = '#ffffff', pupil = '#111827') {
@@ -411,7 +432,9 @@ export function drawEnemy(g: Ctx, kind: EnemyKind, x: number, y: number, r: numb
   g.save()
   g.globalAlpha = alpha
   g.translate(x, y)
-  g.scale(sc, sc)
+  const sq = o.squash ?? 0
+  g.scale(sc * (1 + 0.14 * sq), sc * (1 - 0.12 * sq))
+  if (o.spin) g.rotate(o.spin)
   const d = o.facing
   shadow(g, 0, r * 0.95, r * 0.95, r * 0.32, 0.25)
   const tint = (base: string) => (o.flash ? '#ffffff' : o.frozen ? '#bfdbfe' : base)
@@ -447,8 +470,8 @@ export function drawEnemy(g: Ctx, kind: EnemyKind, x: number, y: number, r: numb
     ellipse(g, d * r * 0.85, -r * 0.45 - bob, r * 0.08, r * 0.1, '#111827')
   } else if (kind === 'swarm') {
     // Small green beetles scuttling in a hurry.
-    const phase = t / 40 + o.id * 3
-    const jit = Math.sin(phase * 1.7) * r * 0.06
+    const phase = t / (36 + (o.id % 5) * 4) + o.id * 3
+    const jit = Math.sin(phase * 1.7) * r * 0.1 + Math.sin(t / 300 + o.id) * r * 0.15
     g.strokeStyle = '#365314'
     g.lineWidth = Math.max(1, r * 0.14)
     for (let k = -1; k <= 1; k++) {
@@ -556,6 +579,15 @@ export function drawEnemy(g: Ctx, kind: EnemyKind, x: number, y: number, r: numb
     g.lineTo(d * r * 0.85, -r * 0.9 + float)
     g.stroke()
     ellipse(g, d * r * 0.86, -r * 1.0 + float, r * 0.14, r * 0.14, o.enraged ? '#f43f5e' : '#a78bfa')
+    if (o.casting) {
+      const pul = 0.5 + 0.5 * Math.sin(t / 60)
+      ellipse(g, d * r * 0.86, -r * 1.0 + float, r * (0.3 + 0.15 * pul), r * (0.3 + 0.15 * pul), 'rgba(196,181,253,0.45)')
+      g.strokeStyle = 'rgba(221,214,254,0.9)'
+      g.lineWidth = Math.max(1.5, r * 0.05)
+      g.beginPath()
+      g.arc(d * r * 0.86, -r * 1.0 + float, r * (0.45 + 0.2 * pul), 0, Math.PI * 2)
+      g.stroke()
+    }
   }
   if (o.frozen) {
     g.fillStyle = 'rgba(224,242,254,0.55)'
@@ -720,15 +752,43 @@ export function drawGate(g: Ctx, x: number, y: number, c: number, time: number, 
 }
 
 // ---------------------------------------------------------------------
-// Terrain: painted once per layout across the whole viewport.
+// Terrain: painted once per layout across the whole viewport. Each map
+// has its own identity (river country, temple hills, a farming village);
+// the playfield keeps its natural proportions and any extra screen area
+// simply reveals more of that world. Returns the ambient emitters the
+// renderer animates every frame (water, lamps, flags, chimney smoke).
 
-export function paintTerrain(g: Ctx, l: TdLayout, map: TdMap) {
+export type MapTheme = 'river' | 'temple' | 'village'
+
+export interface Ambient {
+  theme: MapTheme
+  water: [number, number][] | null
+  lamps: { x: number; y: number }[]
+  flags: { x1: number; y1: number; x2: number; y2: number }[]
+  chimneys: { x: number; y: number }[]
+}
+
+export function themeFor(map: TdMap): MapTheme {
+  return map.id === 'temple-steps' ? 'temple' : map.id === 'village-road' ? 'village' : 'river'
+}
+
+const PALETTE: Record<MapTheme, { top: string; bottom: string; tuft: string }> = {
+  river: { top: '#8fd06b', bottom: '#79bd57', tuft: 'rgba(52,120,40,0.55)' },
+  temple: { top: '#a9cf73', bottom: '#8db35c', tuft: 'rgba(84,110,40,0.5)' },
+  village: { top: '#a2d46c', bottom: '#86c257', tuft: 'rgba(70,120,35,0.5)' },
+}
+
+export function paintTerrain(g: Ctx, l: TdLayout, map: TdMap): Ambient {
   const { width: W, height: H, cell: c } = l
+  const theme = themeFor(map)
+  const pal = PALETTE[theme]
   const rand = mulberry32(seedFromString(`${map.id}:${Math.round(W)}x${Math.round(H)}`))
-  // Meadow base with soft light/dark patches.
+  const ambient: Ambient = { theme, water: null, lamps: [], flags: [], chimneys: [] }
+
+  // Ground with soft light/dark patches and grass tufts.
   const grad = g.createLinearGradient(0, 0, 0, H)
-  grad.addColorStop(0, '#8fd06b')
-  grad.addColorStop(1, '#79bd57')
+  grad.addColorStop(0, pal.top)
+  grad.addColorStop(1, pal.bottom)
   g.fillStyle = grad
   g.fillRect(0, 0, W, H)
   for (let k = 0; k < 90; k++) {
@@ -737,13 +797,12 @@ export function paintTerrain(g: Ctx, l: TdLayout, map: TdMap) {
     const r = c * (0.6 + rand() * 2.2)
     g.fillStyle = rand() < 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(21,83,45,0.07)'
     g.beginPath()
-    g.ellipse(x, y, r, r * 0.6, rand() * Math.PI, 0, Math.PI * 2)
+    g.ellipse(x, y, r, r * 0.7, rand() * Math.PI, 0, Math.PI * 2)
     g.fill()
   }
-  // Grass tufts everywhere.
-  g.strokeStyle = 'rgba(52,120,40,0.55)'
+  g.strokeStyle = pal.tuft
   g.lineWidth = Math.max(1, c * 0.02)
-  for (let k = 0; k < (W * H) / (c * c) * 2.2; k++) {
+  for (let k = 0; k < ((W * H) / (c * c)) * 2.2; k++) {
     const x = rand() * W
     const y = rand() * H
     g.beginPath()
@@ -757,33 +816,21 @@ export function paintTerrain(g: Ctx, l: TdLayout, map: TdMap) {
   }
 
   const inField = (x: number, y: number, pad = 0) => x > l.ox - pad && x < l.ox + l.fieldW + pad && y > l.oy - pad && y < l.oy + l.fieldH + pad
+  const { gate, fort } = gateAndFort(l, map)
+  const nearEnds = (x: number, y: number, r: number) => Math.hypot(x - gate.sx, y - gate.sy) < r || Math.hypot(x - fort.sx, y - fort.sy) < r * 1.3
+  const inHudZone = (x: number, y: number) => (y < 70 && x > W * 0.3 && x < W * 0.7) || (y > H - 100 && (x < 480 || x > W - 300))
 
-  // A winding river beyond the field edge (decoration only).
-  g.lineCap = 'round'
-  g.lineJoin = 'round'
-  const riverPts: [number, number][] = []
-  const alongTop = l.oy > c * 1.2
-  for (let k = 0; k <= 12; k++) {
-    const u = k / 12
-    if (alongTop) riverPts.push([u * W, l.oy * 0.45 + Math.sin(u * 6 + 1) * c * 0.35])
-    else riverPts.push([l.ox * 0.45 + Math.sin(u * 6 + 1) * c * 0.35, u * H])
-  }
-  const riverVisible = alongTop ? l.oy > c * 1.2 : l.ox > c * 1.2
-  if (riverVisible) {
-    for (const [wd, col] of [[c * 0.95, '#c9b98a'], [c * 0.75, '#5bb8e0'], [c * 0.35, '#8fd3f0']] as [number, string][]) {
-      g.strokeStyle = col
-      g.lineWidth = wd
-      g.beginPath()
-      riverPts.forEach(([x, y], i) => (i === 0 ? g.moveTo(x, y) : g.lineTo(x, y)))
-      g.stroke()
-    }
-    for (let k = 1; k < riverPts.length; k += 2) ellipse(g, riverPts[k][0] + c * 0.15, riverPts[k][1] + c * 0.05, c * 0.1, c * 0.06, '#4d7c0f')
-  }
-
-  // Trees and bushes: dense outside the field, sparse inside (never on the path or pads).
+  // Free cells inside the field (not road, not a build spot).
   const blocked = new Set<string>()
   pathCells(map.path).forEach((k) => blocked.add(k))
   map.pads.forEach((p) => blocked.add(`${Math.floor(p.x)},${Math.floor(p.y)}`))
+  const freeCells: { sx: number; sy: number }[] = []
+  for (let gx = 0; gx < GRID_COLS; gx++)
+    for (let gy = 0; gy < GRID_ROWS; gy++) if (!blocked.has(`${gx},${gy}`)) freeCells.push(toScreen(l, gx + 0.5, gy + 0.5))
+  for (let i = freeCells.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[freeCells[i], freeCells[j]] = [freeCells[j], freeCells[i]]
+  }
   const onFreeCell = (sx: number, sy: number) => {
     const u = (sx - l.ox) / c
     const v = (sy - l.oy) / c
@@ -792,8 +839,123 @@ export function paintTerrain(g: Ctx, l: TdLayout, map: TdMap) {
     if (wx < 0 || wy < 0 || wx >= GRID_COLS || wy >= GRID_ROWS) return true
     return !blocked.has(`${Math.floor(wx)},${Math.floor(wy)}`)
   }
-  const tree = (x: number, y: number, r: number) => {
-    shadow(g, x + r * 0.3, y + r * 0.55, r * 0.95, r * 0.4, 0.2)
+  // Spots in the margins around the field (where extra screen reveals more world).
+  const marginSpots = (n: number, minGap: number) => {
+    const out: { x: number; y: number }[] = []
+    for (let k = 0; k < n * 40 && out.length < n; k++) {
+      const x = c * 0.4 + rand() * (W - c * 0.8)
+      const y = c * 0.6 + rand() * (H - c * 1.0)
+      if (inField(x, y, c * 0.45) || nearEnds(x, y, c * 1.5) || inHudZone(x, y)) continue
+      if (out.some((o) => Math.hypot(o.x - x, o.y - y) < minGap)) continue
+      out.push({ x, y })
+    }
+    return out
+  }
+
+  // --- Theme ground features ------------------------------------------
+  g.lineCap = 'round'
+  g.lineJoin = 'round'
+  if (theme === 'river') {
+    // A winding river beyond the field edge, with sandy banks and reeds.
+    const riverPts: [number, number][] = []
+    const alongTop = l.oy > c * 1.2 && l.portrait
+    for (let k = 0; k <= 16; k++) {
+      const u = k / 16
+      if (alongTop) riverPts.push([u * W, l.oy * 0.45 + Math.sin(u * 6 + 1) * c * 0.35])
+      else riverPts.push([Math.max(c * 0.6, l.ox * 0.45) + Math.sin(u * 6 + 1) * c * 0.35, -c + u * (H + 2 * c)])
+    }
+    for (const [wd, col] of [[c * 1.05, '#d9c79a'], [c * 0.82, '#4fb0dc'], [c * 0.5, '#6cc3e8'], [c * 0.22, '#9dd9f2']] as [number, string][]) {
+      g.strokeStyle = col
+      g.lineWidth = wd
+      g.beginPath()
+      riverPts.forEach(([x, y], i) => (i === 0 ? g.moveTo(x, y) : g.lineTo(x, y)))
+      g.stroke()
+    }
+    for (let k = 1; k < riverPts.length; k++) {
+      const [x, y] = riverPts[k]
+      if (rand() < 0.5) ellipse(g, x + c * 0.18, y + c * 0.08, c * 0.09, c * 0.06, '#3f7d20')
+      // Reeds on the banks.
+      for (const side of [-1, 1]) {
+        if (rand() < 0.45) continue
+        const rx = x + side * c * 0.5 * (alongTop ? 0 : 1)
+        const ry = y + side * c * 0.5 * (alongTop ? 1 : 0)
+        g.strokeStyle = '#4d7c0f'
+        g.lineWidth = Math.max(1, c * 0.025)
+        for (let r = 0; r < 4; r++) {
+          g.beginPath()
+          g.moveTo(rx + r * c * 0.04, ry)
+          g.lineTo(rx + r * c * 0.04 + (r - 1.5) * c * 0.03, ry - c * (0.18 + rand() * 0.1))
+          g.stroke()
+        }
+        ellipse(g, rx + c * 0.06, ry - c * 0.24, c * 0.025, c * 0.06, '#7c4a1e')
+      }
+    }
+    ambient.water = riverPts
+  } else if (theme === 'temple') {
+    // Distant hills along the top edge and a stone plaza around the fort.
+    g.fillStyle = 'rgba(120,140,110,0.35)'
+    g.beginPath()
+    g.moveTo(0, 0)
+    for (let x = 0; x <= W; x += c * 0.5) g.lineTo(x, Math.min(l.oy * 0.8, c * 0.9) + Math.sin(x / (c * 2.3)) * c * 0.25)
+    g.lineTo(W, 0)
+    g.fill()
+    const pz = { x: fort.sx, y: fort.sy + c * 0.15 }
+    g.fillStyle = '#d6cdb8'
+    g.beginPath()
+    g.ellipse(pz.x, pz.y, c * 1.7, c * 1.7 * TILT, 0, 0, Math.PI * 2)
+    g.fill()
+    g.strokeStyle = 'rgba(120,105,80,0.35)'
+    g.lineWidth = 1
+    for (let r = 0.5; r < 1.7; r += 0.4) {
+      g.beginPath()
+      g.ellipse(pz.x, pz.y, c * r, c * r * TILT, 0, 0, Math.PI * 2)
+      g.stroke()
+    }
+  } else {
+    // Crop fields: striped patches in the margins.
+    for (const f of marginSpots(4, c * 3)) {
+      const fw = c * (1.3 + rand() * 0.8)
+      const fh = c * (0.8 + rand() * 0.5)
+      g.save()
+      g.translate(f.x, f.y)
+      g.rotate((rand() - 0.5) * 0.3)
+      g.fillStyle = rand() < 0.5 ? '#c8b35a' : '#7fb04a'
+      g.fillRect(-fw / 2, -fh / 2, fw, fh)
+      g.strokeStyle = 'rgba(90,70,30,0.35)'
+      g.lineWidth = Math.max(1, c * 0.03)
+      for (let yy = -fh / 2 + c * 0.1; yy < fh / 2; yy += c * 0.14) {
+        g.beginPath()
+        g.moveTo(-fw / 2 + 2, yy)
+        g.lineTo(fw / 2 - 2, yy)
+        g.stroke()
+      }
+      g.restore()
+    }
+  }
+
+  // --- Objects (depth-sorted): trees, bushes, rocks, flowers + theme props ---
+  type Obj = { x: number; y: number; draw: () => void }
+  const objs: Obj[] = []
+  const tree = (x: number, y: number, r: number, palm = false) => {
+    shadow(g, x + r * 0.3, y + r * 0.55, r * 0.95, r * 0.5, 0.2)
+    if (palm) {
+      g.strokeStyle = '#8b5a2b'
+      g.lineWidth = r * 0.18
+      g.beginPath()
+      g.moveTo(x, y + r * 0.5)
+      g.quadraticCurveTo(x + r * 0.15, y - r * 0.4, x + r * 0.05, y - r * 0.9)
+      g.stroke()
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * Math.PI * 2
+        g.strokeStyle = k % 2 ? '#2f8a3a' : '#3fa04a'
+        g.lineWidth = r * 0.16
+        g.beginPath()
+        g.moveTo(x + r * 0.05, y - r * 0.9)
+        g.quadraticCurveTo(x + Math.cos(a) * r * 0.6, y - r * 1.2 + Math.sin(a) * r * 0.2, x + Math.cos(a) * r * 0.9, y - r * 0.7 + Math.sin(a) * r * 0.35)
+        g.stroke()
+      }
+      return
+    }
     g.fillStyle = '#6b4423'
     g.fillRect(x - r * 0.12, y, r * 0.24, r * 0.55)
     ellipse(g, x, y - r * 0.2, r, r * 0.9, '#2f8a3a')
@@ -801,45 +963,142 @@ export function paintTerrain(g: Ctx, l: TdLayout, map: TdMap) {
     ellipse(g, x + r * 0.35, y - r * 0.1, r * 0.35, r * 0.3, '#3a9a43')
   }
   const bush = (x: number, y: number, r: number) => {
-    shadow(g, x + r * 0.2, y + r * 0.4, r, r * 0.35, 0.18)
-    ellipse(g, x, y, r, r * 0.7, '#3f9d45')
-    ellipse(g, x - r * 0.35, y - r * 0.2, r * 0.5, r * 0.4, '#58b85c')
+    shadow(g, x + r * 0.2, y + r * 0.4, r, r * 0.45, 0.18)
+    ellipse(g, x, y, r, r * 0.75, '#3f9d45')
+    ellipse(g, x - r * 0.35, y - r * 0.2, r * 0.5, r * 0.42, '#58b85c')
     if (rand() < 0.5) for (let k = 0; k < 3; k++) ellipse(g, x + (rand() - 0.5) * r, y + (rand() - 0.5) * r * 0.5, r * 0.1, r * 0.1, rand() < 0.5 ? '#f472b6' : '#fde047')
   }
-  const pts: { x: number; y: number; kind: 'tree' | 'bush' | 'rock' | 'flowers' }[] = []
-  const tries = Math.round(((W * H) / (c * c)) * 0.9)
+  const rock = (x: number, y: number) => {
+    shadow(g, x + c * 0.04, y + c * 0.06, c * 0.14, c * 0.08, 0.2)
+    ellipse(g, x, y, c * 0.13, c * 0.1, theme === 'temple' ? '#bdb5a6' : '#a8a29e')
+    ellipse(g, x - c * 0.03, y - c * 0.03, c * 0.06, c * 0.045, '#d6d3d1')
+  }
+  const tries = Math.round(((W * H) / (c * c)) * 0.85)
   for (let k = 0; k < tries; k++) {
     const x = rand() * W
     const y = rand() * H
     const inside = inField(x, y, c * 0.15)
-    if (inside && (!onFreeCell(x, y) || rand() < 0.75)) continue
-    if (!inside && y < 70 && x > W * 0.35 && x < W * 0.65) continue // keep the HUD centre calm
+    if (inside && (!onFreeCell(x, y) || rand() < 0.78)) continue
+    if (!inside && (inHudZone(x, y) || nearEnds(x, y, c * 1.1))) continue
     const r = rand()
-    pts.push({ x, y, kind: inside ? (r < 0.35 ? 'bush' : r < 0.55 ? 'rock' : 'flowers') : r < 0.5 ? 'tree' : r < 0.72 ? 'bush' : r < 0.85 ? 'rock' : 'flowers' })
-  }
-  pts.sort((a, b) => a.y - b.y)
-  for (const p of pts) {
-    if (p.kind === 'tree') tree(p.x, p.y, c * (0.32 + rand() * 0.22))
-    else if (p.kind === 'bush') bush(p.x, p.y, c * (0.18 + rand() * 0.1))
-    else if (p.kind === 'rock') {
-      shadow(g, p.x + c * 0.04, p.y + c * 0.06, c * 0.14, c * 0.06, 0.2)
-      ellipse(g, p.x, p.y, c * 0.13, c * 0.09, '#a8a29e')
-      ellipse(g, p.x - c * 0.03, p.y - c * 0.03, c * 0.06, c * 0.04, '#d6d3d1')
-    } else {
-      for (let k = 0; k < 4; k++) ellipse(g, p.x + (rand() - 0.5) * c * 0.4, p.y + (rand() - 0.5) * c * 0.25, c * 0.035, c * 0.035, ['#f472b6', '#fde047', '#ffffff', '#fb923c'][k])
-    }
+    const palm = theme === 'village' && r < 0.25
+    if (inside) objs.push({ x, y, draw: () => (r < 0.35 ? bush(x, y, c * (0.18 + rand() * 0.1)) : r < 0.55 ? rock(x, y) : void [0, 1, 2, 3].forEach((q) => ellipse(g, x + (rand() - 0.5) * c * 0.4, y + (rand() - 0.5) * c * 0.25, c * 0.035, c * 0.035, ['#f472b6', '#fde047', '#ffffff', '#fb923c'][q]))) })
+    else objs.push({ x, y, draw: () => (r < 0.5 ? tree(x, y, c * (0.32 + rand() * 0.22), palm) : r < 0.72 ? bush(x, y, c * (0.18 + rand() * 0.1)) : rock(x, y)) })
   }
 
-  // The road: extended to the screen edges at both ends.
-  const path = map.path.map((p) => toScreen(l, p.x, p.y))
-  const extend = (a: { sx: number; sy: number }, b: { sx: number; sy: number }) => {
-    const dx = a.sx - b.sx
-    const dy = a.sy - b.sy
-    const len = Math.hypot(dx, dy) || 1
-    return { sx: a.sx + (dx / len) * Math.max(W, H), sy: a.sy + (dy / len) * Math.max(W, H) }
+  if (theme === 'temple') {
+    // Small shrines in the margins, stone lamps and prayer-flag strings.
+    for (const sp of marginSpots(3, c * 3.5)) {
+      objs.push({
+        x: sp.x,
+        y: sp.y,
+        draw: () => {
+          shadow(g, sp.x + c * 0.1, sp.y + c * 0.12, c * 0.55, c * 0.3, 0.22)
+          g.fillStyle = '#cdbf9f'
+          g.fillRect(sp.x - c * 0.45, sp.y - c * 0.1, c * 0.9, c * 0.22)
+          let top = sp.y - c * 0.1
+          let w = c * 0.34
+          for (let k = 0; k < 4; k++) {
+            const nw = w * 0.8
+            poly(g, [[sp.x - w, top], [sp.x + w, top], [sp.x + nw, top - c * 0.16], [sp.x - nw, top - c * 0.16]], k % 2 ? '#d9b27a' : '#c99a5c', '#8a6232', 1)
+            top -= c * 0.16
+            w = nw
+          }
+          ellipse(g, sp.x, top - c * 0.05, c * 0.05, c * 0.05, '#eab308')
+          g.fillStyle = '#5b3a1a'
+          g.fillRect(sp.x - c * 0.07, sp.y - c * 0.08, c * 0.14, c * 0.18)
+        },
+      })
+    }
+    const lampSpots = [...freeCells.slice(0, 3).map((f) => ({ x: f.sx, y: f.sy })), ...marginSpots(4, c * 2)]
+    for (const sp of lampSpots) {
+      ambient.lamps.push({ x: sp.x, y: sp.y - c * 0.42 })
+      objs.push({
+        x: sp.x,
+        y: sp.y,
+        draw: () => {
+          shadow(g, sp.x + c * 0.04, sp.y + c * 0.06, c * 0.14, c * 0.08, 0.22)
+          g.fillStyle = '#a8a29e'
+          g.fillRect(sp.x - c * 0.05, sp.y - c * 0.36, c * 0.1, c * 0.38)
+          ellipse(g, sp.x, sp.y - c * 0.38, c * 0.11, c * 0.05, '#78716c')
+          ellipse(g, sp.x, sp.y, c * 0.1, c * 0.05, '#78716c')
+        },
+      })
+    }
+    const fl = marginSpots(4, c * 3)
+    for (let k = 0; k + 1 < fl.length; k += 2) if (Math.hypot(fl[k].x - fl[k + 1].x, fl[k].y - fl[k + 1].y) < c * 5) ambient.flags.push({ x1: fl[k].x, y1: fl[k].y - c * 0.6, x2: fl[k + 1].x, y2: fl[k + 1].y - c * 0.6 })
+  } else if (theme === 'village') {
+    // Thatched huts (with chimneys), fences and haystacks.
+    const huts = [...marginSpots(5, c * 2.2), ...freeCells.slice(0, 1).map((f) => ({ x: f.sx, y: f.sy + c * 0.1 }))]
+    for (const sp of huts) {
+      ambient.chimneys.push({ x: sp.x + c * 0.2, y: sp.y - c * 0.72 })
+      objs.push({
+        x: sp.x,
+        y: sp.y,
+        draw: () => {
+          shadow(g, sp.x + c * 0.1, sp.y + c * 0.08, c * 0.5, c * 0.25, 0.22)
+          g.fillStyle = '#d4a574'
+          g.fillRect(sp.x - c * 0.36, sp.y - c * 0.36, c * 0.72, c * 0.4)
+          g.fillStyle = '#b07a4a'
+          g.fillRect(sp.x - c * 0.36, sp.y - c * 0.02, c * 0.72, c * 0.06)
+          poly(g, [[sp.x - c * 0.46, sp.y - c * 0.34], [sp.x + c * 0.46, sp.y - c * 0.34], [sp.x, sp.y - c * 0.78]], '#c9a14a', '#8a6a24', 1.5)
+          g.strokeStyle = 'rgba(138,106,36,0.6)'
+          g.lineWidth = 1
+          for (let k = 1; k < 4; k++) {
+            g.beginPath()
+            g.moveTo(sp.x - c * 0.46 + k * c * 0.08, sp.y - c * 0.34 - k * c * 0.08)
+            g.lineTo(sp.x + c * 0.46 - k * c * 0.08, sp.y - c * 0.34 - k * c * 0.08)
+            g.stroke()
+          }
+          g.fillStyle = '#5b3a1a'
+          g.fillRect(sp.x - c * 0.07, sp.y - c * 0.2, c * 0.14, c * 0.24)
+          g.fillStyle = '#7c5a3a'
+          g.fillRect(sp.x + c * 0.16, sp.y - c * 0.74, c * 0.08, c * 0.14)
+        },
+      })
+    }
+    for (const sp of marginSpots(4, c * 2)) {
+      objs.push({
+        x: sp.x,
+        y: sp.y,
+        draw: () => {
+          if (rand() < 0.5) {
+            shadow(g, sp.x + c * 0.05, sp.y + c * 0.08, c * 0.26, c * 0.12, 0.2)
+            ellipse(g, sp.x, sp.y - c * 0.1, c * 0.24, c * 0.22, '#e0c060')
+            ellipse(g, sp.x - c * 0.06, sp.y - c * 0.16, c * 0.1, c * 0.08, '#f0d57a')
+          } else {
+            g.strokeStyle = '#8b5e34'
+            g.lineWidth = Math.max(1.5, c * 0.03)
+            for (let k = 0; k < 4; k++) {
+              g.beginPath()
+              g.moveTo(sp.x - c * 0.5 + k * c * 0.33, sp.y)
+              g.lineTo(sp.x - c * 0.5 + k * c * 0.33, sp.y - c * 0.22)
+              g.stroke()
+            }
+            g.beginPath()
+            g.moveTo(sp.x - c * 0.55, sp.y - c * 0.16)
+            g.lineTo(sp.x + c * 0.55, sp.y - c * 0.16)
+            g.moveTo(sp.x - c * 0.55, sp.y - c * 0.07)
+            g.lineTo(sp.x + c * 0.55, sp.y - c * 0.07)
+            g.stroke()
+          }
+        },
+      })
+    }
   }
-  // From off-screen at the gate end, through every corner, into the fort.
+  objs.sort((a2, b2) => a2.y - b2.y)
+  for (const o of objs) o.draw()
+
+  // --- The road: from off-screen at the gate end into the fort --------
+  const path = map.path.map((p) => toScreen(l, p.x, p.y))
+  const extend = (a2: { sx: number; sy: number }, b2: { sx: number; sy: number }) => {
+    const dx = a2.sx - b2.sx
+    const dy = a2.sy - b2.sy
+    const len = Math.hypot(dx, dy) || 1
+    return { sx: a2.sx + (dx / len) * Math.max(W, H), sy: a2.sy + (dy / len) * Math.max(W, H) }
+  }
   const full = [extend(path[0], path[1]), ...path]
+  const roadCol = theme === 'temple' ? ['#9c8c70', '#d8ccb2', '#e6dcc6'] : theme === 'village' ? ['#9a6e3e', '#d9b27c', '#e6c592'] : ['#a47e4f', '#e2c48d', '#ecd4a3']
   const road = (wd: number, color: string, dash?: number[], off = 0) => {
     g.strokeStyle = color
     g.lineWidth = wd
@@ -850,25 +1109,55 @@ export function paintTerrain(g: Ctx, l: TdLayout, map: TdMap) {
     g.setLineDash([])
   }
   road(c * 0.92, 'rgba(40,50,20,0.18)', undefined, c * 0.06)
-  road(c * 0.92, '#a47e4f')
-  road(c * 0.8, '#e2c48d')
-  road(c * 0.42, '#ecd4a3')
-  road(c * 0.05, 'rgba(164,126,79,0.45)', [c * 0.12, c * 0.22])
-  // Edge stones.
+  road(c * 0.92, roadCol[0])
+  road(c * 0.8, roadCol[1])
+  road(c * 0.42, roadCol[2])
+  if (theme === 'temple') road(c * 0.8, 'rgba(120,105,80,0.25)', [2, c * 0.28])
+  else road(c * 0.05, 'rgba(120,90,50,0.4)', [c * 0.12, c * 0.22])
   for (let i = 1; i < full.length; i++) {
-    const a = full[i - 1]
-    const b = full[i]
-    const len = Math.hypot(b.sx - a.sx, b.sy - a.sy)
-    const nx = -(b.sy - a.sy) / (len || 1)
-    const ny = (b.sx - a.sx) / (len || 1)
+    const a2 = full[i - 1]
+    const b2 = full[i]
+    const len = Math.hypot(b2.sx - a2.sx, b2.sy - a2.sy)
+    const nx = -(b2.sy - a2.sy) / (len || 1)
+    const ny = (b2.sx - a2.sx) / (len || 1)
     for (let d = 0; d < len; d += c * 0.3) {
       const t = d / len
-      const px = a.sx + (b.sx - a.sx) * t
-      const py = a.sy + (b.sy - a.sy) * t
+      const px = a2.sx + (b2.sx - a2.sx) * t
+      const py = a2.sy + (b2.sy - a2.sy) * t
       for (const side of [-1, 1]) {
         if (rand() < 0.35) continue
-        ellipse(g, px + nx * side * c * 0.44, py + ny * side * c * 0.44, c * 0.05, c * 0.035, '#8b6b43')
+        ellipse(g, px + nx * side * c * 0.44, py + ny * side * c * 0.44, c * 0.05, c * 0.04, theme === 'temple' ? '#8a7d66' : '#8b6b43')
       }
+    }
+  }
+  // A wooden bridge where the road crosses the river.
+  if (ambient.water) {
+    const a2 = full[0]
+    const b2 = full[1]
+    let best: { x: number; y: number; d: number } | null = null
+    for (let t = 0; t <= 1; t += 0.002) {
+      const x = a2.sx + (b2.sx - a2.sx) * t
+      const y = a2.sy + (b2.sy - a2.sy) * t
+      for (const [rx, ry] of ambient.water) {
+        const d = Math.hypot(rx - x, ry - y)
+        if (!best || d < best.d) best = { x, y, d }
+      }
+    }
+    if (best && best.d < c * 0.8 && best.x > 0 && best.x < W) {
+      const ang = Math.atan2(b2.sy - a2.sy, b2.sx - a2.sx)
+      g.save()
+      g.translate(best.x, best.y)
+      g.rotate(ang)
+      g.fillStyle = 'rgba(0,0,0,0.2)'
+      g.fillRect(-c * 0.7, -c * 0.44, c * 1.4, c * 0.96)
+      g.fillStyle = '#8b5a2b'
+      g.fillRect(-c * 0.7, -c * 0.48, c * 1.4, c * 0.96)
+      g.fillStyle = '#a9723c'
+      for (let k = -6; k <= 6; k++) g.fillRect(k * c * 0.1 - c * 0.04, -c * 0.46, c * 0.08, c * 0.92)
+      g.fillStyle = '#6b4423'
+      g.fillRect(-c * 0.72, -c * 0.54, c * 1.44, c * 0.08)
+      g.fillRect(-c * 0.72, c * 0.46, c * 1.44, c * 0.08)
+      g.restore()
     }
   }
   g.lineCap = 'butt'
@@ -881,13 +1170,14 @@ export function paintTerrain(g: Ctx, l: TdLayout, map: TdMap) {
     for (let r = 1; r <= 2; r++) {
       g.beginPath()
       for (let k = 0; k <= 8; k++) {
-        const a = (k / 8) * Math.PI * 2
+        const a3 = (k / 8) * Math.PI * 2
         const rr = c * 0.1 * r * (k % 2 === 0 ? 1 : 0.7)
-        g.lineTo(k0.sx + Math.cos(a) * rr, k0.sy + Math.sin(a) * rr * 0.6)
+        g.lineTo(k0.sx + Math.cos(a3) * rr, k0.sy + Math.sin(a3) * rr * TILT)
       }
       g.stroke()
     }
   }
+  return ambient
 }
 
 // Screen positions of the gate (enemy entrance) and the fort: just past
