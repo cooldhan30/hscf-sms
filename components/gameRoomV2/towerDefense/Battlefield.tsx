@@ -39,7 +39,7 @@ interface Particle {
   max: number
   size: number
   color: string
-  kind: 'dot' | 'smoke' | 'coin' | 'stone' | 'flake' | 'text' | 'orb' | 'spark' | 'ice' | 'beam' | 'leaf'
+  kind: 'dot' | 'smoke' | 'coin' | 'stone' | 'flake' | 'text' | 'orb' | 'spark' | 'ice' | 'beam'
   text?: string
   tx?: number
   ty?: number
@@ -219,7 +219,11 @@ export function Battlefield({
           }
           case 'kill': {
             ghosts.push({ kind: f.enemy, x: at!.sx, y: at!.sy, r: (f.enemy === 'boss' ? 0.55 : f.enemy === 'brute' ? 0.36 : f.enemy === 'swarm' ? 0.16 : 0.24) * c, t0: now, facing: 1 })
-            if (f.enemy === 'boss') flash = { until: now + 260, color: '255,255,255', dur: 260 }
+            if (f.enemy === 'boss') {
+              flash = { until: now + 380, color: '255,255,255', dur: 380 }
+              particles.push({ x: at!.sx, y: at!.sy, vx: 0, vy: 0, g: 0, life: 1, max: 1, size: c * 4, color: 'rgba(253,224,71,0.95)', kind: 'orb' })
+              burst(at!.sx, at!.sy - c * 0.4, 30, '#facc15', 2.2, 'spark')
+            }
             burst(at!.sx, at!.sy, f.enemy === 'boss' ? 40 : 8, f.enemy === 'boss' ? '#c4b5fd' : '#e7e5e4', f.enemy === 'boss' ? 1.8 : 0.8, 'smoke')
             coinFly(at!.sx, at!.sy, f.enemy === 'boss' ? 10 : Math.min(4, 1 + Math.floor(f.reward / 8)))
             if (f.enemy === 'boss') kick(8, 600)
@@ -259,7 +263,9 @@ export function Battlefield({
             break
           case 'repair': {
             fortHealAt = now
-            for (let i = 0; i < 12; i++) particles.push({ x: l.width / 2 + (Math.random() - 0.5) * c, y: 40, vx: 0, vy: 0, g: 0, life: 0.9, max: 0.9, size: c * 0.1, color: '#4ade80', kind: 'orb', tx: fort.sx, ty: fort.sy - c * 0.4, delay: i * 0.05 })
+            // Healing light travels from the ability bar to the fort, then the walls glitter.
+            for (let i = 0; i < 12; i++) particles.push({ x: l.width - Math.min(200, l.width * 0.3) + (Math.random() - 0.5) * c, y: l.height - 60, vx: 0, vy: 0, g: 0, life: 0.9, max: 0.9, size: c * 0.1, color: '#4ade80', kind: 'orb', tx: fort.sx, ty: fort.sy - c * 0.4, delay: i * 0.05 })
+            for (let i = 0; i < (reducedMotion ? 3 : 14); i++) particles.push({ x: fort.sx + (Math.random() - 0.5) * c * 1.8, y: fort.sy - Math.random() * c * 0.9, vx: 0, vy: -c * (0.3 + Math.random() * 0.5), g: 0, life: 0.8, max: 0.8, size: c * 0.045, color: '#bbf7d0', kind: 'spark', delay: 0.7 + Math.random() * 0.4 })
             particles.push({ x: fort.sx, y: fort.sy - c * 0.9, vx: 0, vy: -c * 0.6, g: 0, life: 1.4, max: 1.4, size: Math.max(14, c * 0.34), color: '#16a34a', kind: 'text', text: '+5 fort' })
             break
           }
@@ -626,6 +632,9 @@ export function Battlefield({
         }
         g.restore()
       } })
+      if (s.baseHp > 0 && s.baseHp / s.maxBaseHp <= 0.3 && !reducedMotion && Math.random() < 0.25) {
+        particles.push({ x: fort.sx + (Math.random() - 0.5) * c * 1.4, y: fort.sy - c * 0.3, vx: (Math.random() - 0.5) * c * 0.2, vy: -c * (0.6 + Math.random() * 0.6), g: 0, life: 0.9, max: 0.9, size: c * 0.035, color: Math.random() < 0.5 ? '#f97316' : '#facc15', kind: 'spark' })
+      }
       if (enemySeen.size > s.enemies.length + 50) for (const id of Array.from(enemySeen.keys())) if (!s.enemies.some((e) => e.id === id)) enemySeen.delete(id)
       actors.sort((a, b) => a.y - b.y)
       for (const a of actors) a.draw()

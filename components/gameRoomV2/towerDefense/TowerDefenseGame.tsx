@@ -1,11 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FiPause, FiPlay, FiVolume2, FiVolumeX, FiLogOut, FiFastForward, FiZap, FiCheckCircle, FiXCircle, FiShield } from 'react-icons/fi'
+import { FiPause, FiPlay, FiVolume2, FiVolumeX, FiLogOut, FiFastForward, FiZap, FiCheckCircle, FiXCircle, FiShield, FiMusic } from 'react-icons/fi'
 import { GiTwoCoins, GiCastle, GiScrollUnfurled, GiCrossedSwords, GiSnowflake1, GiDrum, GiHammerNails, GiFallingRocks, GiCrown } from 'react-icons/gi'
 import { GameV2Error } from '@/components/gameRoomV2'
 import { useGameV2Motion } from '@/components/gameRoomV2/useGameV2Motion'
-import { QuestionOverlay, type QuestionOverlayQuestion, type AnswerResult, useSoundPreference, playSound, useGameSessionState, vibrate } from '@/components/gameRoomV2/gameplay'
+import { QuestionOverlay, type QuestionOverlayQuestion, type AnswerResult, useSoundPreference, useMusicPreference, playSound, useGameSessionState, vibrate } from '@/components/gameRoomV2/gameplay'
+import { Confetti } from '@/components/gameRoomV2/celebration/Confetti'
 import { useManagedTimeouts } from '@/components/gameRoomV2/gameplay/useManagedTimeouts'
 import { useQuestionGate } from '@/components/gameRoomV2/gameplay/useQuestionGate'
 import { DifficultyPicker } from './DifficultyPicker'
@@ -13,6 +14,7 @@ import { Battlefield, type Fx, type StepClock } from './Battlefield'
 import { BuildMenu, TowerInspector, type Anchor } from './TowerShop'
 import { EnemyPreview } from './ArtPreview'
 import { TdResults } from './TdResults'
+import { TdMusic, type MusicMood } from './music'
 import { computeLayout, toScreen } from './layout'
 import {
   ABILITIES,
@@ -100,7 +102,11 @@ const ABILITY_ICON: Record<AbilityId, typeof GiSnowflake1> = { freeze: GiSnowfla
 const ABILITY_TINT: Record<AbilityId, string> = { freeze: 'bg-sky-500', rally: 'bg-terracotta-500', repair: 'bg-emerald-500', strike: 'bg-stone-600' }
 const TUTORIAL_KEY = 'tamizhi.td.tutorial.v1'
 
-type Banner = { title: string; sub?: string; tone: 'wave' | 'boss' | 'good' | 'danger'; id: number }
+type WaveMix = { kind: keyof typeof ENEMY_DEFINITIONS; count: number }[]
+type Banner = { title: string; sub?: string; tone: 'wave' | 'boss' | 'good' | 'danger'; id: number; enemies?: WaveMix; kicker?: string }
+type Feedback =
+  | { correct: true; coins: number; charges: number; streak: number; id: number }
+  | { correct: false; answer: string; right: string | null; explanation: string | null; id: number }
 
 function useViewport() {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null)
@@ -136,18 +142,26 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
   const [strikeMode, setStrikeMode] = useState(false)
   const [banner, setBanner] = useState<Banner | null>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const [reward, setReward] = useState<{ text: string; id: number } | null>(null)
-  const [feedback, setFeedback] = useState<{ correct: boolean; answer: string; right: string | null; explanation: string | null; id: number } | null>(null)
+  const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [answeredIndex, setAnsweredIndex] = useState(-1)
   const [hurt, setHurt] = useState(0)
   const [outcome, setOutcome] = useState<'victory' | 'defeat' | null>(null)
   const [showResults, setShowResults] = useState(false)
+  // The end-of-battle moment (VICTORY / THE FORT FELL) that plays between
+  // the final blow and the results; momentDone once it has had its beat.
+  const [moment, setMoment] = useState<'victory' | 'defeat' | null>(null)
+  const [momentDone, setMomentDone] = useState(false)
+  const waveMixRef = useRef<WaveMix>([])
+  const musicRef = useRef<TdMusic | null>(null)
   const [tutorial, setTutorial] = useState<'build' | 'auto' | 'learn' | null>(null)
   const bannerId = useRef(0)
   const reduced = !!useGameV2Motion().reduced
+  const reducedRef = useRef(reduced)
+  reducedRef.current = reduced
   const view = useViewport()
   const layout = useMemo(() => (view ? computeLayout(view.w, view.h) : null), [view])
   const { soundEnabled, toggleSound } = useSoundPreference()
+  const { musicEnabled, toggleMusic } = useMusicPreference()
   const soundRef = useRef(soundEnabled)
   soundRef.current = soundEnabled
   const schedule = useManagedTimeouts()
@@ -206,7 +220,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
               showBanner({ title: 'IRUL CAPTAIN', sub: 'A tougher foe -- focus your fire', tone: 'boss' }, 2400)
             } else {
               fx.push({ kind: 'bossWarn' })
-              showBanner({ title: 'IRUL KING', sub: 'BOSS WAVE -- it summons minions and enrages when hurt', tone: 'boss' }, 3000)
+              showBanner({ kicker: 'The final battle', title: 'IRUL KING', sub: 'Summons minions · enrages when hurt', tone: 'boss' }, 3200)
             }
             playSound('bossWarning', snd)
             break
@@ -215,33 +229,41 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
             break
           case 'enrage':
             fx.push({ kind: 'enrage', x: e.x, y: e.y })
-            showBanner({ title: 'ENRAGED!', sub: 'The Irul King moves faster', tone: 'danger' }, 2000)
+            showBanner({ title: 'ENRAGED!', sub: 'The Irul King moves faster -- use your abilities!', tone: 'danger' }, 2000)
             playSound('enrage', snd)
             break
           case 'waveStart':
-            if (!e.boss) showBanner({ title: `WAVE ${e.wave}`, sub: 'Here they come!', tone: 'wave' }, 1500)
+            if (!e.boss) {
+              const last = tdRef.current && e.wave >= tdRef.current.totalWaves - 1 && !isBossWave(e.wave, tdRef.current.totalWaves)
+              showBanner({ kicker: last ? 'Final wave before the boss' : undefined, title: `WAVE ${e.wave}`, tone: 'wave', enemies: waveMixRef.current }, 1700)
+            }
             playSound('waveStart', snd)
             break
           case 'waveCleared':
             fx.push({ kind: 'waveClear' })
-            showBanner({ title: 'WAVE CLEARED!', sub: `+${e.bonus} coins`, tone: 'good' }, 2000)
+            showBanner({ title: 'WAVE CLEARED!', sub: `+${e.bonus} coins · build and answer to get ready`, tone: 'good' }, 2000)
             playSound('waveClear', snd)
             structural = true
             break
           case 'victory':
-            fx.push({ kind: 'victory' })
-            setOutcome('victory')
-            showBanner({ title: 'VICTORY!', sub: 'The fort stands!', tone: 'good' }, 2800)
-            playSound('victory', snd)
-            vibrate('victory', snd)
+          case 'defeat': {
+            // The final blow lands, the music drops out for a beat, then the
+            // moment (and its sting) plays; the results follow it.
+            const win = e.type === 'victory'
+            if (win) fx.push({ kind: 'victory' })
+            setOutcome(win ? 'victory' : 'defeat')
+            setBanner(null)
+            musicRef.current?.setMood('silent')
+            schedule(() => {
+              setMoment(win ? 'victory' : 'defeat')
+              musicRef.current?.sting(win ? 'victory' : 'defeat')
+              playSound(win ? 'victory' : 'gameOver', soundRef.current)
+              if (win) vibrate('victory', soundRef.current)
+            }, reducedRef.current ? 150 : win ? 1000 : 700)
+            schedule(() => setMomentDone(true), reducedRef.current ? 1600 : win ? 4200 : 3600)
             structural = true
             break
-          case 'defeat':
-            setOutcome('defeat')
-            showBanner({ title: 'THE FORT FELL', sub: 'Rebuild your defence and try again', tone: 'danger' }, 2800)
-            playSound('gameOver', snd)
-            structural = true
-            break
+          }
           case 'build':
             fx.push({ kind: 'build', x: e.x, y: e.y })
             playSound('build', snd)
@@ -279,7 +301,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
       if (fx.length > 300) fx.splice(0, fx.length - 300)
       if (structural) setVersion((v) => v + 1)
     },
-    [showBanner]
+    [showBanner, schedule]
   )
 
   // Create the real battle once the session (question count) is known.
@@ -305,10 +327,53 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
   const battleOver = phase === 'victory' || phase === 'defeat'
   const dueNow = hud && planRef.current && phase === 'prep' ? Math.max(0, planRef.current[hud.wave - 1] - answered) : 0
   const remainingQuestions = session ? Math.max(0, session.totalQuestions - answered) : 0
-  const wantQuestion = built && !!hud && !userPaused && !sessionDone && ((phase === 'prep' && dueNow > 0) || (battleOver && remainingQuestions > 0))
+  const wantQuestion = built && !!hud && !userPaused && !sessionDone && ((phase === 'prep' && dueNow > 0) || (battleOver && momentDone && remainingQuestions > 0))
   const { questionReady } = useQuestionGate({ sessionId, state: session, wantQuestion, poll, enabled: built })
   const showQuestion = questionReady && !!session?.question && session.currentIndex > answeredIndex
-  const challengeOpen = (phase === 'prep' && dueNow > 0 && !sessionDone) || (battleOver && remainingQuestions > 0)
+  const challengeOpen = (phase === 'prep' && dueNow > 0 && !sessionDone) || (battleOver && momentDone && remainingQuestions > 0)
+
+  // --- Music -------------------------------------------------------------
+  // Created lazily and started from the "Start the defence" click (browsers
+  // only allow audio after a user gesture); disposed on unmount.
+  const startMusic = useCallback(() => {
+    if (!musicRef.current) musicRef.current = new TdMusic()
+    musicRef.current.start()
+  }, [])
+  useEffect(() => () => musicRef.current?.dispose(), [])
+  useEffect(() => {
+    musicRef.current?.setEnabled(musicEnabled)
+  }, [musicEnabled])
+  const bossWaveNow = !!hud && isBossWave(hud.wave, hud.totalWaves)
+  const enragedNow = !!hud?.boss?.enraged && !hud.boss.mini
+  useEffect(() => {
+    const m = musicRef.current
+    if (!m || !built || outcome) return
+    const mood: MusicMood = phase === 'wave' ? (bossWaveNow ? 'boss' : 'battle') : 'prep'
+    m.setMood(mood, mood === 'boss' && enragedNow)
+  }, [built, outcome, phase, bossWaveNow, enragedNow])
+  // A Stone Rain left armed when the wave ends (or the battle is decided)
+  // is cancelled rather than leaving its prompt on screen.
+  useEffect(() => {
+    if (phase !== 'wave') setStrikeMode(false)
+  }, [phase])
+  // Back to the calm theme under the results.
+  useEffect(() => {
+    if (showResults) musicRef.current?.setMood('prep')
+  }, [showResults])
+  // Duck under a Tamil question (and the pause menu); restore afterwards.
+  useEffect(() => {
+    musicRef.current?.duck(showQuestion || userPaused)
+  }, [showQuestion, userPaused])
+  // Background tab: silence the music and pause a running wave.
+  useEffect(() => {
+    const onVis = () => {
+      const hidden = document.visibilityState === 'hidden'
+      musicRef.current?.setHidden(hidden)
+      if (hidden && tdRef.current?.phase === 'wave') setUserPaused(true)
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
 
   // Simulation loop: fixed 30 Hz steps on requestAnimationFrame; the HUD
   // snapshot refreshes ~8x a second (never per frame).
@@ -406,9 +471,9 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
   // After the battle: the celebration plays, then the results slide in
   // (once any last questions are answered and the server has finalised).
   useEffect(() => {
-    if (!outcome || showResults || remainingQuestions > 0 || !sessionDone) return
-    schedule(() => setShowResults(true), reduced ? 300 : outcome === 'victory' ? 2600 : 2000)
-  }, [outcome, showResults, remainingQuestions, sessionDone, reduced, schedule])
+    if (!outcome || !momentDone || showResults || remainingQuestions > 0 || !sessionDone) return
+    schedule(() => setShowResults(true), reduced ? 100 : 300)
+  }, [outcome, momentDone, showResults, remainingQuestions, sessionDone, reduced, schedule])
 
   function handleAnswer(res: AnswerResult) {
     const td = tdRef.current
@@ -418,13 +483,14 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
     const r = grantAnswerReward(td, res, ev)
     const id = Date.now()
     if (res.correct) {
-      setReward({ text: `+${r.coins} COINS${r.charges ? ` · +${r.charges} SCROLL${r.charges > 1 ? 'S' : ''}` : ''}`, id })
       fxRef.current.push({ kind: 'coinsFromHud', amount: r.coins })
       playSound('coin', soundRef.current)
-      schedule(() => setReward((x) => (x?.id === id ? null : x)), 1800)
+      if (td.streak >= 2) schedule(() => playSound('streak', soundRef.current, td.streak), 160)
+      setFeedback({ correct: true, coins: r.coins, charges: r.charges, streak: td.streak, id })
+    } else {
+      setFeedback({ correct: false, answer: formatAnswer(res.answer), right: res.correctAnswer ?? null, explanation: res.explanation ?? null, id })
     }
-    setFeedback({ correct: res.correct, answer: formatAnswer(res.answer), right: res.correctAnswer ?? null, explanation: res.explanation ?? null, id })
-    schedule(() => setFeedback((f) => (f?.id === id ? null : f)), res.correct ? 1600 : 5000)
+    schedule(() => setFeedback((f) => (f?.id === id ? null : f)), res.correct ? 1700 : 6500)
     if (tutorial === 'learn') finishTutorial()
     refreshHud()
     poll()
@@ -507,11 +573,6 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
               <span key={hud.coins} className="inline-block text-sm sm:text-base font-extrabold tabular-nums text-gold-800 animate-gamev2-bump">
                 {hud.coins}
               </span>
-              {reward && (
-                <span key={reward.id} className="absolute left-1/2 top-full mt-1 whitespace-nowrap rounded-full bg-gold-400 px-2.5 py-1 text-xs font-black text-stone-900 shadow animate-gamev2-float-up">
-                  {reward.text}
-                </span>
-              )}
             </div>
             <div className="flex items-center gap-1.5 rounded-2xl bg-white/90 shadow-md px-3 py-2" title="Scrolls power your abilities -- earn them with Tamil answers">
               <GiScrollUnfurled className="w-5 h-5 text-primary-700" aria-hidden />
@@ -547,7 +608,10 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
             <button type="button" onClick={() => setUserPaused((p) => !p)} aria-label={userPaused ? 'Resume' : 'Pause'} className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
               {userPaused ? <FiPlay className="w-5 h-5" /> : <FiPause className="w-5 h-5" />}
             </button>
-            <button type="button" onClick={toggleSound} aria-label={soundEnabled ? 'Mute sound' : 'Unmute sound'} className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
+            <button type="button" onClick={toggleMusic} aria-pressed={musicEnabled} aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'} title="Music" className={`hidden sm:flex w-11 h-11 rounded-2xl shadow-md items-center justify-center ${musicEnabled ? 'bg-white/90 text-stone-700' : 'bg-white/70 text-stone-400'}`}>
+              <MusicIcon on={musicEnabled} />
+            </button>
+            <button type="button" onClick={toggleSound} aria-pressed={soundEnabled} aria-label={soundEnabled ? 'Turn sound effects off' : 'Turn sound effects on'} title="Sound effects" className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
               {soundEnabled ? <FiVolume2 className="w-5 h-5" /> : <FiVolumeX className="w-5 h-5" />}
             </button>
             <button type="button" onClick={leave} aria-label="Exit game" className="w-11 h-11 rounded-2xl bg-white/90 shadow-md text-stone-700 flex items-center justify-center">
@@ -577,8 +641,20 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
         {banner && (
           <div key={banner.id} className={`rounded-3xl border-4 px-6 sm:px-10 py-3 sm:py-4 text-center shadow-2xl animate-gamev2-banner ${bannerStyle}`} style={{ animationDuration: '2.8s' }}>
             {banner.tone === 'boss' && <GiCrown className="w-8 h-8 mx-auto text-gold-300" aria-hidden />}
+            {banner.kicker && <p className="mb-1 text-[11px] sm:text-xs font-black uppercase tracking-[0.2em] opacity-80">{banner.kicker}</p>}
             <p className="text-3xl sm:text-5xl font-black tracking-wide leading-none">{banner.title}</p>
             {banner.sub && <p className="mt-1 text-sm sm:text-base font-semibold opacity-90">{banner.sub}</p>}
+            {banner.enemies && banner.enemies.length > 0 && (
+              <ul className="mt-2 flex items-center justify-center gap-1.5" aria-label="Enemies in this wave">
+                {banner.enemies.slice(0, narrow ? 4 : 6).map((w) => (
+                  <li key={w.kind} className="flex items-center rounded-xl bg-stone-100 pr-2">
+                    <EnemyPreview kind={w.kind} size={narrow ? 28 : 34} />
+                    <span className="text-xs font-extrabold tabular-nums">x{w.count}</span>
+                    <span className="sr-only">{ENEMY_DEFINITIONS[w.kind].name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
       </div>
@@ -655,25 +731,56 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
       )}
       {feedback && (
         <div className="pointer-events-none absolute inset-x-0 top-[5.5rem] md:top-[6.5rem] z-40 flex justify-center px-3">
-          <div role="status" className={`max-w-md w-full rounded-2xl bg-white shadow-xl border-2 px-4 py-3 animate-gamev2-pop-in ${feedback.correct ? 'border-primary-400' : 'border-terracotta-300'}`}>
-            <p className={`flex items-center gap-2 text-lg font-black ${feedback.correct ? 'text-primary-700' : 'text-terracotta-700'}`}>
-              {feedback.correct ? <FiCheckCircle className="w-5 h-5" aria-hidden /> : <FiXCircle className="w-5 h-5" aria-hidden />}
-              {feedback.correct ? 'CORRECT!' : 'NOT QUITE'}
-            </p>
-            {!feedback.correct && (
-              <div className="mt-1 space-y-0.5 text-sm text-stone-700">
-                <p>
-                  Your answer: <span className="font-tamil font-semibold">{feedback.answer}</span>
-                </p>
-                {feedback.right && (
-                  <p>
-                    Correct answer: <span className="font-tamil font-bold text-primary-800">{feedback.right}</span>
-                  </p>
+          {feedback.correct ? (
+            <div key={feedback.id} role="status" className="rounded-3xl bg-gradient-to-b from-primary-500 to-primary-700 text-white border-4 border-gold-300 shadow-2xl px-6 py-2.5 text-center animate-gamev2-pop-in">
+              <p className="flex items-center justify-center gap-2 text-2xl sm:text-3xl font-black tracking-wide">
+                <FiCheckCircle className="w-6 h-6" aria-hidden /> CORRECT!
+              </p>
+              <p className="mt-0.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-sm sm:text-base font-extrabold">
+                <span className="inline-flex items-center gap-1 text-gold-200">
+                  <GiTwoCoins className="w-4 h-4" aria-hidden />+{feedback.coins} COINS
+                </span>
+                {feedback.charges > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    <GiScrollUnfurled className="w-4 h-4" aria-hidden />+{feedback.charges} SCROLL{feedback.charges > 1 ? 'S' : ''}
+                  </span>
                 )}
-                {feedback.explanation && <p className="font-tamil leading-relaxed text-stone-600">{feedback.explanation}</p>}
+                {feedback.streak >= 2 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-gold-400 px-2 text-stone-900">
+                    <FiZap className="w-3.5 h-3.5" aria-hidden />
+                    STREAK ×{feedback.streak}
+                  </span>
+                )}
+              </p>
+            </div>
+          ) : (
+            <div key={feedback.id} role="status" className="pointer-events-auto max-w-md w-full rounded-2xl bg-white shadow-xl border-2 border-terracotta-300 px-4 py-3 animate-gamev2-pop-in">
+              <div className="flex items-start justify-between gap-2">
+                <p className="flex items-center gap-2 text-lg font-black text-terracotta-700">
+                  <FiXCircle className="w-5 h-5" aria-hidden /> NOT QUITE
+                </p>
+                <button type="button" onClick={() => setFeedback(null)} className="min-h-[36px] rounded-xl px-3 text-sm font-bold text-primary-800 hover:bg-primary-50">
+                  Got it
+                </button>
               </div>
-            )}
-          </div>
+              <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm text-stone-700">
+                <dt className="font-semibold text-stone-500">Your answer</dt>
+                <dd className="font-tamil font-semibold line-through decoration-terracotta-400">{feedback.answer}</dd>
+                {feedback.right && (
+                  <>
+                    <dt className="font-semibold text-stone-500">Correct answer</dt>
+                    <dd className="font-tamil font-bold text-primary-800">{feedback.right}</dd>
+                  </>
+                )}
+                {feedback.explanation && (
+                  <>
+                    <dt className="font-semibold text-stone-500">Why</dt>
+                    <dd className="font-tamil leading-relaxed text-stone-600">{feedback.explanation}</dd>
+                  </>
+                )}
+              </dl>
+            </div>
+          )}
         </div>
       )}
 
@@ -701,6 +808,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
                   disabled={!canStartWave}
                   onClick={() => {
                     setSelectedPadId(null)
+                    waveMixRef.current = summarizeWave(td.nextWave)
                     act((t, ev) => startWave(t, ev))
                   }}
                   className={`min-h-[52px] px-4 sm:px-5 rounded-2xl font-extrabold text-white inline-flex items-center gap-2 shadow-teal disabled:opacity-50 ${bossNext ? 'bg-purple-700 hover:bg-purple-800' : 'bg-primary-700 hover:bg-primary-800'}`}
@@ -710,7 +818,9 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
                 </button>
               </div>
             ) : (
-              <div className="rounded-2xl bg-white/90 shadow-md px-3 py-2 text-sm font-extrabold text-stone-700 tabular-nums">{hud.enemiesLeft} enemies left</div>
+              <div className="whitespace-nowrap rounded-2xl bg-white/90 shadow-md px-3 py-2 text-sm font-extrabold text-stone-700 tabular-nums">
+                {hud.enemiesLeft} <span className="hidden sm:inline">enemies </span>left
+              </div>
             )}
           </div>
           {/* Ability bar (on a phone it only appears during a wave, when abilities can be used). */}
@@ -766,7 +876,15 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
             <p className="text-sm text-stone-500 mt-1">
               Wave {hud?.wave} of {hud?.totalWaves} · Fort {hud?.baseHp}/{hud?.maxBaseHp}
             </p>
-            <div className="mt-4 grid gap-2">
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button type="button" onClick={toggleMusic} aria-pressed={musicEnabled} className={`min-h-[48px] rounded-2xl border font-bold inline-flex items-center justify-center gap-2 ${musicEnabled ? 'border-primary-300 bg-primary-50 text-primary-800' : 'border-stone-300 text-stone-500'}`}>
+                <MusicIcon on={musicEnabled} /> Music {musicEnabled ? 'on' : 'off'}
+              </button>
+              <button type="button" onClick={toggleSound} aria-pressed={soundEnabled} className={`min-h-[48px] rounded-2xl border font-bold inline-flex items-center justify-center gap-2 ${soundEnabled ? 'border-primary-300 bg-primary-50 text-primary-800' : 'border-stone-300 text-stone-500'}`}>
+                {soundEnabled ? <FiVolume2 className="w-5 h-5" aria-hidden /> : <FiVolumeX className="w-5 h-5" aria-hidden />} Sounds {soundEnabled ? 'on' : 'off'}
+              </button>
+            </div>
+            <div className="mt-2 grid gap-2">
               <button type="button" onClick={() => setUserPaused(false)} className="min-h-[52px] rounded-2xl bg-primary-700 hover:bg-primary-800 text-white font-extrabold text-lg inline-flex items-center justify-center gap-2">
                 <FiPlay className="w-5 h-5" aria-hidden /> Resume
               </button>
@@ -780,7 +898,14 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
       )}
 
       {/* ---------------- Start ---------------- */}
-      {!difficulty && <DifficultyPicker onStart={setDifficulty} />}
+      {!difficulty && (
+        <DifficultyPicker
+          onStart={(d) => {
+            startMusic()
+            setDifficulty(d)
+          }}
+        />
+      )}
       {difficulty && !built && (
         <div className="absolute inset-0 z-40 flex items-center justify-center">
           <p className="rounded-2xl bg-white/95 px-5 py-3 font-bold shadow-lg" role="status">
@@ -788,6 +913,9 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
           </p>
         </div>
       )}
+
+      {/* ---------------- The end-of-battle moment ---------------- */}
+      {moment && !momentDone && <EndMoment kind={moment} td={td} reduced={reduced} />}
 
       {/* ---------------- Results ---------------- */}
       {showResults && outcome && (
@@ -802,7 +930,7 @@ export function TowerDefenseGame({ sessionId, onExit, onPlayAgain, onHome }: { s
           onBack={onHome ?? onExit}
         />
       )}
-      {outcome && !showResults && remainingQuestions === 0 && sessionDone === false && (
+      {outcome && momentDone && !showResults && remainingQuestions === 0 && sessionDone === false && (
         <p className="absolute inset-x-0 bottom-6 z-30 text-center text-sm font-bold text-white drop-shadow">Saving your progress...</p>
       )}
     </div>
@@ -853,6 +981,52 @@ function Callout({ x, y, children, onSkip }: { x: number; y: number; children: R
         </button>
       </div>
       <div className="w-0 h-0 border-x-8 border-x-transparent border-t-8 border-t-white" style={{ marginLeft: `calc(50% + ${x - left}px - 8px)` }} aria-hidden />
+    </div>
+  )
+}
+
+function MusicIcon({ on }: { on: boolean }) {
+  return (
+    <span className="relative inline-flex" aria-hidden>
+      <FiMusic className="w-5 h-5" />
+      {!on && <span className="absolute left-1/2 top-1/2 h-[2px] w-6 -translate-x-1/2 -translate-y-1/2 -rotate-45 rounded bg-current" />}
+    </span>
+  )
+}
+
+// VICTORY (confetti, the fort's flags flying) or THE FORT FELL (what the
+// student achieved) -- a short beat over the battlefield before results.
+function EndMoment({ kind, td, reduced }: { kind: 'victory' | 'defeat'; td: TdState; reduced: boolean }) {
+  const s = td.stats
+  const win = kind === 'victory'
+  return (
+    <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center px-4" role="status" aria-live="assertive">
+      {win && <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(28,25,23,0.45)_0%,rgba(28,25,23,0.15)_45%,transparent_75%)]" aria-hidden />}
+      {win && <Confetti intensity={1.2} reducedMotion={reduced} />}
+      <div className={`relative text-center ${reduced ? '' : 'animate-gamev2-banner'}`} style={{ animationDuration: win ? '3.3s' : '3s' }}>
+        {win ? (
+          <>
+            <GiCrown className="mx-auto w-14 h-14 sm:w-20 sm:h-20 text-gold-300 drop-shadow-[0_4px_0_rgba(120,53,15,0.6)]" aria-hidden />
+            <p className="text-6xl sm:text-8xl font-black tracking-wider text-gold-300 [-webkit-text-stroke:2px_#78350f] drop-shadow-[0_6px_0_rgba(120,53,15,0.55)]">VICTORY!</p>
+            <p className="mt-2 inline-block rounded-full bg-stone-900/60 px-4 py-1.5 text-base sm:text-xl font-extrabold text-white">
+              {s.bossDefeated ? 'The Irul King is defeated -- the fort stands!' : 'The fort stands!'}
+            </p>
+          </>
+        ) : (
+          <div className="rounded-3xl bg-white/95 shadow-2xl border-4 border-terracotta-200 px-6 py-5 sm:px-10">
+            <GiCastle className="mx-auto w-12 h-12 text-terracotta-600" aria-hidden />
+            <p className="text-4xl sm:text-6xl font-black text-terracotta-700">THE FORT FELL</p>
+            <p className="mt-1 font-semibold text-stone-600">A brave defence. Here&apos;s what you achieved:</p>
+            <div className="mt-3 flex flex-wrap justify-center gap-2 text-sm font-extrabold text-stone-800">
+              <span className="rounded-2xl bg-primary-50 px-3 py-1.5">
+                {s.wavesCleared} wave{s.wavesCleared === 1 ? '' : 's'} survived
+              </span>
+              <span className="rounded-2xl bg-primary-50 px-3 py-1.5">{s.enemiesDefeated} enemies defeated</span>
+              {s.bestStreak > 1 && <span className="rounded-2xl bg-gold-100 px-3 py-1.5">Best streak ×{s.bestStreak}</span>}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

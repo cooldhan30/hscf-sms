@@ -30,8 +30,11 @@ export function computeLayout(width: number, height: number): TdLayout {
   const top = HUD_TOP
   const bottom = TRAY_BOTTOM
   // The gate and the fort sit just beyond the two ends of the road, so
-  // the fit reserves ~1.2 cells for each along the road's axis.
-  const extraX = portrait ? 0.4 : 2.4
+  // the fit reserves room for each along the road's axis -- ~1.6 cells a
+  // side in landscape, so the fort (and a strip of world beyond it) is
+  // never clipped by the screen edge and the road doesn't run edge to
+  // edge; a wider screen shows more scenery rather than a wider board.
+  const extraX = portrait ? 0.4 : 3.2
   const extraY = portrait ? 2.2 : 0.2
   const cell = Math.max(24, Math.min((width - 16) / (cols + extraX), (height - top - bottom) / (rows + extraY)))
   const fieldW = cols * cell

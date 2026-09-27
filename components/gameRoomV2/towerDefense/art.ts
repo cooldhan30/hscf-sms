@@ -236,9 +236,19 @@ function drawPani(g: Ctx, x: number, y: number, c: number, level: number, o: Tow
   for (const px of [-0.2, 0.2]) g.fillRect(x + px * c * s - c * 0.035, y - c * 0.32 * s, c * 0.07, c * 0.32 * s)
   ellipse(g, x, y - c * 0.32 * s, c * 0.28 * s, c * 0.28 * s * TILT, '#bae6fd')
   const bob = Math.sin(o.time / 400) * c * 0.04
-  const glow = 0.35 + 0.4 * o.recoil
-  ellipse(g, x, y - c * 0.62 * s + bob, c * 0.22 * s, c * 0.22 * s, `rgba(125,211,252,${glow})`)
+  const chg = o.charge ?? 0
+  const glow = 0.35 + 0.4 * Math.max(o.recoil, chg * chg)
+  ellipse(g, x, y - c * 0.62 * s + bob, c * 0.22 * s * (1 + 0.25 * chg * chg), c * 0.22 * s * (1 + 0.25 * chg * chg), `rgba(125,211,252,${glow})`)
   const cy = y - c * 0.62 * s + bob
+  if (chg > 0.5) {
+    // Ice motes spiral in as the next frost pulse builds.
+    const k = (chg - 0.5) / 0.5
+    for (let m = 0; m < 3; m++) {
+      const a = o.time / 180 + (m * Math.PI * 2) / 3
+      const rr = c * 0.34 * s * (1 - 0.6 * k)
+      ellipse(g, x + Math.cos(a) * rr, cy + Math.sin(a) * rr * TILT, c * 0.03, c * 0.03, `rgba(224,242,254,${0.4 + 0.6 * k})`)
+    }
+  }
   const ch = c * 0.26 * s
   poly(g, [
     [x, cy - ch],
@@ -436,7 +446,7 @@ export function drawEnemy(g: Ctx, kind: EnemyKind, x: number, y: number, r: numb
   g.scale(sc * (1 + 0.14 * sq), sc * (1 - 0.12 * sq))
   if (o.spin) g.rotate(o.spin)
   const d = o.facing
-  shadow(g, 0, r * 0.95, r * 0.95, r * 0.32, 0.25)
+  shadow(g, 0, r * 0.95, r * 0.95, r * 0.95 * TILT * 0.6, 0.25)
   const tint = (base: string) => (o.flash ? '#ffffff' : o.frozen ? '#bfdbfe' : base)
   if (kind === 'grunt') {
     // A stubby stone imp with little horns and a club.
@@ -628,7 +638,8 @@ export function drawFort(g: Ctx, x: number, y: number, c: number, hpPct: number,
   let top = y - c * 0.1
   let w = c * 0.45
   const tierColors = ['#d9a55b', '#e8b86e', '#d9a55b', '#e8b86e', '#d9a55b']
-  for (let k = 0; k < 5; k++) {
+  const tiers = fallen ? 2 : 5
+  for (let k = 0; k < tiers; k++) {
     const nw = w * 0.82
     poly(g, [
       [x - w, top],
@@ -641,18 +652,28 @@ export function drawFort(g: Ctx, x: number, y: number, c: number, hpPct: number,
     top -= c * 0.19
     w = nw
   }
-  poly(g, [
-    [x - w * 1.1, top],
-    [x + w * 1.1, top],
-    [x + w * 0.7, top - c * 0.08],
-    [x - w * 0.7, top - c * 0.08],
-  ], '#0f766e')
-  ellipse(g, x, top - c * 0.13, c * 0.06, c * 0.06, '#facc15')
-  poly(g, [
-    [x - c * 0.02, top - c * 0.17],
-    [x + c * 0.02, top - c * 0.17],
-    [x, top - c * 0.3],
-  ], '#eab308')
+  if (fallen) {
+    // Broken top edge and rubble at the foot of the walls.
+    poly(g, [[x - w, top], [x - w * 0.4, top - c * 0.08], [x + w * 0.1, top + c * 0.02], [x + w * 0.6, top - c * 0.1], [x + w, top]], '#a8a29e', '#57534e', 1)
+    for (let k = 0; k < 9; k++) {
+      const rx = x - W * 1.1 + ((k * 0.41) % 1) * W * 2.2
+      ellipse(g, rx, y + c * 0.36 + (k % 3) * c * 0.04, c * (0.07 + (k % 2) * 0.04), c * (0.05 + (k % 2) * 0.02), k % 2 ? '#a8a29e' : '#78716c')
+    }
+  } else {
+    poly(g, [
+      [x - w * 1.1, top],
+      [x + w * 1.1, top],
+      [x + w * 0.7, top - c * 0.08],
+      [x - w * 0.7, top - c * 0.08],
+    ], '#0f766e')
+    ellipse(g, x, top - c * 0.13, c * 0.06, c * 0.06, celebrate ? `rgba(253,224,71,${0.6 + 0.4 * Math.sin(time / 120)})` : '#facc15')
+    if (celebrate) ellipse(g, x, top - c * 0.13, c * 0.2, c * 0.2, `rgba(253,224,71,${0.25 + 0.15 * Math.sin(time / 120)})`)
+    poly(g, [
+      [x - c * 0.02, top - c * 0.17],
+      [x + c * 0.02, top - c * 0.17],
+      [x, top - c * 0.3],
+    ], '#eab308')
+  }
   // Doorway.
   g.fillStyle = '#3f2d1d'
   g.beginPath()
@@ -1010,7 +1031,9 @@ export function paintTerrain(g: Ctx, l: TdLayout, map: TdMap): Ambient {
         },
       })
     }
-    const lampSpots = [...freeCells.slice(0, 3).map((f) => ({ x: f.sx, y: f.sy })), ...marginSpots(4, c * 2)]
+    const padScreen = map.pads.map((p) => toScreen(l, p.x, p.y))
+    const clearOfPads = (f: { sx: number; sy: number }) => padScreen.every((p) => Math.hypot(p.sx - f.sx, p.sy - f.sy) > c * 1.6)
+    const lampSpots = [...freeCells.filter(clearOfPads).slice(0, 2).map((f) => ({ x: f.sx, y: f.sy })), ...marginSpots(4, c * 2)]
     for (const sp of lampSpots) {
       ambient.lamps.push({ x: sp.x, y: sp.y - c * 0.42 })
       objs.push({
