@@ -30,90 +30,43 @@ export interface ConversationSummary {
   unreadCount: number
 }
 
-// Conversation ids are normalized user_a < user_b (see 017_chat_system.sql),
-// so the pair dedupes regardless of who initiates. Groups don't use
-// user_a/user_b at all (see 028_group_chat.sql).
-function orderedPair(a: string, b: string): [string, string] {
-  return a < b ? [a, b] : [b, a]
-}
+// Creating chats goes through two SECURITY DEFINER functions
+// (supabase/migrations/087_chat_idempotent_create_and_membership_hardening.sql)
+// rather than client-side INSERTs. The old three-step client flow (SELECT
+// pair, INSERT conversation, INSERT both participants in one statement)
+// failed the participant policy for the second person and left an
+// invisible, member-less conversation behind; every retry then hit the
+// unique (user_a, user_b) constraint. The functions re-check the same
+// authorization (sms_can_chat, active profile, not yourself) and do the
+// whole thing atomically.
 
+// Opens the one existing 1:1 conversation with this person, or creates it.
+// Idempotent and race-safe: A->B, B->A and simultaneous clicks all return
+// the same conversation.
 export async function getOrCreateConversation(
   supabase: SupabaseClient,
-  currentUserId: string,
+  _currentUserId: string,
   otherUserId: string
 ): Promise<{ id: string } | { error: string }> {
-  const [userA, userB] = orderedPair(currentUserId, otherUserId)
-
-  const { data: existing } = await supabase
-    .from('sms_conversations')
-    .select('id')
-    .eq('user_a', userA)
-    .eq('user_b', userB)
-    .maybeSingle()
-
-  if (existing) return { id: existing.id }
-
-  // The id is generated client-side (rather than left to the column's
-  // DB default + read back via .select()) so we never need to SELECT
-  // the row before its participants exist. Since 028_group_chat.sql,
-  // the SELECT policy on sms_conversations requires a matching
-  // sms_conversation_participants row -- immediately reading back a
-  // just-inserted conversation via .select().single() (as this used to)
-  // fails that check for a conversation with zero participants yet, and
-  // Postgres reports that as "new row violates row-level security
-  // policy" on the INSERT itself (RETURNING re-checks SELECT visibility).
-  // Confirmed as a real bug hit by group chat creation: 2026-08-05.
-  const id = crypto.randomUUID()
-
-  // RLS ("conversations: create 1:1 if related") enforces
-  // sms_can_chat(user_a, user_b) -- an unrelated pair gets rejected here,
-  // not just hidden in the UI.
-  const { error } = await supabase.from('sms_conversations').insert([{ id, user_a: userA, user_b: userB }])
-  if (error) {
-    return { error: error.message || 'You are not able to message this person' }
+  const { data, error } = await supabase.rpc('sms_get_or_create_direct_conversation', { p_other_user_id: otherUserId })
+  if (error || typeof data !== 'string') {
+    return { error: error?.message || 'You are not able to message this person' }
   }
-
-  const { error: participantsError } = await supabase
-    .from('sms_conversation_participants')
-    .insert([
-      { conversation_id: id, user_id: userA },
-      { conversation_id: id, user_id: userB },
-    ])
-  if (participantsError) {
-    return { error: participantsError.message }
-  }
-
-  return { id }
+  return { id: data }
 }
 
-// Creates a new group conversation and adds the given members alongside
-// the creator. RLS (see 028_group_chat.sql) independently re-checks that
-// every added member is someone the creator could legitimately 1:1 chat
-// with -- an unrelated id in memberIds gets rejected here, same
-// defense-in-depth as getOrCreateConversation above.
+// Creates a group conversation with the creator plus the given members,
+// all or nothing. Every member must be someone the creator could 1:1 chat
+// with -- re-checked in the database, not just in the UI.
 export async function createGroupConversation(
   supabase: SupabaseClient,
-  { name, creatorId, memberIds }: { name: string; creatorId: string; memberIds: string[] }
+  { name, memberIds }: { name: string; creatorId: string; memberIds: string[] }
 ): Promise<{ id: string } | { error: string }> {
-  const id = crypto.randomUUID()
-
-  const { error } = await supabase.from('sms_conversations').insert([{ id, is_group: true, name, created_by: creatorId }])
-  if (error) {
-    return { error: error.message || 'Failed to create group' }
+  const { data, error } = await supabase.rpc('sms_create_group_conversation', { p_name: name, p_member_ids: memberIds })
+  if (error || typeof data !== 'string') {
+    return { error: error?.message || 'Failed to create group' }
   }
-
-  const rows = [creatorId, ...memberIds].map((user_id) => ({ conversation_id: id, user_id }))
-  const { error: participantsError } = await supabase.from('sms_conversation_participants').insert(rows)
-
-  if (participantsError) {
-    // Best-effort cleanup -- the conversation row is useless without its
-    // participants, and RLS means only the creator (who just made it)
-    // could ever have deleted it anyway.
-    await supabase.from('sms_conversations').delete().eq('id', id)
-    return { error: participantsError.message }
-  }
-
-  return { id }
+  return { id: data }
 }
 
 export async function listConversations(supabase: SupabaseClient, currentUserId: string): Promise<ConversationSummary[]> {
