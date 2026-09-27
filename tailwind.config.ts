@@ -165,6 +165,7 @@ const config: Config = {
         'gamev2-podium-rise': 'gamev2PodiumRise 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
         'gamev2-count': 'gamev2Count 0.9s ease-out forwards',
         'gamev2-banner': 'gamev2Banner 1.8s ease-out forwards',
+        'gamev2-bump': 'gamev2Bump 0.3s ease-out',
       },
       keyframes: {
         blob: {
@@ -200,6 +201,11 @@ const config: Config = {
           '40%': { transform: 'translateX(6px)' },
           '60%': { transform: 'translateX(-4px)' },
           '80%': { transform: 'translateX(4px)' },
+        },
+        gamev2Bump: {
+          '0%': { transform: 'scale(1)' },
+          '40%': { transform: 'scale(1.25)' },
+          '100%': { transform: 'scale(1)' },
         },
         gamev2PodiumRise: {
           '0%': { opacity: '0', transform: 'translateY(60px)' },

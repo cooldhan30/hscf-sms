@@ -77,6 +77,16 @@ export type SoundId =
   | 'finalLap'
   | 'finish'
   | 'podium'
+  // Tower Defense.
+  | 'spear'
+  | 'cannon'
+  | 'frostBell'
+  | 'arrow'
+  | 'drum'
+  | 'heal'
+  | 'stoneRain'
+  | 'enrage'
+  | 'waveClear'
 
 let audioCtx: AudioContext | null = null
 
@@ -335,6 +345,53 @@ export function tonesFor(id: SoundId, variant?: number): Tone[] {
         { freq: 783.99, startMs: 180, durationMs: 160, gain: 0.15, type: 'triangle' },
         { freq: 1046.5, startMs: 360, durationMs: 520, gain: 0.17, type: 'triangle' },
       ]
+    case 'spear':
+      return [{ freq: 1200, startMs: 0, durationMs: 30, gain: 0.035, type: 'triangle' }]
+    case 'cannon':
+      return [
+        { freq: 90, startMs: 0, durationMs: 160, gain: 0.16, type: 'square' },
+        { freq: 60, startMs: 20, durationMs: 220, gain: 0.12, type: 'triangle' },
+      ]
+    case 'frostBell':
+      return [
+        { freq: 1567.98, startMs: 0, durationMs: 260, gain: 0.05, type: 'sine' },
+        { freq: 2093, startMs: 10, durationMs: 200, gain: 0.03, type: 'sine' },
+      ]
+    case 'arrow':
+      return [
+        { freq: 700, startMs: 0, durationMs: 60, gain: 0.06, type: 'sawtooth' },
+        { freq: 350, startMs: 40, durationMs: 60, gain: 0.04, type: 'triangle' },
+      ]
+    case 'drum':
+      return [
+        { freq: 110, startMs: 0, durationMs: 120, gain: 0.2, type: 'sine' },
+        { freq: 110, startMs: 200, durationMs: 120, gain: 0.2, type: 'sine' },
+        { freq: 147, startMs: 400, durationMs: 200, gain: 0.22, type: 'sine' },
+      ]
+    case 'heal':
+      return [
+        { freq: 523.25, startMs: 0, durationMs: 140, gain: 0.1, type: 'sine' },
+        { freq: 659.25, startMs: 100, durationMs: 140, gain: 0.1, type: 'sine' },
+        { freq: 880, startMs: 200, durationMs: 260, gain: 0.1, type: 'sine' },
+      ]
+    case 'stoneRain':
+      return [
+        { freq: 140, startMs: 420, durationMs: 120, gain: 0.16, type: 'square' },
+        { freq: 95, startMs: 470, durationMs: 180, gain: 0.16, type: 'square' },
+        { freq: 70, startMs: 540, durationMs: 260, gain: 0.14, type: 'triangle' },
+      ]
+    case 'enrage':
+      return [
+        { freq: 196, startMs: 0, durationMs: 200, gain: 0.16, type: 'sawtooth' },
+        { freq: 185, startMs: 200, durationMs: 200, gain: 0.16, type: 'sawtooth' },
+        { freq: 146.83, startMs: 400, durationMs: 400, gain: 0.17, type: 'sawtooth' },
+      ]
+    case 'waveClear':
+      return [
+        { freq: 587.33, startMs: 0, durationMs: 110, gain: 0.13, type: 'triangle' },
+        { freq: 739.99, startMs: 100, durationMs: 110, gain: 0.13, type: 'triangle' },
+        { freq: 880, startMs: 200, durationMs: 300, gain: 0.14, type: 'triangle' },
+      ]
     case 'slash':
       // A quick bright swish -- two very short descending blips.
       return [
@@ -349,7 +406,7 @@ export function tonesFor(id: SoundId, variant?: number): Tone[] {
 // Minimum gap between two plays of the same frequent game-event sound,
 // so a tower firing 3x a second or ten coins dropping at once never
 // turns into noise.
-const MIN_GAP_MS: Partial<Record<SoundId, number>> = { hit: 140, coin: 90, baseHit: 250, build: 80, slash: 60 }
+const MIN_GAP_MS: Partial<Record<SoundId, number>> = { hit: 140, coin: 90, baseHit: 250, build: 80, slash: 60, spear: 110, cannon: 220, frostBell: 300, arrow: 160 }
 const lastPlayedAt = new Map<SoundId, number>()
 
 // `variant` is an optional intensity knob a caller can pass for sounds

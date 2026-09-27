@@ -1,78 +1,58 @@
 'use client'
 
 import { useState } from 'react'
-import { FiBookOpen, FiDollarSign, FiShield, FiPlay } from 'react-icons/fi'
+import { FiShield } from 'react-icons/fi'
+import { GiCastle } from 'react-icons/gi'
 import { DIFFICULTY_SETTINGS, TOWER_TYPES, type TowerDefenseDifficulty } from '@/lib/gameRoomV2/towerDefense'
-import { TowerIcon } from './TowerShop'
+import { TowerPreview } from './ArtPreview'
 
-// Tower Defense setup: how the game works and a difficulty choice.
-// Difficulty changes enemies and coins only -- never the Tamil content.
+// The opening overlay, drawn OVER the live battlefield (fort, gate and
+// road already visible behind it). Tamizhi surface: white card, teal
+// primary button, stone borders.
 export function DifficultyPicker({ onStart }: { onStart: (d: TowerDefenseDifficulty) => void }) {
   const [choice, setChoice] = useState<TowerDefenseDifficulty>('normal')
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 py-6">
-      <div className="rounded-3xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/10 p-5 sm:p-7 text-white shadow-xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-yellow-300">Tower Defense</p>
-        <h1 className="text-2xl sm:text-3xl font-bold mt-1">Guard the Fort</h1>
-        <p className="font-tamil leading-relaxed text-lg text-stone-300">கோட்டையைக் காப்போம்</p>
-
-        <ol className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-          <li className="rounded-2xl bg-white/5 p-3">
-            <FiBookOpen className="w-5 h-5 text-yellow-300" aria-hidden />
-            <p className="font-semibold mt-1.5">1. Answer</p>
-            <p className="text-stone-300">Before each wave, answer Tamil challenges. Correct answers earn coins and scrolls.</p>
-          </li>
-          <li className="rounded-2xl bg-white/5 p-3">
-            <FiDollarSign className="w-5 h-5 text-yellow-300" aria-hidden />
-            <p className="font-semibold mt-1.5">2. Build</p>
-            <p className="text-stone-300">Spend coins on towers and upgrades. Scrolls power special abilities.</p>
-          </li>
-          <li className="rounded-2xl bg-white/5 p-3">
-            <FiShield className="w-5 h-5 text-yellow-300" aria-hidden />
-            <p className="font-semibold mt-1.5">3. Defend</p>
-            <p className="text-stone-300">Stop every wave before it reaches your fort. The last wave brings the Irul King.</p>
-          </li>
-        </ol>
-
-        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2">
+    <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center p-3 sm:p-6 bg-gradient-to-t from-stone-900/40 via-stone-900/10 to-transparent">
+      <div className="w-full max-w-lg rounded-3xl bg-white/95 shadow-2xl border border-white p-4 sm:p-6 animate-gamev2-pop-in">
+        <div className="flex items-center gap-3">
+          <span className="w-12 h-12 rounded-2xl bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+            <GiCastle className="w-7 h-7" aria-hidden />
+          </span>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-terracotta-600">Game Room · Tower Defense</p>
+            <h1 className="text-2xl sm:text-3xl font-black text-stone-900 leading-tight">Guard the Fort</h1>
+            <p className="font-tamil text-sm font-bold text-primary-700">கோட்டையைக் காப்போம்</p>
+          </div>
+        </div>
+        <p className="mt-2 text-sm text-stone-600">The Irul army marches down the road. Build towers, answer Tamil challenges for coins and scrolls, and hold the fort.</p>
+        <div className="mt-3 flex items-end justify-center gap-1 sm:gap-3" aria-hidden>
           {TOWER_TYPES.map((t) => (
-            <div key={t.id} className="rounded-xl bg-white/5 p-2 flex items-center gap-2">
-              <TowerIcon type={t.id} />
-              <div className="min-w-0">
-                <p className="text-xs font-semibold leading-tight">{t.name}</p>
-                <p className="text-[11px] text-stone-400">{t.role}</p>
-              </div>
-            </div>
+            <TowerPreview key={t.id} type={t.id} level={2} size={58} />
           ))}
         </div>
-
-        <fieldset className="mt-6">
-          <legend className="text-sm font-semibold mb-2">Difficulty</legend>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {DIFFICULTY_SETTINGS.map((d) => (
-              <label
-                key={d.id}
-                className={`cursor-pointer rounded-2xl border p-3 min-h-[44px] transition-colors ${
-                  choice === d.id ? 'border-yellow-300 bg-yellow-300/10' : 'border-white/10 bg-white/5 hover:bg-white/10'
-                }`}
-              >
-                <input type="radio" name="td-difficulty" value={d.id} checked={choice === d.id} onChange={() => setChoice(d.id)} className="sr-only" />
-                <p className="font-semibold">{d.label}</p>
-                <p className="text-xs text-stone-300 mt-0.5">{d.description}</p>
-                <p className="text-[11px] text-stone-400 mt-1">
-                  {d.startingCoins} coins · fort {d.baseHealth}
-                </p>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
+        <div className="mt-3 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Difficulty">
+          {DIFFICULTY_SETTINGS.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              role="radio"
+              aria-checked={choice === d.id}
+              onClick={() => setChoice(d.id)}
+              className={`rounded-2xl border-2 px-2 py-2.5 min-h-[56px] text-center transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-300 ${
+                choice === d.id ? 'border-primary-600 bg-primary-50' : 'border-stone-200 hover:border-primary-400'
+              }`}
+            >
+              <span className="block font-extrabold text-stone-900">{d.label}</span>
+              <span className="block text-[11px] text-stone-500 leading-tight">{d.id === 'easy' ? 'Gentle waves' : d.id === 'normal' ? 'A fair fight' : 'Tough armies'}</span>
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           onClick={() => onStart(choice)}
-          className="mt-6 w-full inline-flex items-center justify-center gap-2 min-h-[52px] rounded-2xl bg-yellow-400 hover:bg-yellow-300 text-stone-900 text-lg font-bold transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200"
+          className="mt-4 w-full min-h-[52px] rounded-2xl bg-primary-700 hover:bg-primary-800 text-white font-extrabold text-lg shadow-teal inline-flex items-center justify-center gap-2"
         >
-          <FiPlay className="w-5 h-5" aria-hidden /> Start the defence
+          <FiShield className="w-5 h-5" aria-hidden /> Start the defence
         </button>
       </div>
     </div>
