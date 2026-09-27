@@ -117,13 +117,19 @@ export async function POST(request: Request) {
   // Boss Battle needs one shared boss + difficulty for the whole class
   // to cooperatively fight (see migration 082) -- meaningless for every
   // other engine.
+  // Since the real-time rebuild each student fights their own arena; the
+  // shared boss row only drives the teacher's class-progress meter, so it
+  // is optional and defaults rather than being another setup screen.
   let bossId: string | null = null
   let bossDifficulty = 'normal'
   if (engineId === 'boss-battle') {
-    if (typeof body.bossId !== 'string' || !['suran', 'kotravai-guardian', 'naga-serpent'].includes(body.bossId)) {
-      return NextResponse.json({ error: 'A valid boss must be selected' }, { status: 400 })
+    bossId = 'suran'
+    if (body.bossId !== undefined && body.bossId !== null) {
+      if (typeof body.bossId !== 'string' || !['suran', 'kotravai-guardian', 'naga-serpent'].includes(body.bossId)) {
+        return NextResponse.json({ error: 'A valid boss must be selected' }, { status: 400 })
+      }
+      bossId = body.bossId
     }
-    bossId = body.bossId
     if (typeof body.bossDifficulty === 'string') {
       if (!['easy', 'normal', 'hard'].includes(body.bossDifficulty)) {
         return NextResponse.json({ error: 'Invalid boss battle difficulty' }, { status: 400 })

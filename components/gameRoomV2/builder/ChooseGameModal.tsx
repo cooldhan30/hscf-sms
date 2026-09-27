@@ -1,12 +1,11 @@
 'use client'
 
-import { useState } from 'react'
 import { FiUsers } from 'react-icons/fi'
 import { GameV2Modal, GameV2Empty, GameV2StatusPill } from '@/components/gameRoomV2'
 import { engineIcon } from '@/components/gameRoomV2/shell/ui'
 import { checkEngineCompatibility, type GameRoomQuestionType } from '@/lib/gameRoomV2/domain'
 import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
-import { HostLiveModal } from '@/components/gameRoomV2/liveClassroom/HostLiveModal'
+import Link from 'next/link'
 
 // "Choose a game" for a teacher's question set (Library card / Builder
 // wizard). Lists ONLY engines compatible with the set's question types
@@ -28,7 +27,6 @@ export function ChooseGameModal({
   questionTypes: GameRoomQuestionType[]
   setTitle: string
 }) {
-  const [hostingEngineId, setHostingEngineId] = useState<string | null>(null)
   const compatible = checkEngineCompatibility(GAME_ENGINES_V2, questionTypes).filter((r) => r.compatible)
 
   return (
@@ -62,13 +60,12 @@ export function ChooseGameModal({
                 </div>
                 {isPlayable &&
                   (supportsLive ? (
-                    <button
-                      type="button"
-                      onClick={() => setHostingEngineId(engine.id)}
+                    <Link
+                      href={`/gameroom-v2/live/host?set=${encodeURIComponent(questionSetId)}&game=${encodeURIComponent(engine.id)}`}
                       className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 min-h-[44px] rounded-xl bg-primary-700 hover:bg-primary-800 dark:bg-primary-600 dark:hover:bg-primary-700 text-white text-sm font-semibold transition-colors"
                     >
                       <FiUsers className="w-4 h-4" aria-hidden /> Host Live
-                    </button>
+                    </Link>
                   ) : (
                     <p className="mt-3 text-xs text-stone-500 dark:text-stone-400">Students can play this on their own.</p>
                   ))}
@@ -78,15 +75,6 @@ export function ChooseGameModal({
         </div>
       )}
 
-      {hostingEngineId && (
-        <HostLiveModal
-          open={Boolean(hostingEngineId)}
-          onClose={() => setHostingEngineId(null)}
-          questionSetId={questionSetId}
-          engineId={hostingEngineId}
-          setTitle={setTitle}
-        />
-      )}
     </GameV2Modal>
   )
 }

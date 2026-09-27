@@ -2,48 +2,48 @@ import { NextResponse } from 'next/server'
 import { requireLiveSessionParticipant } from '@/lib/gameRoomV2/liveClassroom/requireLiveSession'
 import { isPresentlyConnected } from '@/lib/gameRoomV2/liveClassroom/presence'
 import { isLiveSessionStale } from '@/lib/gameRoomV2/liveClassroom/lifecycle'
+import { deriveLiveNickname } from '@/lib/gameRoomV2/liveClassroom'
+import { getGameEngineV2 } from '@/lib/gameRoomV2/registry'
 
-// GET /api/gameroom-v2/live/[id]/state -- the student's own lobby/play
-// view: live session status, the roster (nicknames only), and -- once
-// the host has started the game -- this participant's OWN
-// sessionId, the bridge into the existing, completely unmodified solo
-// gameplay stack (GameSessionRuntime / sessions/[id]/state / answer /
-// complete). Live Classroom's job ends the moment sessionId is handed
-// off; from then on, this participant's actual play experience is
-// IDENTICAL to a solo student's, engine-for-engine.
+// GET /api/gameroom-v2/live/[id]/state -- a joined student's view of the
+// live session: status, their own sessionId once the host starts, the
+// lobby roster (nicknames only), and what they are about to play
+// (teacher, class, question-set title, game). Participant-only
+// (requireLiveSessionParticipant). The display lookups use the admin
+// client only after that guard, and only read names/titles -- never a
+// question, payload or answer.
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   const guard = await requireLiveSessionParticipant(params.id)
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-  const { supabase, liveSession, participant } = guard
+  const { supabase, admin, liveSession, participant } = guard
 
-  const { data: participants } = await supabase
-    .from('sms_gamev2_live_participants')
-    .select('nickname, connected, last_seen_at')
-    .eq('live_session_id', liveSession.id)
-    .order('joined_at', { ascending: true })
+  const [{ data: participants }, { data: klass }, { data: set }, { data: host }] = await Promise.all([
+    supabase
+      .from('sms_gamev2_live_participants')
+      .select('nickname, connected, last_seen_at')
+      .eq('live_session_id', liveSession.id)
+      .order('joined_at', { ascending: true }),
+    admin.from('sms_classes').select('name').eq('id', liveSession.class_id).maybeSingle(),
+    admin.from('sms_gamev2_question_sets').select('title, tamil_title').eq('id', liveSession.question_set_id).maybeSingle(),
+    admin.from('sms_teachers').select('profile:sms_profiles!profile_id(first_name, last_name)').eq('id', liveSession.host_teacher_id).maybeSingle(),
+  ])
+  const hp = (host && (Array.isArray(host.profile) ? host.profile[0] : host.profile)) as { first_name: string | null; last_name: string | null } | null
+  const engine = getGameEngineV2(liveSession.engine_id)
 
   return NextResponse.json({
     status: liveSession.status,
     engineId: liveSession.engine_id,
+    engineName: engine?.name ?? liveSession.engine_id,
+    engineTamilName: engine?.tamilName ?? null,
     sessionId: participant.session_id,
     participantId: participant.id,
-    // Only meaningful for racing (see migration 081's race_difficulty
-    // column) -- every other engine's live session just carries the
-    // table's default, unused by that engine's client.
     raceDifficulty: liveSession.race_difficulty,
-    // Only meaningful for boss-battle (see migration 082's boss_id/
-    // boss_difficulty columns) -- every other engine's live session
-    // just carries the table's default/null, unused by that engine's
-    // client.
     bossId: liveSession.boss_id,
     bossDifficulty: liveSession.boss_difficulty,
-    // HOST DISCONNECT / STALE ROOM: a student stuck in the lobby (or
-    // an ACTIVE session with no bridge row yet) whose host tab closed
-    // and never returned would otherwise poll forever with no signal
-    // anything is wrong -- this flag lets LivePlayClient.tsx show a
-    // clear "this session has gone stale" message instead of an
-    // indefinite spinner. See lifecycle.ts's isLiveSessionStale.
     stale: isLiveSessionStale(liveSession.status, liveSession.created_at),
+    className: klass?.name ?? null,
+    questionSetTitle: set?.tamil_title || set?.title || null,
+    teacherName: hp ? deriveLiveNickname(hp.first_name, hp.last_name) : null,
     roster: (participants ?? []).map((p) => ({
       nickname: p.nickname,
       connected: isPresentlyConnected({ connected: p.connected, lastSeenAt: p.last_seen_at }),

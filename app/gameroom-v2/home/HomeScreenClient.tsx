@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { FiStar, FiTrendingUp, FiTarget, FiCheckCircle, FiUsers, FiBarChart2, FiArrowRight, FiPlayCircle, FiAward, FiCalendar } from 'react-icons/fi'
+import { JoinLiveBox } from '@/components/gameRoomV2/liveClassroom/JoinLiveBox'
+import { FiStar, FiTrendingUp, FiTarget, FiCheckCircle, FiBarChart2, FiArrowRight, FiPlayCircle, FiAward, FiCalendar } from 'react-icons/fi'
 import { PageHeader, SectionCard, StatCard, ProgressBar, TopicStatusBadge, engineIcon, primaryLinkButton, secondaryLinkButton } from '@/components/gameRoomV2/shell/ui'
 import { QuickPlay } from '@/components/gameRoomV2/learning/QuickPlay'
 import { useStartGame } from '@/components/gameRoomV2/learning/useStartGame'
@@ -53,15 +54,15 @@ export function HomeScreenClient({
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Live Classroom first: a student arriving with a code from their
+          teacher should never have to hunt for where to type it. */}
+      <JoinLiveBox />
       <PageHeader
         title="Game Room"
         tamilTitle="விளையாட்டு அறை"
         description={`${firstName ? `Welcome, ${firstName}. ` : ''}Pick a Tamil topic, then choose a game to practise it.`}
         actions={
           <>
-            <Link href="/gameroom-v2/live/join" className={secondaryLinkButton}>
-              <FiUsers className="w-4 h-4" aria-hidden /> Join Live Game
-            </Link>
             <Link href="/gameroom-v2/progress" className={secondaryLinkButton}>
               <FiBarChart2 className="w-4 h-4" aria-hidden /> My Progress
             </Link>

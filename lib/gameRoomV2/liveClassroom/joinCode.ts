@@ -7,6 +7,9 @@
 // simply one the resolve RPC won't find a match for, same "let the
 // server be the single source of truth for validity" precedent every
 // other GameRoom V2 lookup already follows.
+//
+// Spaces and dashes anywhere are dropped too, so a code shown grouped on
+// the teacher's screen ("AB7K 9PQR") works however the student types it.
 export function normalizeJoinCode(raw: string): string {
-  return raw.trim().toUpperCase()
+  return raw.replace(/[\s\-\u2010-\u2015]/g, '').toUpperCase()
 }

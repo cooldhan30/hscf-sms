@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { FiPlay, FiUsers, FiClock, FiEye, FiCopy } from 'react-icons/fi'
 import { engineIcon } from '@/components/gameRoomV2/shell/ui'
-import { HostLiveModal } from '@/components/gameRoomV2/liveClassroom/HostLiveModal'
 import { PreviewModal } from '@/app/gameroom-v2/library/PreviewModal'
 import { toast } from '@/lib/toast'
-import type { EngineOption, TopicSummary } from '@/lib/gameRoomV2/builtin/summaries'
+import type { TopicSummary } from '@/lib/gameRoomV2/builtin/summaries'
 import { useStartGame } from './useStartGame'
 
 export interface TopicSetInfo {
@@ -40,7 +40,6 @@ export function TopicGameChooser({
 }) {
   const router = useRouter()
   const { start, starting } = useStartGame()
-  const [hosting, setHosting] = useState<EngineOption | null>(null)
   const [previewSet, setPreviewSet] = useState<TopicSetInfo | null>(null)
   const [duplicating, setDuplicating] = useState<string | null>(null)
 
@@ -90,15 +89,14 @@ export function TopicGameChooser({
                     <FiPlay className="w-4 h-4" aria-hidden /> {starting === key ? 'Starting...' : 'Play'}
                   </button>
                 ) : e.live ? (
-                  <button
-                    type="button"
-                    onClick={() => setHosting(e)}
+                  <Link
+                    href={`/gameroom-v2/live/host?set=${encodeURIComponent(e.setId)}&game=${encodeURIComponent(e.engineId)}`}
                     className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-primary-700 hover:bg-primary-800 dark:bg-primary-600 dark:hover:bg-primary-700 text-white text-sm font-semibold transition-colors"
                   >
                     <FiUsers className="w-4 h-4" aria-hidden /> Host Live Classroom
-                  </button>
+                  </Link>
                 ) : (
-                  <p className="text-xs text-stone-500 dark:text-stone-400">Students can play this on their own from this topic. Live Classroom supports Classic Quiz, Racing and Boss Battle.</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">Students can play this on their own from this topic.</p>
                 )}
               </div>
             </div>
@@ -144,15 +142,6 @@ export function TopicGameChooser({
         </div>
       )}
 
-      {hosting && (
-        <HostLiveModal
-          open={Boolean(hosting)}
-          onClose={() => setHosting(null)}
-          questionSetId={hosting.setId}
-          engineId={hosting.engineId}
-          setTitle={`${topic.tamilTitle} -- ${hosting.name}`}
-        />
-      )}
       {previewSet && <PreviewModal open onClose={() => setPreviewSet(null)} setId={previewSet.id} setTitle={previewSet.title} />}
     </div>
   )

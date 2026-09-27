@@ -51,7 +51,7 @@ export const GAME_ENGINES_V2: GameEngine[] = [
   {
     id: 'tower-defense',
     name: 'Tower Defense',
-    tamilName: null,
+    tamilName: 'கோட்டை காப்போம்',
     description: 'Answer correctly to build/upgrade defenses against waves of enemies.',
     icon: null,
     thumbnail: null,
@@ -59,7 +59,10 @@ export const GAME_ENGINES_V2: GameEngine[] = [
       supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'CATEGORIZE'],
       soloSupport: true,
       multiplayerSupport: false,
-      liveClassroomSupport: false,
+      // Live Classroom: each student plays their own game on a session the
+      // shared live system creates (same question order for the class,
+      // server grading) -- see LivePlayClient.tsx and engineBranch.ts.
+      liveClassroomSupport: true,
       homeworkSupport: true,
       minPlayers: 1,
       maxPlayers: 1,
@@ -78,7 +81,7 @@ export const GAME_ENGINES_V2: GameEngine[] = [
   {
     id: 'boss-battle',
     name: 'Boss Battle',
-    tamilName: null,
+    tamilName: 'இருள் அரசனுடன் போர்',
     description: 'Battle waves of shadow creatures in a real-time arena, level up your hero, and defeat the Irul King. Tamil checkpoints heal you and unlock golden upgrades.',
     icon: null,
     thumbnail: null,
@@ -125,7 +128,7 @@ export const GAME_ENGINES_V2: GameEngine[] = [
   {
     id: 'racing',
     name: 'Racing',
-    tamilName: null,
+    tamilName: 'தமிழ்ப் பந்தயம்',
     description: 'Correct answers boost your racer forward -- accuracy wins the race, not button speed.',
     icon: null,
     thumbnail: null,
@@ -204,7 +207,7 @@ export const GAME_ENGINES_V2: GameEngine[] = [
   {
     id: 'word-ninja',
     name: 'Word Ninja',
-    tamilName: null,
+    tamilName: 'சொல் வீரன்',
     description: 'Slash flying words into the correct category lane before time runs out.',
     icon: null,
     thumbnail: null,
@@ -221,7 +224,10 @@ export const GAME_ENGINES_V2: GameEngine[] = [
       supportedQuestionTypes: ['CATEGORIZE'],
       soloSupport: true,
       multiplayerSupport: false,
-      liveClassroomSupport: false,
+      // Live Classroom: each student plays their own game on a session the
+      // shared live system creates (same question order for the class,
+      // server grading) -- see LivePlayClient.tsx and engineBranch.ts.
+      liveClassroomSupport: true,
       homeworkSupport: true,
       minPlayers: 1,
       maxPlayers: 1,
@@ -365,7 +371,7 @@ export const GAME_ENGINES_V2: GameEngine[] = [
   {
     id: 'matching',
     name: 'Matching',
-    tamilName: null,
+    tamilName: 'பொருத்துக',
     description: 'Pair up related items -- letters, words, or meanings -- as fast as you can.',
     icon: null,
     thumbnail: null,
@@ -373,7 +379,10 @@ export const GAME_ENGINES_V2: GameEngine[] = [
       supportedQuestionTypes: ['MATCH'],
       soloSupport: true,
       multiplayerSupport: false,
-      liveClassroomSupport: false,
+      // Live Classroom: each student plays their own game on a session the
+      // shared live system creates (same question order for the class,
+      // server grading) -- see LivePlayClient.tsx and engineBranch.ts.
+      liveClassroomSupport: true,
       homeworkSupport: true,
       minPlayers: 1,
       maxPlayers: 1,
@@ -394,7 +403,7 @@ export const GAME_ENGINES_V2: GameEngine[] = [
   {
     id: 'memory',
     name: 'Memory',
-    tamilName: null,
+    tamilName: 'நினைவுப் பெட்டகம்',
     description: 'Flip cards to find matching pairs and train your recall.',
     icon: null,
     thumbnail: null,
@@ -409,7 +418,10 @@ export const GAME_ENGINES_V2: GameEngine[] = [
       supportedQuestionTypes: ['MATCH'],
       soloSupport: true,
       multiplayerSupport: false,
-      liveClassroomSupport: false,
+      // Live Classroom: each student plays their own game on a session the
+      // shared live system creates (same question order for the class,
+      // server grading) -- see LivePlayClient.tsx and engineBranch.ts.
+      liveClassroomSupport: true,
       homeworkSupport: true,
       minPlayers: 1,
       maxPlayers: 1,

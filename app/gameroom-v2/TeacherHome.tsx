@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FiBookOpen, FiFolder, FiShare2, FiPlus, FiBarChart2, FiUsers, FiArrowRight, FiEdit3 } from 'react-icons/fi'
+import { FiBookOpen, FiFolder, FiShare2, FiPlus, FiBarChart2, FiUsers, FiArrowRight, FiEdit3, FiUpload } from 'react-icons/fi'
 import { PageHeader, SectionCard, primaryLinkButton, secondaryLinkButton } from '@/components/gameRoomV2/shell/ui'
 import { LEARNING_BOARDS, allTopicSummaries } from '@/lib/gameRoomV2/builtin/summaries'
 
@@ -8,7 +8,6 @@ import { LEARNING_BOARDS, allTopicSummaries } from '@/lib/gameRoomV2/builtin/sum
 // host and review.
 export function TeacherHome({ mySetCount, sharedSetCount }: { mySetCount: number; sharedSetCount: number }) {
   const topics = allTopicSummaries()
-  const liveTopicCount = topics.filter((t) => t.engines.some((e) => e.live)).length
 
   const tiles = [
     {
@@ -27,10 +26,10 @@ export function TeacherHome({ mySetCount, sharedSetCount }: { mySetCount: number
     { href: '/gameroom-v2/builder', icon: FiEdit3, title: 'Question Set Builder', text: 'Create and edit your own question sets.' },
     { href: '/gameroom-v2/analytics', icon: FiBarChart2, title: 'Analytics', text: 'See how your students are doing on your sets.' },
     {
-      href: '/gameroom-v2/topics?game=classic-quiz',
+      href: '/gameroom-v2/live/host',
       icon: FiUsers,
-      title: 'Live Classroom',
-      text: `Host any of ${liveTopicCount} built-in topics (or your own sets) live with a join code.`,
+      title: 'Host Live',
+      text: 'Question set, class, game -- Start Now. Your class joins with a code. Works with every game.',
     },
   ]
 
@@ -45,7 +44,13 @@ export function TeacherHome({ mySetCount, sharedSetCount }: { mySetCount: number
             <Link href="/gameroom-v2/library" className={secondaryLinkButton}>
               <FiFolder className="w-4 h-4" aria-hidden /> Question Set Library
             </Link>
-            <Link href="/gameroom-v2/builder/new" className={primaryLinkButton}>
+            <Link href="/gameroom-v2/library/import" className={secondaryLinkButton}>
+              <FiUpload className="w-4 h-4" aria-hidden /> Import Question Set
+            </Link>
+            <Link href="/gameroom-v2/live/host" className={primaryLinkButton}>
+              <FiUsers className="w-4 h-4" aria-hidden /> Host Live
+            </Link>
+            <Link href="/gameroom-v2/builder/new" className={secondaryLinkButton}>
               <FiPlus className="w-4 h-4" aria-hidden /> Create Question Set
             </Link>
           </>
