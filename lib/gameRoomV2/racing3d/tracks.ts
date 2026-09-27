@@ -35,6 +35,10 @@ export type SceneryKind =
   | 'crowd'
   | 'lantern'
   | 'sign'
+  | 'house'
+  | 'teaStall'
+  | 'busStop'
+  | 'chevron'
 
 export type Horizon = 'city' | 'mountains' | 'sea' | 'forest' | 'fields' | 'nightCity'
 export type MusicStyle = 'city' | 'temple' | 'coast' | 'forest' | 'village' | 'night'
@@ -107,13 +111,21 @@ export interface TrackDef {
 // Pieces that are solid when a car leaves the road and hits them.
 export const SOLID_SCENERY: ReadonlySet<SceneryKind> = new Set<SceneryKind>([
   'palm', 'tree', 'banyan', 'pine', 'bamboo', 'rock', 'building', 'tallBuilding', 'shop', 'streetlamp', 'neon', 'billboard', 'hut', 'haystack', 'gopuram', 'mandapam', 'lighthouse', 'waveRock', 'fence', 'lantern', 'sign',
+  'house', 'teaStall', 'busStop',
 ])
+
+// Pieces drawn as solid blocks with a side wall facing the road (their
+// depth along the road, in segments); everything else is a flat cut-out.
+export const BOX_DEPTH: Partial<Record<SceneryKind, number>> = {
+  building: 6, tallBuilding: 6, shop: 4, house: 4, mandapam: 5, hut: 3,
+}
 
 // Half-width of each piece in road half-widths (for collisions and drawing).
 export const SCENERY_WIDTH: Record<SceneryKind, number> = {
   palm: 0.14, tree: 0.3, banyan: 0.5, pine: 0.2, bamboo: 0.12, bush: 0.22, rock: 0.3, building: 0.85, tallBuilding: 0.7, shop: 0.6,
   streetlamp: 0.05, neon: 0.35, billboard: 0.45, hut: 0.55, haystack: 0.3, paddy: 0.7, gopuram: 1.1, mandapam: 0.9, flag: 0.05,
   lighthouse: 0.35, boat: 0.5, waveRock: 0.4, waterfall: 1.2, fence: 0.5, crowd: 0.8, lantern: 0.05, sign: 0.2,
+  house: 0.6, teaStall: 0.45, busStop: 0.4, chevron: 0.12,
 }
 
 const s = (len: number, curve: number, hill = 0): TrackSection => ({ len, curve, hill })
@@ -131,8 +143,9 @@ export const TRACKS: TrackDef[] = [
       s(100, -2.5, 8), s(100, 0, -8), s(80, 4.5), s(150, 0), s(70, -4), s(90, 0),
     ],
     scenery: [
-      { from: 0, to: 1, kinds: ['building', 'tallBuilding', 'shop', 'shop'], density: 0.5, side: 'both' },
+      { from: 0, to: 1, kinds: ['building', 'tallBuilding', 'shop', 'shop', 'house'], density: 0.5, side: 'both' },
       { from: 0, to: 1, kinds: ['streetlamp'], density: 0.18, side: 'both' },
+      { from: 0, to: 1, kinds: ['tree', 'teaStall', 'busStop', 'bush'], density: 0.12, side: 'both' },
       { from: 0.2, to: 0.45, kinds: ['billboard', 'sign'], density: 0.08, side: 'both' },
       { from: 0.6, to: 0.9, kinds: ['billboard', 'tree'], density: 0.1, side: 'both' },
     ],
@@ -191,7 +204,7 @@ export const TRACKS: TrackDef[] = [
     scenery: [
       { from: 0, to: 1, kinds: ['palm', 'palm', 'bush'], density: 0.4, side: 'left' },
       { from: 0, to: 1, kinds: ['boat', 'waveRock'], density: 0.05, side: 'right' },
-      { from: 0.4, to: 0.6, kinds: ['hut', 'palm'], density: 0.2, side: 'left' },
+      { from: 0.4, to: 0.6, kinds: ['hut', 'palm', 'teaStall'], density: 0.2, side: 'left' },
     ],
     landmarks: [
       { at: 0.18, kind: 'lighthouse', side: 1, offset: 3.2, scale: 1.4 },
@@ -244,7 +257,8 @@ export const TRACKS: TrackDef[] = [
     ],
     scenery: [
       { from: 0, to: 1, kinds: ['paddy', 'paddy', 'palm', 'haystack'], density: 0.35, side: 'both' },
-      { from: 0.2, to: 0.35, kinds: ['hut', 'hut', 'palm'], density: 0.35, side: 'both' },
+      { from: 0.2, to: 0.35, kinds: ['hut', 'hut', 'palm', 'house'], density: 0.35, side: 'both' },
+      { from: 0.4, to: 0.5, kinds: ['house', 'teaStall', 'palm'], density: 0.25, side: 'both' },
       { from: 0.6, to: 0.75, kinds: ['hut', 'banyan', 'haystack'], density: 0.3, side: 'both' },
       { from: 0, to: 1, kinds: ['fence'], density: 0.05, side: 'both' },
     ],
@@ -274,6 +288,7 @@ export const TRACKS: TrackDef[] = [
       { from: 0, to: 1, kinds: ['tallBuilding', 'building', 'neon'], density: 0.45, side: 'both' },
       { from: 0, to: 1, kinds: ['streetlamp'], density: 0.25, side: 'both' },
       { from: 0.3, to: 0.7, kinds: ['neon', 'billboard'], density: 0.15, side: 'both' },
+      { from: 0, to: 1, kinds: ['shop', 'teaStall', 'busStop'], density: 0.1, side: 'both' },
     ],
     landmarks: [
       { at: 0.02, kind: 'crowd', side: -1, offset: 1.6 },

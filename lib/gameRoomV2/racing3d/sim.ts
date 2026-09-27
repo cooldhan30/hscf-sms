@@ -1,5 +1,5 @@
 import { mulberry32 } from '../gameplay/rng'
-import { buildRoad, curveAhead, segmentAt, straightAhead, SEGMENT_LENGTH, type Road } from './road'
+import { buildRoad, curveAhead, segmentAt, straightAhead, SEGMENT_LENGTH, ROAD_WIDTH, RAIL_OFFSET, type Road } from './road'
 import { getTrack, type TrackDef } from './tracks'
 import { POWERS, POWER_SLOTS, awardPower, type PowerId } from './powerups'
 
@@ -8,8 +8,11 @@ import { POWERS, POWER_SLOTS, awardPower, type PowerId } from './powerups'
 // the UI keeps it in a ref and renders it (components/gameRoomV2/racing3d).
 //
 // Driving skill decides the race: acceleration, braking, momentum,
-// speed-sensitive steering, centrifugal drift on bends, off-road slowdown,
+// arcade handling (see HANDLING below), drift on bends, off-road slowdown,
 // crashes into roadside scenery and bumps with other cars.
+//
+// Road convention (shared with the renderer): x > 0 is the right of the
+// road, curve > 0 bends right, so a bend's outside is -sign(curve).
 //
 // Tamil questions come at CHECKPOINTS: crossing one freezes the whole race
 // (nobody gains or loses while reading), the answer is graded by the
@@ -31,12 +34,39 @@ const BRAKING = -MAX_SPEED / 1.15
 const DECEL = -MAX_SPEED / 6
 const OFFROAD_DECEL = -MAX_SPEED / 1.7
 const OFFROAD_LIMIT = MAX_SPEED / 3.2
-const CENTRIFUGAL = 0.3
 export const BOOST_MULT = 1.32
 const BURST_MULT = 1.2
 export const CAR_HALF = 0.17
 const FINISH_GRACE_S = 9
 const X_LIMIT = 3.2
+
+// Arcade handling. The car moves across the road with a lateral velocity
+// (road half-widths per second) that chases a target set by the steering
+// and the bend; a short time constant gives it weight without lag.
+//   authority: how fast full lock moves the car sideways. Strong at all
+//     normal speeds, eased only above ~55% speed (never below 80%), and at
+//     low speed limited by the car's heading angle (a car cannot slide
+//     sideways when stopped, but at 45 km/h it turns easily).
+//   drift: a bend pushes the car to its outside with speed^2, a little
+//     more than proportionally in the tightest bends. At normal top speed
+//     every bend on every track needs well under full lock, so the road can
+//     always be followed; boosting into the sharpest ones needs a lift or a
+//     dab of brake, and a true hairpin rewards braking.
+//   steering input is rate-limited (keyboard taps become smooth ramps,
+//   returning to centre faster than building up) so left-right swaps
+//   never jerk. All of it integrates the same at 30, 60 or 120 Hz.
+export const HANDLING = {
+  steerRate: 2.5, // half-widths/s at full lock (below the high-speed ease)
+  highSpeedEase: 0.2, // authority lost at 130% speed
+  maxSlip: 1.0, // tan of the largest heading angle to the road (45 deg)
+  drift: 0.2, // half-widths/s per unit curve at top speed
+  tightFrom: 3.5, // bends sharper than this push harder...
+  tightGain: 0.25, // ...by this much per unit of extra curve
+  tauRoad: 0.08, // lateral response time on tarmac (s)
+  tauGrass: 0.2, // ... and on grass
+  steerBuild: 1 / 0.11, // steering input ramp (per second) towards lock
+  steerReturn: 1 / 0.06, // ... and back to centre / reversing
+}
 
 export type Difficulty = 'easy' | 'normal' | 'hard'
 export type Personality = 'smooth' | 'aggressive' | 'steady'
@@ -80,6 +110,13 @@ export interface Car {
   z: number // total distance from the start line
   x: number // road half-widths from the centre
   speed: number
+  vx: number // lateral velocity from steering and bends, half-widths/s
+  kick: number // lateral velocity from knocks (bumps, rails), fading
+  yaw: number // heading relative to the road (rad, + = pointing right)
+  steer: number // smoothed steering, -1..1
+  pz: number // z / x / yaw before the latest step (render interpolation)
+  px: number
+  pyaw: number
   lap: number // completed laps
   finished: boolean
   finishTime: number | null
@@ -90,12 +127,16 @@ export interface Car {
   starT: number
   burstT: number
   crashT: number
+  railT: number // guard-rail scrape cooldown
   lapStart: number
   bestLap: number | null
   // Rival brain.
   aiTargetX: number
   aiMistakeT: number
   aiBoostCd: number
+  // Bumped from behind: move over to this lane for a moment.
+  aiYieldT: number
+  aiYieldX: number
 }
 
 export interface Coin {
@@ -116,6 +157,7 @@ export type RaceEvent =
   | { type: 'raceOver' }
   | { type: 'bump' }
   | { type: 'crash' }
+  | { type: 'rail' }
   | { type: 'shieldHit' }
   | { type: 'offroad' }
   | { type: 'coin'; total: number }
@@ -178,9 +220,9 @@ export const IDLE: RaceInput = { throttle: 0, brake: 0, steer: 0, usePower: fals
 
 function newCar(id: string, name: string, tamilName: string, color: string, isPlayer: boolean, personality: Personality | null, z: number, x: number): Car {
   return {
-    id, name, tamilName, color, isPlayer, personality, z, x, speed: 0, lap: 0, finished: false, finishTime: null,
-    boostT: 0, shieldT: 0, gripT: 0, magnetT: 0, starT: 0, burstT: 0, crashT: 0, lapStart: 0, bestLap: null,
-    aiTargetX: x, aiMistakeT: 0, aiBoostCd: 6,
+    id, name, tamilName, color, isPlayer, personality, z, x, speed: 0, vx: 0, kick: 0, yaw: 0, steer: 0, pz: z, px: x, pyaw: 0, lap: 0, finished: false, finishTime: null,
+    boostT: 0, shieldT: 0, gripT: 0, magnetT: 0, starT: 0, burstT: 0, crashT: 0, railT: 0, lapStart: 0, bestLap: null,
+    aiTargetX: x, aiMistakeT: 0, aiBoostCd: 6, aiYieldT: 0, aiYieldX: x,
   }
 }
 
@@ -250,6 +292,13 @@ export const placeOf = (s: RaceState, id: string) => standings(s).findIndex((c) 
 
 export function stepRace(s: RaceState, input: RaceInput, dt = STEP): RaceEvent[] {
   const ev: RaceEvent[] = []
+  // Remember where everyone was, so the renderer can interpolate between
+  // steps (smooth motion at any refresh rate) -- and hold still when frozen.
+  for (const c of s.cars) {
+    c.pz = c.z
+    c.px = c.x
+    c.pyaw = c.yaw
+  }
   if (s.over || s.status === 'question') return ev
 
   if (s.status === 'countdown' || s.status === 'resume') {
@@ -317,31 +366,91 @@ function tickTimers(c: Car, dt: number) {
   c.starT = Math.max(0, c.starT - dt)
   c.burstT = Math.max(0, c.burstT - dt)
   c.crashT = Math.max(0, c.crashT - dt)
+  c.railT = Math.max(0, c.railT - dt)
   c.aiMistakeT = Math.max(0, c.aiMistakeT - dt)
   c.aiBoostCd = Math.max(0, c.aiBoostCd - dt)
+  c.aiYieldT = Math.max(0, c.aiYieldT - dt)
 }
 
 function topSpeed(c: Car): number {
   return MAX_SPEED * (c.boostT > 0 || c.starT > 0 ? BOOST_MULT : c.burstT > 0 ? BURST_MULT : 1)
 }
 
+// Fraction of the way a first-order response covers in dt (exact for any
+// step length, so 30/60/120 Hz integrate alike).
+const approach = (dt: number, tau: number) => 1 - Math.pow(Math.E, -dt / tau)
+
+// Smooth the raw steering input: ramps towards lock, snaps back faster.
+export function smoothSteer(current: number, target: number, dt: number): number {
+  const t = Math.max(-1, Math.min(1, target))
+  const releasing = Math.abs(t) < Math.abs(current) || Math.sign(t) !== Math.sign(current)
+  const rate = (releasing && current !== 0 ? HANDLING.steerReturn : HANDLING.steerBuild) * dt
+  if (Math.abs(t - current) <= rate) return t
+  return current + Math.sign(t - current) * rate
+}
+
+// Sideways speed full lock gives at this speed (half-widths/s).
+export function steerAuthority(speed: number): number {
+  const pct = speed / MAX_SPEED
+  const ease = 1 - HANDLING.highSpeedEase * Math.max(0, Math.min(1, (pct - 0.55) / 0.75))
+  return Math.min(HANDLING.steerRate * ease, (HANDLING.maxSlip * speed) / ROAD_WIDTH)
+}
+
+// How hard a bend pushes the car to its outside (half-widths/s, signed).
+export function bendDrift(speed: number, curve: number): number {
+  const pct = speed / MAX_SPEED
+  const tight = 1 + HANDLING.tightGain * Math.max(0, Math.abs(curve) - HANDLING.tightFrom)
+  return -HANDLING.drift * pct * pct * curve * tight
+}
+
 function stepPlayer(s: RaceState, p: Car, input: RaceInput, dt: number, ev: RaceEvent[]) {
   const seg = segmentAt(s.road, p.z)
-  const pct = p.speed / MAX_SPEED
-  const grip = p.gripT > 0 || p.starT > 0 ? 1.4 : 1
-  const cf = CENTRIFUGAL * (p.gripT > 0 ? 0.45 : 1)
-  const dx = dt * 2 * pct * grip
+  const gripUp = p.gripT > 0 || p.starT > 0
+  const offBefore = Math.abs(p.x) > 1
 
   if (input.usePower && s.slots.length > 0) firePower(s, p, s.slots.shift() as PowerId, ev)
 
-  p.x += input.steer * dx * (p.crashT > 0 ? 0.4 : 1)
-  p.x -= dx * pct * seg.curve * cf
+  // Steering -> lateral velocity (see HANDLING).
+  p.steer = smoothSteer(p.steer, input.steer, dt)
+  const authority = steerAuthority(p.speed) * (gripUp ? 1.15 : 1) * (p.crashT > 0 ? 0.6 : 1) * (offBefore ? 0.85 : 1)
+  const drift = bendDrift(p.speed, seg.curve) * (p.gripT > 0 ? 0.5 : 1)
+  const targetVx = p.steer * authority + drift
+  const tau = offBefore && !shielded(p) ? HANDLING.tauGrass : HANDLING.tauRoad
+  p.vx += (targetVx - p.vx) * approach(dt, tau)
+  // Knocks shove the car sideways and fade; they never turn its nose.
+  p.kick -= p.kick * approach(dt, 0.25)
+  const xBefore = p.x
+  p.x += (p.vx + p.kick) * dt
+
+  // Guard rail on the outside of sharp bends: glance off it (a little
+  // speed lost), never a dead stop -- it keeps the car on the circuit.
+  const rail = seg.rail
+  if (rail !== 0) {
+    const inner = RAIL_OFFSET - CAR_HALF
+    const outer = RAIL_OFFSET + CAR_HALF
+    const was = xBefore * rail
+    const now = p.x * rail
+    const hitFromRoad = was <= inner + 1e-6 && now > inner
+    const hitFromGrass = was >= outer - 1e-6 && now < outer
+    if (hitFromRoad || hitFromGrass) {
+      const into = Math.abs(p.vx + p.kick)
+      const back = hitFromRoad ? -rail : rail
+      p.x = rail * (hitFromRoad ? inner : outer)
+      if (p.vx * back < 0) p.vx = 0
+      p.kick = back * Math.min(1.1, 0.2 + into * 0.3)
+      if (into > 0.35 && p.railT <= 0) {
+        if (!shielded(p)) p.speed *= 1 - 0.1 * Math.min(1, into / 2)
+        p.railT = 0.4
+        ev.push({ type: 'rail' })
+      }
+    }
+  }
 
   const cap = topSpeed(p)
-  if (input.throttle > 0 && p.crashT <= 0) p.speed += ACCEL * (boosting(p) ? 1.6 : 1) * input.throttle * dt
-  else if (input.brake > 0) p.speed += BRAKING * input.brake * dt
+  if (input.brake > 0) p.speed += BRAKING * input.brake * dt
+  else if (input.throttle > 0 && p.crashT <= 0) p.speed += ACCEL * (boosting(p) ? 1.6 : 1) * input.throttle * dt
   else p.speed += DECEL * dt
-  if (boosting(p) && p.speed < cap) p.speed += ACCEL * 0.8 * dt
+  if (boosting(p) && p.speed < cap && input.brake <= 0) p.speed += ACCEL * 0.8 * dt
 
   const off = Math.abs(p.x) > 1
   if (off) {
@@ -365,6 +474,9 @@ function stepPlayer(s: RaceState, p: Car, input: RaceInput, dt: number, ev: Race
           ev.push({ type: 'crash' })
         }
         p.x = sp.offset + toRoad * (sp.halfWidth * 0.6 + CAR_HALF + 0.08)
+        // Glance off, back towards the road.
+        p.vx = 0
+        p.kick = toRoad * 0.6
         break
       }
     }
@@ -381,8 +493,14 @@ function stepPlayer(s: RaceState, p: Car, input: RaceInput, dt: number, ev: Race
         c.x += Math.sign(c.x - p.x || 1) * 0.3
         ev.push({ type: 'shieldHit' })
       } else {
+        // Knocked aside a little, harder the faster the hit.
+        const hit = Math.min(1, (p.speed - c.speed) / (MAX_SPEED * 0.4))
+        const away = Math.sign(c.x - p.x || 1)
         p.speed = c.speed * 0.9
-        p.x -= Math.sign(c.x - p.x || 1) * 0.1
+        p.kick -= away * (0.35 + 0.45 * hit)
+        // The rival moves over, so nobody gets stuck nose-to-tail.
+        c.aiYieldT = 1
+        c.aiYieldX = Math.max(-0.78, Math.min(0.78, c.x + away * 0.6))
         s.stats.bumps++
         ev.push({ type: 'bump' })
       }
@@ -390,11 +508,23 @@ function stepPlayer(s: RaceState, p: Car, input: RaceInput, dt: number, ev: Race
   }
 
   p.speed = Math.max(0, Math.min(p.speed, cap))
-  p.x = Math.max(-X_LIMIT, Math.min(X_LIMIT, p.x))
+  if (Math.abs(p.x) > X_LIMIT) {
+    p.x = Math.sign(p.x) * X_LIMIT
+    p.vx = 0
+    p.kick = 0
+  }
   s.stats.topSpeed = Math.max(s.stats.topSpeed, kmh(p.speed))
 
+  // Heading relative to the road follows the direction of travel
+  // (sideways speed against forward speed) within a few hundredths of a
+  // second -- so a bump or a glance off the rail jolts the car, but never
+  // snaps its nose (or the camera) round. Pointing across the road costs
+  // a little forward progress.
+  const travel = p.speed < 1 ? 0 : Math.max(-0.7, Math.min(0.7, Math.atan2(p.vx * ROAD_WIDTH, p.speed)))
+  p.yaw += (travel - p.yaw) * approach(dt, 0.06)
+
   const lapZBefore = p.z % s.road.lapLength
-  p.z += p.speed * dt
+  p.z += p.speed * Math.cos(p.yaw) * dt
   collectCoins(s, p, lapZBefore, ev)
 
   // Laps and the finish.
@@ -452,6 +582,9 @@ function firePower(s: RaceState, p: Car, id: PowerId, ev: RaceEvent[]) {
   else if (id === 'grip') p.gripT = d
   else if (id === 'repair') {
     p.x = Math.max(-0.6, Math.min(0.6, p.x))
+    p.vx = 0
+    p.kick = 0
+    p.px = p.x
     p.crashT = 0
     p.speed = Math.max(p.speed, MAX_SPEED * 0.7)
   } else if (id === 'star') p.starT = d
@@ -485,7 +618,7 @@ function stepRival(s: RaceState, c: Car, dt: number, ev: RaceEvent[]) {
   if (c.boostT > 0) target *= 1.18
 
   // Line: inside of the coming bend, or overtake whoever is ahead.
-  let desired = persona.line * -Math.sign(bend)
+  let desired = persona.line * Math.sign(bend)
   for (const o of s.cars) {
     if (o === c || o.finished) continue
     const dz = o.z - c.z
@@ -494,11 +627,13 @@ function stepRival(s: RaceState, c: Car, dt: number, ev: RaceEvent[]) {
       if (dz < SEGMENT_LENGTH * 2) target = Math.min(target, o.speed * (persona.weave > 0.5 ? 1.02 : 0.98))
     }
   }
+  if (c.aiYieldT > 0) desired = c.aiYieldX
   c.aiTargetX = Math.max(-0.78, Math.min(0.78, desired))
+  const x0 = c.x
   c.x += Math.sign(c.aiTargetX - c.x) * Math.min(Math.abs(c.aiTargetX - c.x), 1.1 * dt)
   // Mugil carries too much speed and drifts wide.
   const seg = segmentAt(s.road, c.z)
-  c.x -= dt * 2 * (c.speed / MAX_SPEED) * (c.speed / MAX_SPEED) * seg.curve * CENTRIFUGAL * persona.runsWide
+  c.x += bendDrift(c.speed, seg.curve) * 3 * persona.runsWide * dt
 
   if (c.speed < target) c.speed = Math.min(target, c.speed + ACCEL * 0.9 * dt)
   else c.speed = Math.max(target, c.speed - ACCEL * 2 * dt)
@@ -512,6 +647,10 @@ function stepRival(s: RaceState, c: Car, dt: number, ev: RaceEvent[]) {
   }
 
   c.x = Math.max(-1.4, Math.min(1.4, c.x))
+  // Heading for drawing only (lane changes look like steering).
+  const vx = dt > 0 ? (c.x - x0) / dt : 0
+  c.vx = vx
+  c.yaw += (Math.atan2(vx * ROAD_WIDTH, Math.max(c.speed, 1)) - c.yaw) * approach(dt, 0.12)
   c.z += c.speed * dt
   const lap = Math.floor(c.z / s.road.lapLength)
   if (lap > c.lap) {

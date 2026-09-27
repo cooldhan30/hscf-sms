@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { FiFlag } from 'react-icons/fi'
-import { buildRoad, LAPS, MAX_SPEED, KMH_AT_MAX, type TrackDef } from '@/lib/gameRoomV2/racing3d'
+import { buildRoad, LAPS, MAX_SPEED, KMH_AT_MAX, ROAD_WIDTH, type TrackDef } from '@/lib/gameRoomV2/racing3d'
 import type { LiveRaceResponse } from '@/lib/gameRoomV2/racing'
 import { useGameV2Motion } from '@/components/gameRoomV2/useGameV2Motion'
 import { TouchControls } from '@/components/gameRoomV2/racing/TouchControls'
@@ -118,12 +118,14 @@ export function LiveRace3D({
         if (want > t.frac) t.frac += (want - t.frac) * Math.min(1, dt * 2.5)
       }
       const k = readControls(controls.current)
+      const xBefore = myX.current
       myX.current += k.steer * dt * 1.4
       if (k.steer === 0) myX.current *= 1 - Math.min(1, dt * 0.6)
       myX.current = Math.max(-0.8, Math.min(0.8, myX.current))
       const me = tracks.current.get(myParticipantId)
       const myZ = (me?.frac ?? 0) * raceLength
       const myRate = me ? me.rate * 1000 * raceLength : 0 // units/s
+      const myYaw = dt > 0 ? Math.atan2(((myX.current - xBefore) / dt) * ROAD_WIDTH, Math.max(myRate, 2000)) : 0
       const dpr = governor.ratio(dt * 1000)
       const w = canvas.clientWidth
       const h = canvas.clientHeight
@@ -143,6 +145,7 @@ export function LiveRace3D({
         camX: myX.current,
         speedPct: Math.min(1.3, myRate / MAX_SPEED),
         steer: k.steer,
+        yaw: myYaw,
         cars: racers.map((r, i) => {
           const t = tracks.current.get(r.participantId)
           const isMe = r.participantId === myParticipantId

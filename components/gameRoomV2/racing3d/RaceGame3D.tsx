@@ -41,7 +41,8 @@ import {
   type Difficulty,
   type PowerId,
 } from '@/lib/gameRoomV2/racing3d'
-import { createRenderer, createResolutionGovernor, type CameraMode, type Renderer, type RenderView } from './render'
+import { createRenderer, createResolutionGovernor, type CameraMode, type Renderer, type RenderCar, type RenderView } from './render'
+import { createPerf } from './perf'
 import { RaceMusic, RaceAmbience } from './music'
 import { TrackPicker } from './TrackPicker'
 import { PowerIcon } from './PowerIcon'
@@ -180,19 +181,39 @@ export function RaceGame3D({ sessionId, onExit, onPlayAgain, onHome }: { session
     return () => window.removeEventListener('pointerdown', onTouch)
   }, [])
 
-  // Automated browser playtests (opt-in via localStorage) read the local
-  // race to steer with real key presses. Client-side race state only --
-  // nothing here reaches or affects the server.
+  // Frame timing (always measured; cheap). Automated browser playtests
+  // (opt-in via localStorage) read it and the local race to steer with
+  // real key presses. Client-side only -- nothing here reaches the server.
+  const perfRef = useRef(createPerf())
+  perfRef.current.reactRender()
   useEffect(() => {
     try {
-      if (window.localStorage.getItem('tamizhi.e2e') === '1') (window as unknown as { __tamizhiRace3d?: unknown }).__tamizhiRace3d = raceRef
+      if (window.localStorage.getItem('tamizhi.e2e') === '1') {
+        const w = window as unknown as { __tamizhiRace3d?: unknown; __tamizhiRacePerf?: unknown; __tamizhiRaceRenderer?: unknown }
+        w.__tamizhiRace3d = raceRef
+        w.__tamizhiRacePerf = perfRef.current
+        w.__tamizhiRaceRenderer = rendererRef
+      }
     } catch {
       // storage unavailable
     }
   }, [])
 
+  // The HUD: the whole screen re-renders only when something it shows
+  // changes meaningfully (place, lap, power-ups, status...); the clock, the
+  // speedometer and the progress bar tick in their own small components.
+  const live = useRef(new Set<(h: Hud) => void>())
+  const hudKey = useRef('')
   const refresh = useCallback(() => {
-    if (raceRef.current) setHud(snap(raceRef.current))
+    const s = raceRef.current
+    if (!s) return
+    const h = snap(s)
+    for (const fn of Array.from(live.current)) fn(h)
+    const key = [h.status, h.place, h.lap, h.slots.join(), h.boost > 0, h.shield > 0, h.grip > 0, h.magnet > 0, h.coins, h.checkpointsPassed, h.over, h.finished, h.countdown, h.offroad].join('|')
+    if (key !== hudKey.current) {
+      hudKey.current = key
+      setHud(h)
+    }
   }, [])
 
   const flash = useCallback(
@@ -240,6 +261,7 @@ export function RaceGame3D({ sessionId, onExit, onPlayAgain, onHome }: { session
             playSound('overtake', snd)
             break
           case 'bump':
+          case 'rail':
             playSound('hit', snd)
             break
           case 'crash':
@@ -331,28 +353,41 @@ export function RaceGame3D({ sessionId, onExit, onPlayAgain, onHome }: { session
     if (!running) return
     let raf = 0
     const governor = governorRef.current
+    const perf = perfRef.current
     let last = performance.now()
     let acc = 0
     let hudAcc = 0
+    // One view object and one car list, reused every frame (no garbage).
+    const carViews: RenderCar[] = []
+    const view = { cars: carViews, isCoinTaken: (lap: number, i: number) => !!raceRef.current?.taken.has(lap * 10000 + i) } as unknown as RenderView
+    let upcoming: number[] = []
+    let upcomingFrom = -1
+    let alpha = 1
+    const lerp = (a: number, b: number) => a + (b - a) * alpha
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop)
       const s = raceRef.current
       const canvas = canvasRef.current
       const r = rendererRef.current
       if (!s || !canvas || !r) return
-      const dt = Math.min(0.1, (now - last) / 1000)
+      const frameMs = now - last
+      const dt = Math.min(0.1, frameMs / 1000)
       last = now
       acc += dt
       const c = controls.current
+      const t0 = performance.now()
+      let steps = 0
       while (acc >= STEP) {
         const k = readControls(c)
         const use = c.boostRequested
         c.boostRequested = false
         handleEvents(stepRace(s, { throttle: k.throttle, brake: k.brake, steer: k.steer, usePower: use }))
         acc -= STEP
+        steps++
       }
+      const t1 = performance.now()
       // Draw.
-      const dpr = governor.ratio(dt * 1000)
+      const dpr = governor.ratio(frameMs)
       const w = canvas.clientWidth
       const h = canvas.clientHeight
       if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
@@ -362,30 +397,51 @@ export function RaceGame3D({ sessionId, onExit, onPlayAgain, onHome }: { session
       const g = canvas.getContext('2d')
       if (!g) return
       g.setTransform(dpr, 0, 0, dpr, 0, 0)
+      // Draw between the last two simulation steps (alpha = how far into
+      // the next step real time is), so motion is smooth at any refresh
+      // rate -- 60, 120 or 144 Hz -- instead of stepping 0 or 2 at a time.
+      alpha = s.status === 'racing' || s.status === 'finished' ? Math.min(1, acc / STEP) : 1
       const p = player(s)
       const k = readControls(c)
-      const view: RenderView = {
-        track: s.track,
-        road: s.road,
-        camZ: p.z,
-        camX: p.x,
-        speedPct: p.speed / MAX_SPEED,
-        steer: s.status === 'racing' ? k.steer : 0,
-        cars: s.cars.map((car) => ({ id: car.id, z: car.z, x: car.x, color: car.color, isPlayer: car.isPlayer, boosting: boosting(car), shielded: shielded(car), label: car.isPlayer ? undefined : car.tamilName })),
-        coins: s.coins,
-        isCoinTaken: (lap, i) => s.taken.has(lap * 10000 + i),
-        checkpoints: s.checkpoints.slice(s.nextCheckpoint),
-        camera: cameraRef.current,
-        time: now / 1000,
-        boost: boosting(p),
-        shield: shielded(p),
-        offroad: Math.abs(p.x) > 1 && p.speed > 200,
-        crash: Math.min(1, p.crashT / 0.8),
-        magnet: p.magnetT > 0,
-        reduced: reducedRef.current,
-        finishDistance: s.raceLength,
+      while (carViews.length < s.cars.length) carViews.push({ id: '', z: 0, x: 0, color: '', isPlayer: false, boosting: false, shielded: false })
+      for (let i = 0; i < s.cars.length; i++) {
+        const car = s.cars[i]
+        const cv = carViews[i]
+        cv.id = car.id
+        cv.z = lerp(car.pz, car.z)
+        cv.x = lerp(car.px, car.x)
+        cv.yaw = lerp(car.pyaw, car.yaw)
+        cv.color = car.color
+        cv.isPlayer = car.isPlayer
+        cv.boosting = boosting(car)
+        cv.shielded = shielded(car)
+        cv.label = car.isPlayer ? undefined : car.tamilName
       }
+      view.track = s.track
+      view.road = s.road
+      view.camZ = carViews[0].z
+      view.camX = carViews[0].x
+      view.yaw = carViews[0].yaw
+      view.speedPct = p.speed / MAX_SPEED
+      view.steer = s.status === 'racing' ? p.steer : 0
+      view.braking = s.status === 'racing' && k.brake > 0 && p.speed > 0
+      view.coins = s.coins
+      if (upcomingFrom !== s.nextCheckpoint) {
+        upcoming = s.checkpoints.slice(s.nextCheckpoint)
+        upcomingFrom = s.nextCheckpoint
+      }
+      view.checkpoints = upcoming
+      view.camera = cameraRef.current
+      view.time = now / 1000
+      view.boost = boosting(p)
+      view.shield = shielded(p)
+      view.offroad = Math.abs(p.x) > 1 && p.speed > 200
+      view.crash = Math.min(1, p.crashT / 0.8)
+      view.magnet = p.magnetT > 0
+      view.reduced = reducedRef.current
+      view.finishDistance = s.raceLength
       r.draw(g, w, h, view)
+      perf.frame(frameMs, t1 - t0, performance.now() - t1, steps)
       hudAcc += dt
       if (hudAcc > 0.1) {
         hudAcc = 0
@@ -556,7 +612,9 @@ export function RaceGame3D({ sessionId, onExit, onPlayAgain, onHome }: { session
               <p className="font-tamil text-[10px] font-bold text-stone-500">{TA.lap.ta}</p>
             </div>
             <div className="hidden sm:block rounded-2xl bg-white/90 shadow-md px-3 py-1.5 text-center">
-              <p className="text-lg sm:text-xl font-black text-stone-800 leading-none tabular-nums">{fmtTime(hud.time)}</p>
+              <p className="text-lg sm:text-xl font-black text-stone-800 leading-none tabular-nums">
+                <Live hub={live} initial={hud} render={(h) => fmtTime(h.time)} />
+              </p>
               <p className="font-tamil text-[10px] font-bold text-stone-500">{TA.time.ta}</p>
             </div>
             <div className="rounded-2xl bg-gold-100/95 shadow-md px-2.5 py-1.5 text-center" aria-label={`நாணயங்கள் ${hud.coins}`}>
@@ -590,9 +648,15 @@ export function RaceGame3D({ sessionId, onExit, onPlayAgain, onHome }: { session
               <span key={l} className="absolute top-0 bottom-0 w-px bg-white/60" style={{ left: `${(l / LAPS) * 100}%` }} />
             ))}
             <FiFlag className="absolute -right-4 -top-1 w-4 h-4 text-white" />
-            {hud.positions.map((p) => (
-              <span key={p.id} className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-white ${p.isPlayer ? 'w-4 h-4 z-10' : 'w-3 h-3'}`} style={{ left: `${p.frac * 100}%`, background: p.color }} />
-            ))}
+            <Live
+              hub={live}
+              initial={hud}
+              render={(h) =>
+                h.positions.map((p) => (
+                  <span key={p.id} className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-white ${p.isPlayer ? 'w-4 h-4 z-10' : 'w-3 h-3'}`} style={{ left: `${p.frac * 100}%`, background: p.color }} />
+                ))
+              }
+            />
           </div>
         </div>
       )}
@@ -623,7 +687,9 @@ export function RaceGame3D({ sessionId, onExit, onPlayAgain, onHome }: { session
             </span>
           )}
           <div className="rounded-2xl bg-black/55 px-3 py-1.5 text-white text-center min-w-[84px]">
-            <p className="text-2xl font-black tabular-nums leading-none">{hud.speed}</p>
+            <p className="text-2xl font-black tabular-nums leading-none">
+              <Live hub={live} initial={hud} render={(h) => h.speed} />
+            </p>
             <p className="text-[10px] font-bold opacity-80">km/h</p>
             {(hud.boost > 0 || hud.shield > 0 || hud.grip > 0 || hud.magnet > 0) && (
               <div className="mt-1 flex justify-center gap-1">
@@ -702,9 +768,12 @@ export function RaceGame3D({ sessionId, onExit, onPlayAgain, onHome }: { session
         </>
       )}
 
-      {/* Touch controls (hidden while a question is open). */}
+      {/* Touch controls (hidden while a question is open). They stay live
+          through the 3-2-1 countdowns -- the race ignores input until GO --
+          so a thumb already holding GAS launches the car at GO, just like a
+          held key does. */}
       {touchUi && raceBuilt && hud && !hud.finished && !showQuestion && !paused && (
-        <TouchControls controls={controls} boostReady={hud.slots.length > 0} boosting={hud.boost > 0} disabled={paused || hud.status !== 'racing'} boostLabel={nextPower ? { ta: POWERS[nextPower].tamilName, en: POWERS[nextPower].name } : { ta: 'ஆற்றல்', en: 'Power' }} />
+        <TouchControls controls={controls} boostReady={hud.slots.length > 0} boosting={hud.boost > 0} disabled={paused} boostLabel={nextPower ? { ta: POWERS[nextPower].tamilName, en: POWERS[nextPower].name } : { ta: 'ஆற்றல்', en: 'Power' }} />
       )}
 
       {/* Pause. */}
@@ -750,6 +819,19 @@ export function RaceGame3D({ sessionId, onExit, onPlayAgain, onHome }: { session
       )}
     </div>
   )
+}
+
+// A small piece of the HUD that re-renders on every HUD tick by itself.
+function Live({ hub, initial, render }: { hub: React.MutableRefObject<Set<(h: Hud) => void>>; initial: Hud; render: (h: Hud) => React.ReactNode }) {
+  const [h, setH] = useState(initial)
+  useEffect(() => {
+    const set = hub.current
+    set.add(setH)
+    return () => {
+      set.delete(setH)
+    }
+  }, [hub])
+  return <>{render(h)}</>
 }
 
 // A quiet engine note following the player's speed (no audio files).
