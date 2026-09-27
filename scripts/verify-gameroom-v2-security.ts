@@ -441,5 +441,16 @@ assert(/questionIndex !== session\.current_index/.test(pairCheck), 'pair-check o
 assert(/question_type !== 'MATCH'/.test(pairCheck), 'pair-check only answers MATCH questions')
 assert(!/\.(insert|update|upsert|delete|rpc)\(/.test(pairCheck), 'pair-check never writes (no points, rewards or answers)')
 
+// The correct answer is revealed only AFTER a wrong answer is graded and
+// stored, never for a correct one (nothing to teach) and never in a Live
+// Classroom (classmates may still be answering the same question).
+{
+  const reveal = answerRoute.indexOf('correctAnswerText(')
+  assert(reveal > answerRoute.indexOf('gradeAnswer(') && reveal > answerRoute.indexOf(".from('sms_gamev2_answers')"), '/answer reveals the correct answer only after grading and recording the answer')
+  assert(/!isCorrect && !\(await isLiveBridgedSession\(supabase, session\.id\)\)/.test(answerRoute), '/answer never reveals the correct answer for a correct answer or a Live Classroom session')
+  const stateSrc = readFileSync(join(ROOT, 'app/api/gameroom-v2/sessions/[id]/state/route.ts'), 'utf8')
+  assert(!/correctAnswerText|answerReveal/.test(stateSrc), '/state (which serves the question) never uses the answer-reveal helper')
+}
+
 console.log(`\n${failures === 0 ? 'PASS' : 'FAIL'}: ${failures} failure(s).`)
 process.exit(failures === 0 ? 0 : 1)

@@ -162,6 +162,9 @@ const config: Config = {
         'gamev2-spark-burst': 'gamev2SparkBurst 0.6s ease-out',
         'gamev2-float-up': 'gamev2FloatUp 0.9s ease-out forwards',
         'gamev2-slash': 'gamev2Slash 0.35s ease-out forwards',
+        'gamev2-podium-rise': 'gamev2PodiumRise 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'gamev2-count': 'gamev2Count 0.9s ease-out forwards',
+        'gamev2-banner': 'gamev2Banner 1.8s ease-out forwards',
       },
       keyframes: {
         blob: {
@@ -197,6 +200,23 @@ const config: Config = {
           '40%': { transform: 'translateX(6px)' },
           '60%': { transform: 'translateX(-4px)' },
           '80%': { transform: 'translateX(4px)' },
+        },
+        gamev2PodiumRise: {
+          '0%': { opacity: '0', transform: 'translateY(60px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        gamev2Count: {
+          '0%': { opacity: '0', transform: 'scale(2.2)' },
+          '25%': { opacity: '1', transform: 'scale(1)' },
+          '80%': { opacity: '1', transform: 'scale(0.95)' },
+          '100%': { opacity: '0', transform: 'scale(0.7)' },
+        },
+        gamev2Banner: {
+          '0%': { opacity: '0', transform: 'translateY(-16px) scale(0.9)' },
+          '12%': { opacity: '1', transform: 'translateY(0) scale(1.05)' },
+          '20%': { transform: 'scale(1)' },
+          '85%': { opacity: '1' },
+          '100%': { opacity: '0', transform: 'translateY(-8px)' },
         },
         gamev2FloatUp: {
           '0%': { opacity: '0', transform: 'translate(-50%, 0) scale(0.8)' },

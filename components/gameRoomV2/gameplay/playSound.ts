@@ -70,10 +70,17 @@ export type SoundId =
   | 'bossWarning'
   | 'baseHit'
   | 'slash'
+  // Racing.
+  | 'go'
+  | 'boost'
+  | 'overtake'
+  | 'finalLap'
+  | 'finish'
+  | 'podium'
 
 let audioCtx: AudioContext | null = null
 
-function getAudioContext(): AudioContext | null {
+export function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
   const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!AudioContextCtor) return null
@@ -292,6 +299,42 @@ export function tonesFor(id: SoundId, variant?: number): Tone[] {
       ]
     case 'baseHit':
       return [{ freq: 110, startMs: 0, durationMs: 160, gain: 0.14, type: 'triangle' }]
+    case 'go':
+      return [
+        { freq: 880, startMs: 0, durationMs: 120, gain: 0.16, type: 'square' },
+        { freq: 1318.5, startMs: 0, durationMs: 380, gain: 0.14, type: 'triangle' },
+      ]
+    case 'boost':
+      return [
+        { freq: 220, startMs: 0, durationMs: 160, gain: 0.12, type: 'sawtooth' },
+        { freq: 440, startMs: 90, durationMs: 180, gain: 0.11, type: 'sawtooth' },
+        { freq: 660, startMs: 180, durationMs: 220, gain: 0.1, type: 'triangle' },
+      ]
+    case 'overtake':
+      return [
+        { freq: 659.25, startMs: 0, durationMs: 80, gain: 0.12, type: 'triangle' },
+        { freq: 987.77, startMs: 70, durationMs: 140, gain: 0.12, type: 'triangle' },
+      ]
+    case 'finalLap':
+      return [
+        { freq: 523.25, startMs: 0, durationMs: 110, gain: 0.14, type: 'square' },
+        { freq: 523.25, startMs: 150, durationMs: 110, gain: 0.14, type: 'square' },
+        { freq: 783.99, startMs: 300, durationMs: 320, gain: 0.15, type: 'triangle' },
+      ]
+    case 'finish':
+      return [
+        { freq: 392, startMs: 0, durationMs: 120, gain: 0.15 },
+        { freq: 523.25, startMs: 110, durationMs: 120, gain: 0.15 },
+        { freq: 659.25, startMs: 220, durationMs: 120, gain: 0.15 },
+        { freq: 783.99, startMs: 330, durationMs: 420, gain: 0.17 },
+      ]
+    case 'podium':
+      return [
+        { freq: 523.25, startMs: 0, durationMs: 160, gain: 0.15, type: 'triangle' },
+        { freq: 659.25, startMs: 0, durationMs: 160, gain: 0.12, type: 'triangle' },
+        { freq: 783.99, startMs: 180, durationMs: 160, gain: 0.15, type: 'triangle' },
+        { freq: 1046.5, startMs: 360, durationMs: 520, gain: 0.17, type: 'triangle' },
+      ]
     case 'slash':
       // A quick bright swish -- two very short descending blips.
       return [

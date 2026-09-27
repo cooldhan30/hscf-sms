@@ -22,6 +22,9 @@ export interface AnswerResult {
   answer: unknown
   responseTimeMs: number
   points: number
+  // After a wrong solo answer the server may include the correct answer.
+  correctAnswer?: string | null
+  explanation?: string | null
 }
 
 // THE universal question interface every GameRoom V2 game engine
@@ -93,6 +96,8 @@ export function QuestionOverlay({
       answer,
       responseTimeMs: data.responseTimeMs,
       points: data.points,
+      correctAnswer: typeof data.correctAnswer === 'string' ? data.correctAnswer : null,
+      explanation: typeof data.explanation === 'string' ? data.explanation : null,
     })
   }
 

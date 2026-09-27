@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { requireGameV2Session } from '@/lib/gameRoomV2/requireSession'
+import { requireGameV2Session, isLiveBridgedSession } from '@/lib/gameRoomV2/requireSession'
+import { correctAnswerText } from '@/lib/gameRoomV2/answerReveal'
 import { gradeAnswer } from '@/lib/gameRoomV2/gradeAnswer'
 import { calculatePoints, calculateRewardsForAnswer } from '@/lib/gameRoomV2/scoring'
 import { effectiveDimension, effectiveConceptTags, extractConfusionPair, confusionPairKey } from '@/lib/gameRoomV2/analytics'
@@ -33,7 +34,7 @@ import { checkSubmittedAnswer } from '@/lib/gameRoomV2/security/limits'
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const guard = await requireGameV2Session(params.id)
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-  const { admin, studentId, session } = guard
+  const { admin, supabase, studentId, session } = guard
 
   if (session.status !== 'ACTIVE') {
     return NextResponse.json({ error: `Cannot answer -- game is "${session.status}"` }, { status: 409 })
@@ -200,8 +201,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // that might not have actually reached the student -- see
   // complete/route.ts for why that split matters for lives-based
   // early-completion too, not just the last-question case.
+  // A solo player who got it wrong is shown the right answer -- only now,
+  // after the answer is graded, stored and the session has moved on, and
+  // never in a Live Classroom (classmates may still be answering it).
+  const correctAnswer = !isCorrect && !(await isLiveBridgedSession(supabase, session.id)) ? correctAnswerText(question.question_type, question.payload) : null
+
   return NextResponse.json({
     isCorrect,
+    correctAnswer,
     points,
     xpEarned: xp,
     coinsEarned: coins,

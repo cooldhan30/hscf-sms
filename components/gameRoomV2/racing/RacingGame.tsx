@@ -6,7 +6,7 @@ import { QuestionOverlay, type QuestionOverlayQuestion, GameResultsScreen, useSo
 import { RaceSetupPicker } from './RaceSetupPicker'
 import { Track } from './Track'
 import { MultiplayerFinishScreen } from './MultiplayerFinishScreen'
-import { GrandPrixGame } from './GrandPrixGame'
+import { DriveGame } from './DriveGame'
 import {
   liveRacersToRaceState,
   type RaceThemeId,
@@ -68,7 +68,7 @@ export function RacingGame({ sessionId, onExit, onPlayAgain, onHome, liveSession
       />
     )
   }
-  return <GrandPrixGame sessionId={sessionId} onExit={onExit} onPlayAgain={onPlayAgain} onHome={onHome} />
+  return <DriveGame sessionId={sessionId} onExit={onExit} onPlayAgain={onPlayAgain} onHome={onHome} />
 }
 
 // ============================================================
