@@ -195,11 +195,20 @@ for (const [file, flag] of [
 }
 
 // ---------------------------------------------------------------------
-// Solo Boss Battle is a turn-based duel (BossDuelGame.tsx): it runs no
-// per-tick simulation loop at all -- nothing to key, nothing to leak.
+// Solo Boss Battle is a real-time arena brawler: ONE requestAnimationFrame
+// loop in BrawlCanvas.tsx steps the fixed-60Hz simulation and renders.
+// The loop reads the run from refs (never React state), React only gets a
+// throttled HUD tick, and the loop, keyboard and touch listeners are all
+// torn down on unmount.
 {
-  const duelSrc = read('components/gameRoomV2/bossBattle/BossDuelGame.tsx')
-  assert(!/setInterval\(|requestAnimationFrame\(/.test(duelSrc), 'solo Boss Battle (turn-based) runs no tick loop')
+  const canvasSrc = read('components/gameRoomV2/bossBattle/brawl/BrawlCanvas.tsx')
+  const gameSrc = read('components/gameRoomV2/bossBattle/brawl/BrawlGame.tsx')
+  assert(count(canvasSrc, /requestAnimationFrame\(/g) >= 1 && /cancelAnimationFrame\(raf\)/.test(canvasSrc), 'Boss Battle: the rAF loop is cancelled on unmount')
+  assert(/while \(acc >= STEP\)/.test(canvasSrc), 'Boss Battle: fixed-step simulation (accumulator), not variable dt')
+  assert(/tickAcc > 0\.12/.test(canvasSrc), 'Boss Battle: React HUD updates are throttled (~8/s), not per frame')
+  assert(/\}, \[width, height, reducedMotion, stateRef, runningRef\]\)/.test(canvasSrc), 'Boss Battle: the loop effect depends on layout and refs only (never per-tick state)')
+  assert(!/setInterval\(/.test(gameSrc) && !/requestAnimationFrame\(/.test(gameSrc), 'Boss Battle shell runs no loop of its own')
+  assert(/particles\.length > 600/.test(canvasSrc), 'Boss Battle: particles are capped')
 }
 
 console.log('\n== 5. Live Classroom Realtime load ==')
@@ -260,7 +269,7 @@ for (const f of clientSources) {
 }
 failures += leaks
 assert(leaks === 0, `every setInterval / addEventListener / Realtime channel in ${clientSources.length} V2 client files has matching cleanup`)
-for (const f of ['components/gameRoomV2/towerDefense/TowerDefenseGame.tsx', 'components/gameRoomV2/bossBattle/BossBattleGame.tsx']) {
+for (const f of ['components/gameRoomV2/towerDefense/TowerDefenseGame.tsx', 'components/gameRoomV2/bossBattle/BossBattleGame.tsx', 'components/gameRoomV2/bossBattle/brawl/BrawlGame.tsx']) {
   assert(!/window\.setTimeout\(/.test(read(f)), `${f}: hit-flash/impact timers use useManagedTimeouts (cleared on exit), not bare window.setTimeout`)
 }
 const managed = read('components/gameRoomV2/gameplay/useManagedTimeouts.ts')

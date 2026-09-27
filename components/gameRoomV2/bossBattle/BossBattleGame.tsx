@@ -6,7 +6,7 @@ import { GameV2Card, GameV2Button, GameV2Loading, GameV2Error } from '@/componen
 import { QuestionOverlay, type QuestionOverlayQuestion, GameResultsScreen, useSoundPreference, playSound, useGameSessionState } from '@/components/gameRoomV2/gameplay'
 import { useManagedTimeouts } from '@/components/gameRoomV2/gameplay/useManagedTimeouts'
 import { BossSetupPicker } from './BossSetupPicker'
-import { BossDuelGame } from './BossDuelGame'
+import { BrawlGame } from './brawl/BrawlGame'
 import { CoopArena } from './CoopArena'
 import { TeamAttackBanner } from './TeamAttackBanner'
 import { VictorySequence } from './VictorySequence'
@@ -64,7 +64,8 @@ interface BossBattleGameProps {
 }
 
 // Boss Battle's top-level play screen. Solo mode (no liveSessionId) is
-// the turn-based duel in BossDuelGame.tsx (lib/gameRoomV2/bossBattle/duel.ts). Multiplayer mode (a
+// the real-time arena brawler in brawl/BrawlGame.tsx
+// (lib/gameRoomV2/bossBattle/brawl). Multiplayer mode (a
 // liveSessionId is present) is a GENUINELY DIFFERENT, cooperative
 // mechanic -- see lib/gameRoomV2/bossBattle/coopBattle.ts's header
 // comment: no individual player health, no boss counterattack, no
@@ -83,7 +84,7 @@ export function BossBattleGame({ sessionId, onExit, onPlayAgain, onHome, liveSes
       />
     )
   }
-  return <BossDuelGame sessionId={sessionId} onExit={onExit} onPlayAgain={onPlayAgain} onHome={onHome} />
+  return <BrawlGame sessionId={sessionId} onExit={onExit} onPlayAgain={onPlayAgain} onHome={onHome} />
 }
 
 // ============================================================

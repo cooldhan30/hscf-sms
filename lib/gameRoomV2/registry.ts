@@ -79,16 +79,16 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     id: 'boss-battle',
     name: 'Boss Battle',
     tamilName: null,
-    description: 'Chip away at a multi-phase boss\'s health with correct answers and abilities.',
+    description: 'Battle waves of shadow creatures in a real-time arena, level up your hero, and defeat the Irul King. Tamil checkpoints heal you and unlock golden upgrades.',
     icon: null,
     thumbnail: null,
     compatibility: {
       supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'TEXT_INPUT'],
       soloSupport: true,
-      // Solo mode: one student vs. a phased boss with its own player
-      // health/counterattack/defeat state
-      // (components/gameRoomV2/bossBattle/BossBattleGame.tsx's
-      // SoloBossBattleGame).
+      // Solo mode: a real-time top-down arena brawler -- the student
+      // moves a hero through four waves and two bosses; Tamil questions
+      // are asked at checkpoints (components/gameRoomV2/bossBattle/brawl,
+      // lib/gameRoomV2/bossBattle/brawl).
       //
       // Cooperative multiplayer (Live Classroom only, since it needs a
       // shared boss + difficulty every attacker fights identically --

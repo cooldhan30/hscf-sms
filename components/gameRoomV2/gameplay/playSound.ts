@@ -87,6 +87,13 @@ export type SoundId =
   | 'stoneRain'
   | 'enrage'
   | 'waveClear'
+  // Boss Battle.
+  | 'levelUp'
+  | 'pickup'
+  | 'hurt'
+  | 'dash'
+  | 'slam'
+  | 'flame'
 
 let audioCtx: AudioContext | null = null
 
@@ -392,6 +399,33 @@ export function tonesFor(id: SoundId, variant?: number): Tone[] {
         { freq: 739.99, startMs: 100, durationMs: 110, gain: 0.13, type: 'triangle' },
         { freq: 880, startMs: 200, durationMs: 300, gain: 0.14, type: 'triangle' },
       ]
+    case 'levelUp':
+      // A bright rising sparkle: the moment an upgrade is earned.
+      return [
+        { freq: 659.25, startMs: 0, durationMs: 90, gain: 0.12, type: 'triangle' },
+        { freq: 880, startMs: 70, durationMs: 90, gain: 0.12, type: 'triangle' },
+        { freq: 1318.5, startMs: 140, durationMs: 220, gain: 0.12, type: 'triangle' },
+      ]
+    case 'pickup':
+      // Tiny, soft tick -- sparks are collected constantly.
+      return [{ freq: 1567.98, startMs: 0, durationMs: 40, gain: 0.03, type: 'sine' }]
+    case 'hurt':
+      return [
+        { freq: 220, startMs: 0, durationMs: 90, gain: 0.14, type: 'square' },
+        { freq: 146.83, startMs: 60, durationMs: 140, gain: 0.12, type: 'triangle' },
+      ]
+    case 'dash':
+      return [
+        { freq: 300, startMs: 0, durationMs: 80, gain: 0.08, type: 'sawtooth' },
+        { freq: 900, startMs: 40, durationMs: 120, gain: 0.07, type: 'triangle' },
+      ]
+    case 'slam':
+      return [
+        { freq: 80, startMs: 0, durationMs: 220, gain: 0.2, type: 'square' },
+        { freq: 55, startMs: 30, durationMs: 300, gain: 0.16, type: 'triangle' },
+      ]
+    case 'flame':
+      return [{ freq: 520, startMs: 0, durationMs: 45, gain: 0.03, type: 'sawtooth' }]
     case 'slash':
       // A quick bright swish -- two very short descending blips.
       return [
@@ -406,7 +440,7 @@ export function tonesFor(id: SoundId, variant?: number): Tone[] {
 // Minimum gap between two plays of the same frequent game-event sound,
 // so a tower firing 3x a second or ten coins dropping at once never
 // turns into noise.
-const MIN_GAP_MS: Partial<Record<SoundId, number>> = { hit: 140, coin: 90, baseHit: 250, build: 80, slash: 60, spear: 110, cannon: 220, frostBell: 300, arrow: 160 }
+const MIN_GAP_MS: Partial<Record<SoundId, number>> = { hit: 140, coin: 90, baseHit: 250, build: 80, slash: 60, spear: 110, cannon: 220, frostBell: 300, arrow: 160, pickup: 70, flame: 180, hurt: 200, slam: 150 }
 const lastPlayedAt = new Map<SoundId, number>()
 
 // `variant` is an optional intensity knob a caller can pass for sounds
