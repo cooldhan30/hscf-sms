@@ -5,7 +5,7 @@ import { auth } from '@clerk/nextjs/server'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { ChildSelector } from '../ChildSelector'
 import { resolveSelectedChildId, type ChildOption } from '../child-utils'
-import { formatDateOnly } from '@/lib/dates'
+import { formatDateOnly, sortByDueDate } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,14 +29,13 @@ export default async function ParentAssignmentsPage({ searchParams }: { searchPa
     ? await Promise.all([
         supabase
           .from('sms_assignments')
-          .select('*, class:sms_classes!inner(id, name)')
-          .order('due_date', { ascending: true, nullsFirst: false }),
+          .select('*, class:sms_classes!inner(id, name)'),
         supabase.from('sms_grades').select('assignment_id, score, feedback').eq('student_id', childId),
       ])
     : [{ data: [] }, { data: [] }]
 
   const gradeByAssignment = new Map((grades ?? []).map((g) => [g.assignment_id, g]))
-  const all = assignments ?? []
+  const all = sortByDueDate(assignments ?? [])
   const completed = all.filter((a) => {
     const g = gradeByAssignment.get(a.id)
     return g && g.score !== null && g.score !== undefined
