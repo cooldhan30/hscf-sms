@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FiMic, FiSquare, FiRefreshCw, FiCheck } from 'react-icons/fi'
 import { Button } from '@/components/ui/Button'
 
@@ -19,7 +19,13 @@ type RecorderState = 'idle' | 'recording' | 'recorded'
 // onRecorded, so the teacher's gradebook showed the submission with no
 // audio at all and no error anywhere. Confirmed as a real bug hit by an
 // actual student submission: 2026-08-09.
-export function AudioRecorder({ onRecorded }: { onRecorded: (blob: Blob | null) => void }) {
+export function AudioRecorder({
+  onRecorded,
+  attachedLabel = 'Attached to your submission',
+}: {
+  onRecorded: (blob: Blob | null) => void
+  attachedLabel?: string
+}) {
   const [state, setState] = useState<RecorderState>('idle')
   const [elapsedSec, setElapsedSec] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -42,6 +48,17 @@ export function AudioRecorder({ onRecorded }: { onRecorded: (blob: Blob | null) 
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
   }
+
+  // Closing the surrounding modal mid-recording must release the mic --
+  // otherwise the browser keeps recording (and showing its mic indicator).
+  useEffect(() => {
+    return () => {
+      stopTimer()
+      if (recorderRef.current) recorderRef.current.onstop = null
+      if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
+      stopStream()
+    }
+  }, [])
 
   async function startRecording() {
     setError(null)
@@ -124,7 +141,7 @@ export function AudioRecorder({ onRecorded }: { onRecorded: (blob: Blob | null) 
               Re-record
             </Button>
             <span className="flex items-center gap-1.5 text-sm font-semibold text-primary-700 dark:text-primary-400">
-              <FiCheck className="w-4 h-4" /> Attached to your submission
+              <FiCheck className="w-4 h-4" /> {attachedLabel}
             </span>
           </div>
         </div>

@@ -220,13 +220,20 @@ export function GradebookClient({
   // the grade only once "Save Grades" is clicked, same as score/text
   // feedback -- this just gets the file into Storage and the row's
   // local state updated so the save has a path to send.
+  //
+  // The modal stays open afterwards so the teacher can listen back and
+  // re-record before clicking Done; Re-record (blob = null) drops the
+  // previous take so what's attached always matches what they last heard.
   async function handleAudioRecorded(studentId: string, blob: Blob | null) {
-    if (!blob || !assignmentId) return
+    if (!blob) {
+      removeAudioFeedback(studentId)
+      return
+    }
+    if (!assignmentId) return
     setUploadingAudioFor(studentId)
     try {
       const { path } = await uploadFile({ supabase, bucket: 'grade-feedback', file: blob, assignmentId })
       setAudioFeedback((prev) => ({ ...prev, [studentId]: { path, signedUrl: URL.createObjectURL(blob) } }))
-      setRecordingForStudentId(null)
     } catch {
       toast.error('Failed to upload audio feedback')
     } finally {
@@ -493,7 +500,25 @@ export function GradebookClient({
         onClose={() => setRecordingForStudentId(null)}
       >
         {recordingForStudentId && (
-          <AudioRecorder onRecorded={(blob) => handleAudioRecorded(recordingForStudentId, blob)} />
+          <div className="space-y-4">
+            <AudioRecorder
+              attachedLabel="Attached to this student's grade"
+              onRecorded={(blob) => handleAudioRecorded(recordingForStudentId, blob)}
+            />
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              Listen back before you finish. Students only get it after you click Save Grades.
+            </p>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="primary"
+                disabled={uploadingAudioFor === recordingForStudentId}
+                onClick={() => setRecordingForStudentId(null)}
+              >
+                {uploadingAudioFor === recordingForStudentId ? 'Uploading...' : 'Done'}
+              </Button>
+            </div>
+          </div>
         )}
       </Modal>
     </div>
