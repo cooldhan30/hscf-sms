@@ -101,7 +101,8 @@ assert(!/DriveGame|DriveCanvas/.test(racingSrc + playSrc + liveSrc), 'the old to
 console.log('\n== 3. One source of truth ==')
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
-    const p = join(dir, f)
+    // Forward slashes on every OS so paths match OWNERS (join uses '\' on Windows)
+    const p = join(dir, f).replace(/\\/g, '/')
     return statSync(p).isDirectory() ? walk(p) : /\.(ts|tsx)$/.test(f) ? [p] : []
   })
 }
