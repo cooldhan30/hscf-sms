@@ -55,6 +55,8 @@ export interface ResourceRow {
   skills: string[]
   tags: string[]
   created_by: string | null
+  // Story Generator share (migration 091): the assignment it was shared from
+  shared_from_assignment_id?: string | null
   created_at: string
   class: { id: string; name: string } | null
   uploader: { first_name: string; last_name: string } | null

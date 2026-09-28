@@ -29,15 +29,22 @@ export default async function TeacherResourcesPage() {
   const teacherClassIds = (myClassLinks ?? []).map((l) => l.class_id)
 
   // Which of this teacher's classes each resource is already assigned to,
-  // so the Resources page can flag it before a duplicate gets created.
-  const { data: resourceAssignmentRows } =
+  // so the Resources page can flag it before a duplicate gets created:
+  // assigned from Resources (resource_id), or -- for a Story Generator
+  // story shared into Resources (091) -- its own assignment and any other
+  // assignment of the same saved story (story_id).
+  const { data: classAssignments } =
     teacherClassIds.length > 0
-      ? await supabase.from('sms_assignments').select('resource_id, class_id').in('class_id', teacherClassIds).not('resource_id', 'is', null)
-      : { data: [] as { resource_id: string | null; class_id: string }[] }
+      ? await supabase.from('sms_assignments').select('id, resource_id, story_id, class_id').in('class_id', teacherClassIds)
+      : { data: [] as { id: string; resource_id: string | null; story_id: string | null; class_id: string }[] }
+  const assignmentsById = new Map((classAssignments ?? []).map((a) => [a.id, a]))
   const assignedClassIdsByResource: Record<string, string[]> = {}
-  for (const row of resourceAssignmentRows ?? []) {
-    if (!row.resource_id) continue
-    assignedClassIdsByResource[row.resource_id] = [...(assignedClassIdsByResource[row.resource_id] ?? []), row.class_id]
+  for (const r of resources ?? []) {
+    const source = r.shared_from_assignment_id ? assignmentsById.get(r.shared_from_assignment_id) : undefined
+    const classIds = (classAssignments ?? [])
+      .filter((a) => a.resource_id === r.id || a.id === source?.id || (source?.story_id && a.story_id === source.story_id))
+      .map((a) => a.class_id)
+    if (classIds.length > 0) assignedClassIdsByResource[r.id] = Array.from(new Set(classIds))
   }
 
   return (

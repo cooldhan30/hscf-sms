@@ -103,6 +103,7 @@ export async function POST(request: Request) {
   // created a second, identical-looking assignment -- confirmed as a
   // real bug: an admin who deleted one kept seeing it "reappear" because
   // it was actually a new row each time, not a delete/cache failure.
+  let sourceStoryId: string | null = null
   if (resourceId) {
     const { data: existing } = await supabase
       .from('sms_assignments')
@@ -118,6 +119,33 @@ export async function POST(request: Request) {
         { error: `This resource is already assigned to this class as "${existing.title}". Delete or edit that one instead of assigning it again.` },
         { status: 409 }
       )
+    }
+
+    // A Story Generator story shared into Resources (migration 091) is
+    // already "assigned" to the class it was generated for, and to any
+    // class that got the same saved story -- neither has resource_id set.
+    const { data: sharedResource } = await supabase
+      .from('sms_resources')
+      .select('shared_from_assignment_id')
+      .eq('id', resourceId)
+      .maybeSingle()
+    if (sharedResource?.shared_from_assignment_id) {
+      const { data: source } = await supabase
+        .from('sms_assignments')
+        .select('title, class_id, story_id')
+        .eq('id', sharedResource.shared_from_assignment_id)
+        .maybeSingle()
+      sourceStoryId = source?.story_id ?? null
+      const { data: sameStory } = sourceStoryId
+        ? await supabase.from('sms_assignments').select('title').eq('story_id', sourceStoryId).eq('class_id', classId).limit(1).maybeSingle()
+        : { data: null }
+      const duplicate = source?.class_id === classId ? source : sameStory
+      if (duplicate) {
+        return NextResponse.json(
+          { error: `This story is already assigned to this class as "${duplicate.title}". Delete or edit that one instead of assigning it again.` },
+          { status: 409 }
+        )
+      }
     }
   }
 
@@ -160,7 +188,9 @@ export async function POST(request: Request) {
         image_url: imageUrl,
         image_size: imageSize,
         resource_id: resourceId,
-        ...(storyId ? { story_id: storyId } : {}),
+        // A shared story assigned from Resources keeps its story link, so
+        // My Stories and later duplicate checks see it too
+        ...(storyId || sourceStoryId ? { story_id: storyId ?? sourceStoryId } : {}),
         assignment_type: assignmentType,
         // A reading exercise's submission is primarily the student
         // recording themselves reading it, but a text box is also useful
@@ -194,7 +224,24 @@ export async function POST(request: Request) {
   // Stories uses, with zero UI changes needed. Only when there's no
   // illustration does this fall back to uploading the story as a .txt
   // file, so a share still happens either way.
-  if (shareAsResource && description) {
+  // Assigning the same saved story to another class reuses its existing
+  // library copy instead of adding another identical resource.
+  let alreadyShared = false
+  if (shareAsResource && storyId) {
+    const { data: storyAssignments } = await supabase.from('sms_assignments').select('id').eq('story_id', storyId)
+    const ids = (storyAssignments ?? []).map((a) => a.id).filter((id) => id !== assignment.id)
+    if (ids.length > 0) {
+      const { data: existingShare } = await supabase
+        .from('sms_resources')
+        .select('id')
+        .in('shared_from_assignment_id', ids)
+        .limit(1)
+        .maybeSingle()
+      alreadyShared = Boolean(existingShare)
+    }
+  }
+
+  if (shareAsResource && description && !alreadyShared) {
     try {
       let resourceFileUrl: string
       let resourceFileType: string
@@ -233,6 +280,8 @@ export async function POST(request: Request) {
           subcategory: 'reading-exercises',
           skills: ['reading'],
           tags: ['Reading'],
+          // Lets the Resources page show this as already assigned (091)
+          shared_from_assignment_id: assignment.id,
         },
       ])
     } catch {
