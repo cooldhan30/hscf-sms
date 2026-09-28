@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createClient } from '@/lib/supabase/server'
-import { mintMeetingToken } from '@/lib/meeting'
+import { isModerator, isRoomMicsLocked, mintMeetingToken } from '@/lib/meeting'
 import type { SmsProfile } from '@/types/database'
 
 // POST /api/meetings/token -- issue a LiveKit token for a class meeting.
@@ -68,12 +68,13 @@ export async function POST(request: Request) {
     profileId: userId,
     displayName: `${profile.first_name} ${profile.last_name}`.trim() || 'Participant',
     role: profile.role,
+    micsLocked: isModerator(profile.role) ? false : await isRoomMicsLocked(classId),
   })
 
   return NextResponse.json({
     token,
     serverUrl: process.env.NEXT_PUBLIC_LIVEKIT_URL,
     className: cls.name,
-    canModerate: profile.role === 'teacher' || profile.role === 'admin',
+    canModerate: isModerator(profile.role),
   })
 }

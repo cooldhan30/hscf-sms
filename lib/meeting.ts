@@ -1,5 +1,5 @@
 import 'server-only'
-import { AccessToken } from 'livekit-server-sdk'
+import { AccessToken, RoomServiceClient, TrackSource } from 'livekit-server-sdk'
 import type { SmsRole } from '@/types/database'
 
 // One permanent room per class, derived from the class id rather than
@@ -14,8 +14,41 @@ export function roomNameForClass(classId: string): string {
 // Teachers and admins run the meeting: they can mute, remove, and end it
 // for everyone. Students and parents take part but cannot moderate --
 // a student must not be able to eject their classmates.
-function isModerator(role: SmsRole): boolean {
+export function isModerator(role: SmsRole): boolean {
   return role === 'teacher' || role === 'admin'
+}
+
+// "Mute all" (teacher): students may still use camera and screen share,
+// but not the microphone, so they can't just unmute themselves. The lock
+// is room metadata, so it also applies to anyone who joins or rejoins
+// while it's on, and ends when the room empties.
+export const SOURCES_WHEN_MICS_LOCKED = [TrackSource.CAMERA, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO]
+
+export interface MeetingRoomState {
+  micsLocked?: boolean
+}
+
+export function parseRoomState(metadata: string | undefined | null): MeetingRoomState {
+  try {
+    return metadata ? (JSON.parse(metadata) as MeetingRoomState) : {}
+  } catch {
+    return {}
+  }
+}
+
+// Server-side LiveKit API (moderation). Uses the https form of the server URL.
+export function roomService(): RoomServiceClient {
+  const url = (process.env.LIVEKIT_URL || process.env.NEXT_PUBLIC_LIVEKIT_URL || '').replace(/^ws/, 'http')
+  return new RoomServiceClient(url, process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET)
+}
+
+export async function isRoomMicsLocked(classId: string): Promise<boolean> {
+  try {
+    const [room] = await roomService().listRooms([roomNameForClass(classId)])
+    return Boolean(parseRoomState(room?.metadata).micsLocked)
+  } catch {
+    return false
+  }
 }
 
 export async function mintMeetingToken(params: {
@@ -23,6 +56,7 @@ export async function mintMeetingToken(params: {
   profileId: string
   displayName: string
   role: SmsRole
+  micsLocked?: boolean
 }): Promise<string> {
   const apiKey = process.env.LIVEKIT_API_KEY
   const apiSecret = process.env.LIVEKIT_API_SECRET
@@ -49,6 +83,8 @@ export async function mintMeetingToken(params: {
     canPublishData: true,
     // Moderation powers, including muting others and removing them.
     roomAdmin: moderator,
+    // Joining while the teacher has muted everyone: no microphone.
+    ...(!moderator && params.micsLocked ? { canPublishSources: SOURCES_WHEN_MICS_LOCKED } : {}),
     // Only a moderator may end the meeting for everyone.
     canUpdateOwnMetadata: true,
   })

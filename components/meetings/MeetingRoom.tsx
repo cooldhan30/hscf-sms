@@ -6,10 +6,12 @@ import {
   LiveKitRoom,
   VideoConference,
   formatChatMessageLinks,
+  useRoomInfo,
 } from '@livekit/components-react'
 import '@livekit/components-styles'
-import { FiVideo, FiAlertCircle, FiMaximize, FiMinimize } from 'react-icons/fi'
+import { FiVideo, FiAlertCircle, FiMaximize, FiMinimize, FiMicOff, FiMic } from 'react-icons/fi'
 import { Button } from '@/components/ui/Button'
+import { toast } from '@/lib/toast'
 
 // Safari implements the Fullscreen API only under its webkit prefix and
 // never fires the unprefixed event, so both spellings are needed.
@@ -28,6 +30,7 @@ export function MeetingRoom({ classId, className }: { classId: string; className
   const [serverUrl, setServerUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [joining, setJoining] = useState(false)
+  const [canModerate, setCanModerate] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
@@ -87,6 +90,7 @@ export function MeetingRoom({ classId, className }: { classId: string; className
     }
 
     setServerUrl(data.serverUrl)
+    setCanModerate(Boolean(data.canModerate))
     setToken(data.token)
   }
 
@@ -135,6 +139,7 @@ export function MeetingRoom({ classId, className }: { classId: string; className
           {/* Camera/mic/screen-share, grid + speaker layouts, in-call chat
               and participant list all come from this one component. */}
           <VideoConference chatMessageFormatter={formatChatMessageLinks} />
+          <MicLockControl classId={classId} canModerate={canModerate} />
         </LiveKitRoom>
       </div>
     )
@@ -166,6 +171,61 @@ export function MeetingRoom({ classId, className }: { classId: string; className
       <p className="text-xs text-stone-400 dark:text-stone-500">
         Your camera and microphone start on. You can turn them off once you are in.
       </p>
+    </div>
+  )
+}
+
+// Teacher: "Mute all" / "Allow mics" (enforced server-side by
+// /api/meetings/mute-all). Everyone else: a banner while mics are locked.
+// The state is the room's metadata, so every participant sees the same
+// thing and it updates live.
+function MicLockControl({ classId, canModerate }: { classId: string; canModerate: boolean }) {
+  const { metadata } = useRoomInfo()
+  const [busy, setBusy] = useState(false)
+  let micsLocked = false
+  try {
+    micsLocked = Boolean(metadata && JSON.parse(metadata).micsLocked)
+  } catch {
+    micsLocked = false
+  }
+
+  async function setLock(lock: boolean) {
+    setBusy(true)
+    const res = await fetch('/api/meetings/mute-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classId, lock }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setBusy(false)
+    if (!res.ok) {
+      toast.error(data.error || 'Could not update microphones')
+      return
+    }
+    toast.success(lock ? 'Everyone is muted. Students cannot unmute until you allow mics.' : 'Students can turn their mics on again.')
+  }
+
+  if (canModerate) {
+    return (
+      <button
+        type="button"
+        onClick={() => setLock(!micsLocked)}
+        disabled={busy}
+        title={micsLocked ? 'Let students use their microphones again' : 'Mute every student and stop them unmuting'}
+        className={`absolute top-3 left-3 z-50 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white backdrop-blur transition-colors disabled:opacity-60 ${
+          micsLocked ? 'bg-terracotta-600/90 hover:bg-terracotta-700' : 'bg-stone-900/70 hover:bg-stone-900/90'
+        }`}
+      >
+        {micsLocked ? <FiMic className="w-4 h-4" /> : <FiMicOff className="w-4 h-4" />}
+        {busy ? 'Updating...' : micsLocked ? 'Allow mics' : 'Mute all'}
+      </button>
+    )
+  }
+
+  if (!micsLocked) return null
+  return (
+    <div className="absolute top-3 left-3 z-50 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white bg-stone-900/80 backdrop-blur">
+      <FiMicOff className="w-4 h-4" /> Your teacher has muted everyone
     </div>
   )
 }
