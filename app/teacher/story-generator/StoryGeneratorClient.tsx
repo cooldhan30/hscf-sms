@@ -242,6 +242,9 @@ export function StoryGeneratorClient({ classes }: { classes: { id: string; name:
         pointsDeductionPerDay: assignPenalty,
         published: true,
         storyImageKey: imageKey || null,
+        // Links the assignment to the saved story (if this exact version
+        // was saved) so My Stories can flag it and duplicates are refused.
+        storyId: savedStoryId ?? undefined,
         // Lets any other teacher discover and reuse this generated story
         // (and its illustration) from the shared Resources library,
         // tagged "Reading" -- distinct from the assignment itself, which

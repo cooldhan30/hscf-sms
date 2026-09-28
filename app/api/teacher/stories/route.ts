@@ -22,10 +22,23 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
+  // Which classes each story is already assigned to (story_id, migration
+  // 089), so My Stories can warn before a duplicate assignment.
+  const storyIds = (rows ?? []).map((r) => r.id)
+  const { data: assignedRows } =
+    storyIds.length > 0
+      ? await supabase.from('sms_assignments').select('story_id, class_id').in('story_id', storyIds)
+      : { data: [] as { story_id: string; class_id: string }[] }
+  const assignedClassIds = new Map<string, string[]>()
+  for (const a of assignedRows ?? []) {
+    assignedClassIds.set(a.story_id, [...(assignedClassIds.get(a.story_id) ?? []), a.class_id])
+  }
+
   const stories = await Promise.all(
     (rows ?? []).map(async (row) => ({
       ...row,
       imageUrl: row.image_key ? await getB2ReadUrl(row.image_key, READ_URL_TTL_SECONDS) : null,
+      assignedClassIds: assignedClassIds.get(row.id) ?? [],
     }))
   )
 

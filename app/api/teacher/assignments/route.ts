@@ -50,6 +50,7 @@ export async function POST(request: Request) {
   const imageSize = typeof body.imageSize === 'number' && body.imageSize > 0 ? body.imageSize : null
   const resourceId = optionalString(body.resourceId)
   const storyImageKey = optionalString(body.storyImageKey)
+  const storyId = optionalString(body.storyId)
   const assignmentType = body.assignmentType === 'exam' ? 'exam' : 'assignment'
   const shareAsResource = Boolean(body.shareAsResource)
 
@@ -108,11 +109,38 @@ export async function POST(request: Request) {
       .select('id, title')
       .eq('resource_id', resourceId)
       .eq('class_id', classId)
+      // limit(1): with 2+ older duplicates, maybeSingle() alone errors and returns null
+      .limit(1)
       .maybeSingle()
 
     if (existing) {
       return NextResponse.json(
         { error: `This resource is already assigned to this class as "${existing.title}". Delete or edit that one instead of assigning it again.` },
+        { status: 409 }
+      )
+    }
+  }
+
+  // Same guard for a saved story (My Stories / Story Generator), linked
+  // via story_id (migration 089). RLS on sms_teacher_stories only returns
+  // the caller's own stories, so this also rejects someone else's id.
+  if (storyId) {
+    const { data: story } = await supabase.from('sms_teacher_stories').select('id').eq('id', storyId).maybeSingle()
+    if (!story) {
+      return NextResponse.json({ error: 'Story not found' }, { status: 400 })
+    }
+
+    const { data: existing } = await supabase
+      .from('sms_assignments')
+      .select('id, title')
+      .eq('story_id', storyId)
+      .eq('class_id', classId)
+      .limit(1)
+      .maybeSingle()
+
+    if (existing) {
+      return NextResponse.json(
+        { error: `This story is already assigned to this class as "${existing.title}". Delete or edit that one instead of assigning it again.` },
         { status: 409 }
       )
     }
@@ -132,6 +160,7 @@ export async function POST(request: Request) {
         image_url: imageUrl,
         image_size: imageSize,
         resource_id: resourceId,
+        ...(storyId ? { story_id: storyId } : {}),
         assignment_type: assignmentType,
         // A reading exercise's submission is primarily the student
         // recording themselves reading it, but a text box is also useful

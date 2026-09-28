@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { FiArrowLeft, FiTrash2, FiImage, FiSend } from 'react-icons/fi'
+import { FiArrowLeft, FiTrash2, FiImage, FiSend, FiCheckCircle } from 'react-icons/fi'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/dashboard/Modal'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { toast } from '@/lib/toast'
@@ -15,6 +16,9 @@ interface SavedStory {
   imageUrl: string | null
   image_key: string | null
   created_at: string
+  // Classes this story is already assigned to (any teacher's; the Assign
+  // dialog only lists the caller's own classes)
+  assignedClassIds: string[]
 }
 
 interface MyStoriesClientProps {
@@ -67,7 +71,9 @@ export function MyStoriesClient({ classes }: MyStoriesClientProps) {
   }
 
   function openAssign() {
-    setAssignClassId(classes[0]?.id ?? '')
+    // Prefer a class that doesn't have this story yet
+    const alreadyIn = selected?.assignedClassIds ?? []
+    setAssignClassId(classes.find((c) => !alreadyIn.includes(c.id))?.id ?? classes[0]?.id ?? '')
     setAssignDueDate('')
     setAssignMaxScore('100')
     setAssignPenalty('0')
@@ -97,6 +103,7 @@ export function MyStoriesClient({ classes }: MyStoriesClientProps) {
         pointsDeductionPerDay: assignPenalty,
         published: true,
         storyImageKey: selected.image_key || null,
+        storyId: selected.id,
       }),
     })
     const data = await res.json().catch(() => ({}))
@@ -105,10 +112,21 @@ export function MyStoriesClient({ classes }: MyStoriesClientProps) {
     if (res.ok) {
       toast.success('Story assigned to your class')
       setAssignOpen(false)
+      const withClass = (st: SavedStory) =>
+        st.id === selected.id ? { ...st, assignedClassIds: [...(st.assignedClassIds ?? []), assignClassId] } : st
+      setStories((prev) => (prev ?? []).map(withClass))
+      setSelected(withClass(selected))
     } else {
       setAssignError(data.error || 'Failed to assign story')
     }
   }
+
+  const assignAlreadyAssigned = Boolean(selected?.assignedClassIds?.includes(assignClassId))
+  const assignedNames = (story: SavedStory) =>
+    (story.assignedClassIds ?? [])
+      .map((id) => classes.find((c) => c.id === id)?.name)
+      .filter(Boolean)
+      .join(', ')
 
   if (stories === null) {
     return <p className="text-sm text-stone-400 dark:text-stone-500">Loading your stories...</p>
@@ -125,6 +143,11 @@ export function MyStoriesClient({ classes }: MyStoriesClientProps) {
         </button>
         <div className="p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-4">
           <p className="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase">{selected.theme}</p>
+          {assignedNames(selected) && (
+            <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 dark:text-primary-400">
+              <FiCheckCircle className="w-4 h-4" /> Already assigned to: {assignedNames(selected)}
+            </p>
+          )}
           {selected.imageUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- generated illustration, arbitrary B2 signed URL
             <img src={selected.imageUrl} alt="Story illustration" className="w-full max-w-xs mx-auto rounded-xl border border-stone-200 dark:border-stone-800" />
@@ -158,9 +181,16 @@ export function MyStoriesClient({ classes }: MyStoriesClientProps) {
                 {classes.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
+                    {selected.assignedClassIds?.includes(c.id) ? ' (already assigned)' : ''}
                   </option>
                 ))}
               </select>
+              {assignAlreadyAssigned && (
+                <p className="mt-1.5 text-sm text-gold-800 dark:text-gold-300">
+                  Already assigned to this class -- assigning it again would create a duplicate. Edit or delete the existing one from
+                  Assignments instead.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -199,7 +229,7 @@ export function MyStoriesClient({ classes }: MyStoriesClientProps) {
               />
             </div>
 
-            <Button type="submit" variant="primary" fullWidth disabled={assigning}>
+            <Button type="submit" variant="primary" fullWidth disabled={assigning || assignAlreadyAssigned}>
               {assigning ? 'Assigning...' : 'Assign'}
             </Button>
           </form>
@@ -241,6 +271,15 @@ export function MyStoriesClient({ classes }: MyStoriesClientProps) {
               <p className="text-sm font-semibold text-stone-800 dark:text-stone-100 line-clamp-2">{story.theme}</p>
             </button>
             <p className="text-xs text-stone-400 dark:text-stone-500">{new Date(story.created_at).toLocaleDateString()}</p>
+            {assignedNames(story) && (
+              <span className="self-start" title={`Already assigned to: ${assignedNames(story)}`}>
+                <Badge variant="success" size="sm">
+                  <span className="inline-flex items-center gap-1">
+                    <FiCheckCircle className="w-3 h-3" /> Assigned
+                  </span>
+                </Badge>
+              </span>
+            )}
             <div className="mt-auto flex justify-end pt-2">
               <button
                 onClick={() => handleDelete(story)}
