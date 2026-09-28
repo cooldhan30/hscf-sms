@@ -3,18 +3,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { FiArrowLeft, FiSend } from 'react-icons/fi'
 import { useSupabaseBrowserClient } from '@/lib/supabase/client'
-import { getMessages, markRead, sendMessage, subscribeToConversation } from '@/lib/chat'
+import { getMessages, markRead, sendMessage, subscribeToConversation, type ConversationSummary } from '@/lib/chat'
 import type { SmsMessage } from '@/types/database'
 
 export function ChatThread({
   conversationId,
   currentUserId,
   otherUserName,
+  isGroup,
+  participants,
   onBack,
 }: {
   conversationId: string
   currentUserId: string
   otherUserName: string
+  isGroup: boolean
+  participants: ConversationSummary['participants']
   onBack: () => void
 }) {
   const supabase = useSupabaseBrowserClient()
@@ -79,6 +83,10 @@ export function ChatThread({
     }
   }
 
+  // Group threads label each run of messages with who sent it; a 1:1
+  // thread already names the other person in the header.
+  const nameById = new Map(participants.map((p) => [p.id, `${p.first_name} ${p.last_name}`.trim()]))
+
   function formatTime(iso: string): string {
     return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
   }
@@ -102,10 +110,17 @@ export function ChatThread({
         ) : messages.length === 0 ? (
           <p className="text-sm text-stone-400 dark:text-stone-600 text-center py-6">Say hello to {otherUserName}!</p>
         ) : (
-          messages.map((m) => {
+          messages.map((m, i) => {
             const isMine = m.sender_id === currentUserId
+            // messages is newest-first, so i + 1 is the one sent just before
+            const showSender = isGroup && !isMine && messages[i + 1]?.sender_id !== m.sender_id
             return (
-              <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+              <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                {showSender && (
+                  <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-0.5 ml-1">
+                    {nameById.get(m.sender_id) ?? 'Former member'}
+                  </p>
+                )}
                 <div
                   className={`max-w-[75%] px-3.5 py-2 rounded-2xl ${
                     isMine

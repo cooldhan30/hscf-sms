@@ -95,6 +95,8 @@ export function ChatApp({
             conversationId={selected.id}
             currentUserId={currentUserId}
             otherUserName={selectedTitle}
+            isGroup={selected.isGroup}
+            participants={selected.participants}
             onBack={() => setSelectedId(null)}
           />
         ) : (
