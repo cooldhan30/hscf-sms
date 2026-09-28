@@ -28,6 +28,18 @@ export default async function TeacherResourcesPage() {
 
   const teacherClassIds = (myClassLinks ?? []).map((l) => l.class_id)
 
+  // Which of this teacher's classes each resource is already assigned to,
+  // so the Resources page can flag it before a duplicate gets created.
+  const { data: resourceAssignmentRows } =
+    teacherClassIds.length > 0
+      ? await supabase.from('sms_assignments').select('resource_id, class_id').in('class_id', teacherClassIds).not('resource_id', 'is', null)
+      : { data: [] as { resource_id: string | null; class_id: string }[] }
+  const assignedClassIdsByResource: Record<string, string[]> = {}
+  for (const row of resourceAssignmentRows ?? []) {
+    if (!row.resource_id) continue
+    assignedClassIdsByResource[row.resource_id] = [...(assignedClassIdsByResource[row.resource_id] ?? []), row.class_id]
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
@@ -45,6 +57,7 @@ export default async function TeacherResourcesPage() {
         canUploadAllClasses={false}
         teacherClassIds={teacherClassIds}
         canAssign
+        assignedClassIdsByResource={assignedClassIdsByResource}
         canEditAny
         canGenerateWorksheet
       />

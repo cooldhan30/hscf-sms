@@ -149,6 +149,7 @@ export function ResourcesClient({
   canUploadAllClasses,
   teacherClassIds,
   canAssign = false,
+  assignedClassIdsByResource = {},
   resourceAssignments = {},
   canDeleteAny = false,
   canEditAny = false,
@@ -161,6 +162,8 @@ export function ResourcesClient({
   canUploadAllClasses: boolean
   teacherClassIds: string[]
   canAssign?: boolean
+  // Teacher view: resource id -> the caller's classes it's already assigned to
+  assignedClassIdsByResource?: Record<string, string[]>
   resourceAssignments?: Record<string, { assignmentId: string; completed: boolean }>
   canDeleteAny?: boolean
   // Any teacher/admin can edit a resource's categorization even if they
@@ -464,7 +467,14 @@ export function ResourcesClient({
 
   function openAssign(resource: ResourceRow) {
     setAssignTarget(resource)
-    setAssignClassId(resource.class_id && teacherClassIds.includes(resource.class_id) ? resource.class_id : teacherClassIds[0] ?? '')
+    // Prefer a class that doesn't have this resource yet
+    const alreadyIn = assignedClassIdsByResource[resource.id] ?? []
+    const preferred = resource.class_id && teacherClassIds.includes(resource.class_id) ? resource.class_id : null
+    setAssignClassId(
+      preferred && !alreadyIn.includes(preferred)
+        ? preferred
+        : (teacherClassIds.find((id) => !alreadyIn.includes(id)) ?? preferred ?? teacherClassIds[0] ?? '')
+    )
     setAssignDueDate('')
     setAssignMaxScore('100')
     setAssignPenalty('0')
@@ -475,6 +485,8 @@ export function ResourcesClient({
   // linked back to it (resource_id) -- due date, scoring, and the late
   // decay preview are the exact same machinery every other assignment
   // already uses, so nothing about grading needed to be rebuilt here.
+  const assignAlreadyAssigned = Boolean(assignTarget && assignedClassIdsByResource[assignTarget.id]?.includes(assignClassId))
+
   async function handleAssign(e: React.FormEvent) {
     e.preventDefault()
     if (!assignTarget) return
@@ -609,6 +621,19 @@ export function ResourcesClient({
                   {r.class?.name ?? 'All Classes'}
                 </p>
                 <div className="flex flex-wrap gap-1 mt-1">
+                  {canAssign && assignedClassIdsByResource[r.id]?.length > 0 && (
+                    <span
+                      title={`Already assigned to: ${assignedClassIdsByResource[r.id]
+                        .map((id) => classes.find((c) => c.id === id)?.name ?? 'a class')
+                        .join(', ')}`}
+                    >
+                      <Badge variant="success" size="sm">
+                        <span className="inline-flex items-center gap-1">
+                          <FiCheckCircle className="w-3 h-3" /> Assigned
+                        </span>
+                      </Badge>
+                    </span>
+                  )}
                   {(r.category || r.subcategory) && (
                     <Badge variant="neutral" size="sm">
                       {subcategoryLabel(r.category, r.subcategory) ?? categoryLabel(r.category)}
@@ -1026,9 +1051,16 @@ export function ResourcesClient({
                 .map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
+                    {assignTarget && assignedClassIdsByResource[assignTarget.id]?.includes(c.id) ? ' (already assigned)' : ''}
                   </option>
                 ))}
             </select>
+            {assignAlreadyAssigned && (
+              <p className="mt-1.5 text-sm text-gold-800 dark:text-gold-300">
+                Already assigned to this class -- assigning it again would create a duplicate. Edit or delete the existing one from Assignments
+                instead.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -1067,7 +1099,7 @@ export function ResourcesClient({
             />
           </div>
 
-          <Button type="submit" variant="primary" fullWidth disabled={assigning || teacherClassIds.length === 0}>
+          <Button type="submit" variant="primary" fullWidth disabled={assigning || teacherClassIds.length === 0 || assignAlreadyAssigned}>
             {assigning ? 'Assigning...' : 'Assign'}
           </Button>
         </form>
