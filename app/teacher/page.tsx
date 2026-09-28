@@ -153,6 +153,20 @@ export default async function TeacherDashboardPage() {
       <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-primary-900 dark:text-white flex items-center gap-2">
+            <FiUsers className="w-5 h-5" /> Class Progress
+          </h2>
+          <Link href="/teacher/class-progress" className="text-sm font-medium text-primary-700 dark:text-primary-400 hover:underline">
+            View all
+          </Link>
+        </div>
+        <p className="text-sm text-stone-500 dark:text-stone-400">
+          See who in each class has submitted each assignment, and who still needs a reminder.
+        </p>
+      </div>
+
+      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-primary-900 dark:text-white flex items-center gap-2">
             <FiClipboard className="w-5 h-5" /> Recent Announcements
           </h2>
           <Link href="/teacher/announcements" className="text-sm font-medium text-primary-700 dark:text-primary-400 hover:underline">

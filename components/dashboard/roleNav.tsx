@@ -54,6 +54,7 @@ export const TEACHER_NAV_ITEMS: SidebarItem[] = [
   { label: 'My Classes', href: '/teacher/classes', icon: <FiBookOpen className={iconClass} /> },
   { label: 'Attendance', href: '/teacher/attendance', icon: <FiCheckSquare className={iconClass} /> },
   { label: 'Assignments', href: '/teacher/assignments', icon: <FiFileText className={iconClass} /> },
+  { label: 'Class Progress', href: '/teacher/class-progress', icon: <FiUsers className={iconClass} /> },
   { label: 'Gradebook', href: '/teacher/gradebook', icon: <FiAward className={iconClass} /> },
   { label: 'Reports', href: '/teacher/reports', icon: <FiBarChart2 className={iconClass} /> },
   { label: 'Resources', href: '/teacher/resources', icon: <FiFolder className={iconClass} /> },

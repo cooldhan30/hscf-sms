@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireStudent } from '@/lib/require-student'
+import { buildClassProgress } from '@/lib/classProgress'
 
 // GET /api/student/class-progress?classId=
 // Whole-class submission progress for every PUBLISHED assignment in one
@@ -48,45 +49,14 @@ export async function GET(request: Request) {
       .from('sms_assignments')
       .select('id, title, assignment_type, due_date')
       .eq('class_id', classId)
-      .eq('published', true)
-      .order('due_date', { ascending: true, nullsFirst: false }),
+      .eq('published', true),
     supabase.from('sms_submissions').select('assignment_id, student_id, submitted_at'),
   ])
 
   const students = (roster ?? []).map((r) => r.student).filter((s): s is { id: string; first_name: string; last_name: string } => Boolean(s))
-  const rosterIds = new Set(students.map((s) => s.id))
 
-  // sms_submissions has no class_id column, so this is filtered to the
-  // roster in-memory rather than via another RLS-scoped query -- the
-  // "student read shared class" policy already limits what came back to
-  // classmates sharing at least one class with the caller, and this
-  // narrows it further to exactly this class's roster.
-  const submittedByAssignment = new Map<string, Map<string, string>>()
-  for (const s of submissions ?? []) {
-    if (!rosterIds.has(s.student_id)) continue
-    if (!submittedByAssignment.has(s.assignment_id)) submittedByAssignment.set(s.assignment_id, new Map())
-    submittedByAssignment.get(s.assignment_id)!.set(s.student_id, s.submitted_at)
-  }
-
-  const sortedStudents = [...students].sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`))
-
-  const result = (assignments ?? []).map((a) => {
-    const submittedMap = submittedByAssignment.get(a.id) ?? new Map()
-    return {
-      assignmentId: a.id,
-      title: a.title,
-      assignmentType: a.assignment_type,
-      dueDate: a.due_date,
-      students: sortedStudents.map((s) => ({
-        studentId: s.id,
-        studentName: `${s.first_name} ${s.last_name}`.trim(),
-        submitted: submittedMap.has(s.id),
-        submittedAt: submittedMap.get(s.id) ?? null,
-      })),
-      submittedCount: submittedMap.size,
-      totalCount: sortedStudents.length,
-    }
-  })
-
-  return NextResponse.json({ assignments: result })
+  // The "student read shared class" policy already limits submissions to
+  // classmates sharing at least one class with the caller; the helper
+  // narrows them further to exactly this class's roster.
+  return NextResponse.json({ assignments: buildClassProgress(students, assignments ?? [], submissions ?? []) })
 }

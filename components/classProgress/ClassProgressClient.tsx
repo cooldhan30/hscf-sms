@@ -28,11 +28,18 @@ interface AssignmentProgress {
 }
 
 // Class-wide submission progress -- who's turned in each assignment,
-// who hasn't. Deliberately NEVER fetches or displays sms_grades: this
-// is a peer-motivation view, not a way to see classmates' scores. The
-// API route (app/api/student/class-progress) enforces that boundary
-// server-side regardless of what a future caller here might request.
-export function ClassProgressClient({ classes }: { classes: ClassOption[] }) {
+// who hasn't. Deliberately NEVER fetches or displays sms_grades: for
+// students it's a peer-motivation view, not a way to see classmates'
+// scores; for teachers it's a who-to-remind list (scores live in the
+// gradebook). Both API routes (app/api/{student,teacher}/class-progress)
+// enforce that boundary server-side.
+export function ClassProgressClient({
+  classes,
+  apiPath = '/api/student/class-progress',
+}: {
+  classes: ClassOption[]
+  apiPath?: string
+}) {
   const [classId, setClassId] = useState(classes[0]?.id ?? '')
   const [assignments, setAssignments] = useState<AssignmentProgress[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -46,7 +53,7 @@ export function ClassProgressClient({ classes }: { classes: ClassOption[] }) {
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetch(`/api/student/class-progress?classId=${classId}`)
+    fetch(`${apiPath}?classId=${classId}`)
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return
@@ -69,7 +76,7 @@ export function ClassProgressClient({ classes }: { classes: ClassOption[] }) {
     return () => {
       cancelled = true
     }
-  }, [classId])
+  }, [classId, apiPath])
 
   const sortedClasses = useMemo(() => classes, [classes])
 
