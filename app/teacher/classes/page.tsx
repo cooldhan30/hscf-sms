@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { GRADE_LEVEL_OPTIONS } from '@/lib/constants'
 import { JoinClassForm } from '@/components/classes/JoinClassForm'
+import { ClassJoinCodePanel } from '@/components/classes/ClassJoinCodePanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -71,29 +72,32 @@ export default async function TeacherClassesPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {classes.map((c) => (
-            <Link
+            <div
               key={c.id}
-              href={`/teacher/classes/${c.id}`}
-              className="block p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-primary-300 dark:hover:border-primary-800 transition-colors"
+              className="flex flex-col rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-primary-300 dark:hover:border-primary-800 transition-colors overflow-hidden"
             >
-              <h2 className="font-bold text-lg text-stone-800 dark:text-stone-100">{c.name}</h2>
-              <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
-                {GRADE_LEVEL_OPTIONS.find((g) => g.value === c.grade_level)?.label || c.grade_level || 'No grade level set'}
-              </p>
-              <div className="flex items-center gap-4 mt-3 text-sm text-stone-500 dark:text-stone-400">
-                {(c.schedule_day || c.start_time) && (
+              {/* Only the details open the class -- the join code panel below has its own buttons */}
+              <Link href={`/teacher/classes/${c.id}`} className="block flex-1 p-5">
+                <h2 className="font-bold text-lg text-stone-800 dark:text-stone-100">{c.name}</h2>
+                <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
+                  {GRADE_LEVEL_OPTIONS.find((g) => g.value === c.grade_level)?.label || c.grade_level || 'No grade level set'}
+                </p>
+                <div className="flex items-center gap-4 mt-3 text-sm text-stone-500 dark:text-stone-400">
+                  {(c.schedule_day || c.start_time) && (
+                    <span className="flex items-center gap-1.5">
+                      <FiClock className="w-4 h-4" />
+                      {c.schedule_day} {c.start_time}
+                      {c.end_time ? ` - ${c.end_time}` : ''}
+                    </span>
+                  )}
                   <span className="flex items-center gap-1.5">
-                    <FiClock className="w-4 h-4" />
-                    {c.schedule_day} {c.start_time}
-                    {c.end_time ? ` - ${c.end_time}` : ''}
+                    <FiUsers className="w-4 h-4" />
+                    {c.enrollments?.[0]?.count ?? 0} students
                   </span>
-                )}
-                <span className="flex items-center gap-1.5">
-                  <FiUsers className="w-4 h-4" />
-                  {c.enrollments?.[0]?.count ?? 0} students
-                </span>
-              </div>
-            </Link>
+                </div>
+              </Link>
+              {c.join_code && <ClassJoinCodePanel code={c.join_code} className={c.name} />}
+            </div>
           ))}
         </div>
       )}
