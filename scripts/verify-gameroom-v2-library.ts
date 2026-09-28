@@ -67,8 +67,8 @@ assert(nothingPlayable.length === 0, 'a set with only an unimplemented question 
 // clickable, everything else shows an inert "Coming Soon" badge.
 const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'word-ninja', 'matching', 'memory']
 assert(
-  GAME_ENGINES_V2.filter((e) => e.status !== 'COMING_SOON').every((e) => ACTIVE_ENGINE_IDS.includes(e.id)),
-  `the only non-COMING_SOON engines are {${ACTIVE_ENGINE_IDS.join(', ')}} -- every other engine stays unimplemented`
+  GAME_ENGINES_V2.filter((e) => e.status !== 'COMING_SOON' && e.status !== 'HIDDEN').every((e) => ACTIVE_ENGINE_IDS.includes(e.id)),
+  `the only non-COMING_SOON/HIDDEN engines are {${ACTIVE_ENGINE_IDS.join(', ')}} -- every other engine stays unimplemented`
 )
 
 console.log(`\n${failures === 0 ? 'PASS' : 'FAIL'}: ${failures} failure(s).`)

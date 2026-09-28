@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { sortByDueDate } from '@/lib/dates'
 import { AssignmentsClient } from './AssignmentsClient'
 
 export const dynamic = 'force-dynamic'
@@ -22,7 +23,7 @@ export default async function TeacherAssignmentsPage() {
       </div>
 
       <Suspense fallback={null}>
-        <AssignmentsClient classes={classes ?? []} initialAssignments={assignments ?? []} />
+        <AssignmentsClient classes={classes ?? []} initialAssignments={sortByDueDate(assignments ?? [])} />
       </Suspense>
     </div>
   )

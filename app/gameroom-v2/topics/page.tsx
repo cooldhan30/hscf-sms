@@ -3,7 +3,7 @@ import { PageHeader } from '@/components/gameRoomV2/shell/ui'
 import { TopicLibraryClient } from '@/components/gameRoomV2/learning/TopicLibraryClient'
 import { loadGameRoomPage } from '@/lib/gameRoomV2/builtin/pageContext'
 import { allTopicSummaries } from '@/lib/gameRoomV2/builtin/summaries'
-import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
+import { launchableEngines } from '@/lib/gameRoomV2/gameAvailability'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +21,7 @@ export default async function TopicLibraryPage({ searchParams }: { searchParams:
   }
 
   const topics = allTopicSummaries()
-  const games = GAME_ENGINES_V2.filter((e) => topics.some((t) => t.engines.some((x) => x.engineId === e.id))).map((e) => ({ id: e.id, name: e.name }))
+  const games = launchableEngines().map((e) => ({ id: e.id, name: e.name }))
   const statuses = ctx.learning ? Object.fromEntries(Object.entries(ctx.learning.topicProgress).map(([k, p]) => [k, p.status])) : undefined
   const initialGame = games.some((g) => g.id === searchParams.game) ? searchParams.game! : ''
   const isTeacher = ctx.role !== 'student'

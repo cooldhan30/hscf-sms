@@ -1,4 +1,4 @@
-import { BUILTIN_TOPICS, LEARNING_BOARDS, enginesForTopic, getBuiltinTopic } from './catalog'
+import { BUILTIN_TOPICS, LEARNING_BOARDS, enginesForTopic, getBuiltinTopic, unavailableEnginesForTopic } from './catalog'
 import type { BuiltinSetKind, BuiltinTopic, TopicCategory } from './types'
 
 // Serializable views of the catalog for client components -- ids, titles
@@ -24,6 +24,8 @@ export interface TopicSummary {
   difficulty: 'easy' | 'medium' | 'hard'
   questionCount: number
   engines: EngineOption[]
+  // Active games none of this topic's sets can play, with the reason.
+  unavailable: { engineId: string; name: string; reason: string }[]
 }
 
 export function summarizeTopic(topic: BuiltinTopic): TopicSummary {
@@ -44,6 +46,11 @@ export function summarizeTopic(topic: BuiltinTopic): TopicSummary {
       questionCount: set.questions.length,
       minutes: engine.estimatedDurationMinutes ?? 5,
       live: engine.compatibility.liveClassroomSupport,
+    })),
+    unavailable: unavailableEnginesForTopic(topic).map((engine) => ({
+      engineId: engine.id,
+      name: engine.name,
+      reason: engine.requirement?.en ?? 'Not available for this topic',
     })),
   }
 }

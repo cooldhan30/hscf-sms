@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { FiPlay, FiUsers, FiClock, FiEye, FiCopy } from 'react-icons/fi'
+import { FiPlay, FiUsers, FiClock, FiEye, FiCopy, FiSlash } from 'react-icons/fi'
 import { engineIcon } from '@/components/gameRoomV2/shell/ui'
 import { PreviewModal } from '@/app/gameroom-v2/library/PreviewModal'
 import { toast } from '@/lib/toast'
@@ -24,9 +24,10 @@ const KIND_LABEL: Record<string, string> = {
   order: 'Ordering rounds',
 }
 
-// "Choose a game" for a Tamil topic -- only engines that can actually
-// play one of the topic's question sets are listed (compatibility is
-// computed from the sets' question types, lib/gameRoomV2/builtin/catalog.ts).
+// "Choose a game" for a Tamil topic -- every active game is listed:
+// games that can play one of the topic's sets are playable, and any
+// active game none of them fit is shown disabled with its reason
+// (the shared rule in lib/gameRoomV2/gameAvailability.ts).
 // Students start a solo game; teachers host it live for a class, and can
 // preview or duplicate the underlying (read-only) built-in sets.
 export function TopicGameChooser({
@@ -99,6 +100,29 @@ export function TopicGameChooser({
                   <p className="text-xs text-stone-500 dark:text-stone-400">Students can play this on their own from this topic.</p>
                 )}
               </div>
+            </div>
+          )
+        })}
+        {(topic.unavailable ?? []).map((u) => {
+          const Icon = engineIcon(u.engineId)
+          return (
+            <div
+              key={u.engineId}
+              aria-disabled
+              className="flex flex-col p-5 rounded-2xl border border-dashed border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/40"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-400 flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-5 h-5" aria-hidden />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-stone-500 dark:text-stone-400">{u.name}</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 flex items-center gap-1 mt-0.5">
+                    <FiSlash className="w-3 h-3" aria-hidden /> Not for this topic
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-stone-500 dark:text-stone-400 mt-3">{u.reason}</p>
             </div>
           )
         })}

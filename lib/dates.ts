@@ -24,6 +24,21 @@ export function isPastDueDate(dateStr: string, now: Date = new Date()): boolean 
   return now > due
 }
 
+// Assignment list order for every role: still-open work by nearest due
+// date first, then past-due work (most recently due first), then
+// anything with no due date.
+export function sortByDueDate<T extends { due_date: string | null }>(rows: T[], now: Date = new Date()): T[] {
+  const rank = (r: T) => (!r.due_date ? 2 : isPastDueDate(r.due_date, now) ? 1 : 0)
+  return [...rows].sort((a, b) => {
+    const ra = rank(a)
+    const rb = rank(b)
+    if (ra !== rb) return ra - rb
+    if (ra === 2) return 0
+    // due_date is YYYY-MM-DD, so string order is date order
+    return ra === 0 ? a.due_date!.localeCompare(b.due_date!) : b.due_date!.localeCompare(a.due_date!)
+  })
+}
+
 function toISODate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }

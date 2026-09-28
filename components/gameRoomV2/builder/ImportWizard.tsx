@@ -6,8 +6,8 @@ import { toast } from '@/lib/toast'
 import { FiUploadCloud, FiDownload, FiAlertTriangle, FiCheckCircle, FiEdit2, FiTrash2, FiArrowLeft, FiArrowRight, FiPlayCircle, FiX } from 'react-icons/fi'
 import { Card, primaryLinkButton, secondaryLinkButton } from '@/components/gameRoomV2/shell/ui'
 import { TamilTextInput, TamilTextArea } from './TamilTextInput'
-import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
-import { checkEngineCompatibility, type GameRoomQuestionType } from '@/lib/gameRoomV2/domain'
+import type { GameRoomQuestionType } from '@/lib/gameRoomV2/domain'
+import { gamePickerForSet } from '@/lib/gameRoomV2/gameAvailability'
 import {
   IMPORT_LIMITS,
   CSV_TEMPLATE,
@@ -88,7 +88,7 @@ export function ImportWizard() {
   const tooMany = rows.length > IMPORT_LIMITS.maxQuestions
   const types = useMemo(() => Array.from(new Set(built.map((q) => q.questionType))), [built])
   const games = useMemo(
-    () => checkEngineCompatibility(GAME_ENGINES_V2.filter((e) => e.status === 'ACTIVE'), types),
+    () => gamePickerForSet(types).active.map((a) => ({ engine: a.engine, compatible: a.playable, reason: a.reason })),
     [types]
   )
 

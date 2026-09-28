@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { previewMaxPoints } from '@/lib/points'
-import { isPastDueDate, formatDateOnly } from '@/lib/dates'
+import { isPastDueDate, formatDateOnly, sortByDueDate } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,10 +18,10 @@ export default async function StudentAssignmentsPage() {
   // RLS ("assignments: student read published in own class") already
   // scopes this to published assignments in classes the student is
   // enrolled in.
-  const { data: assignments } = await supabase
+  const { data: assignmentRows } = await supabase
     .from('sms_assignments')
     .select('*, class:sms_classes!inner(id, name)')
-    .order('due_date', { ascending: true, nullsFirst: false })
+  const assignments = sortByDueDate(assignmentRows ?? [])
 
   const [{ data: myGrades }, { data: mySubmissions }] = await Promise.all([
     supabase.from('sms_grades').select('assignment_id, score, feedback').eq('student_id', student?.id ?? ''),

@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
+import { launchableEngines, gameAvailability } from '@/lib/gameRoomV2/gameAvailability'
 import { isBuiltinSetId } from '@/lib/gameRoomV2/builtin/catalog'
-import { checkEngineCompatibility } from '@/lib/gameRoomV2/domain'
 
 // GET /api/gameroom-v2/live/host-options -- everything the one-screen
 // Host Live page needs in a single call: the question sets this teacher
@@ -41,13 +40,13 @@ export async function GET() {
     }
   }
 
-  const games = GAME_ENGINES_V2.filter((e) => e.status === 'ACTIVE' && e.compatibility.liveClassroomSupport)
+  const games = launchableEngines('live')
 
   return NextResponse.json({
-    games: games.map((g) => ({ id: g.id, name: g.name, tamilName: g.tamilName, description: g.description, supportedTypes: g.compatibility.supportedQuestionTypes })),
+    games: games.map((g) => ({ id: g.id, name: g.name, tamilName: g.tamilName, description: g.description, supportedTypes: g.compatibility.supportedQuestionTypes, requirement: g.requirement?.en ?? null })),
     classes,
     sets: (sets ?? []).map((s) => {
-      const compat = checkEngineCompatibility(games, s.question_types ?? [])
+      const compat = games.map((g) => gameAvailability(g, s.question_types ?? [], 'live'))
       return {
         id: s.id,
         title: s.title,
@@ -57,7 +56,7 @@ export async function GET() {
         questionCount: s.question_count,
         questionTypes: s.question_types ?? [],
         source: isBuiltinSetId(s.id) ? 'builtin' : s.created_by === profile.id ? 'mine' : 'shared',
-        games: compat.map((c) => ({ id: c.engine.id, compatible: c.compatible, unsupportedTypes: c.unsupportedTypes })),
+        games: compat.map((c) => ({ id: c.engine.id, compatible: c.playable, unsupportedTypes: c.unsupportedTypes, reason: c.reason?.en ?? null })),
       }
     }),
   })

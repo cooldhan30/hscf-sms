@@ -11,6 +11,7 @@ const STATUS_CONFIG: Record<GameEngineStatus, { label: string; icon: typeof FiCl
   BETA: { label: 'Beta', icon: FiStar, classes: 'bg-gold-100 text-gold-800 dark:bg-gold-900/40 dark:text-gold-200' },
   ACTIVE: { label: 'Play', icon: FiCheckCircle, classes: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' },
   DISABLED: { label: 'Unavailable', icon: FiSlash, classes: 'bg-stone-100 text-stone-400 dark:bg-stone-800 dark:text-stone-500' },
+  HIDDEN: { label: 'Unavailable', icon: FiSlash, classes: 'bg-stone-100 text-stone-400 dark:bg-stone-800 dark:text-stone-500' },
 }
 
 export function GameV2StatusPill({ status }: { status: GameEngineStatus }) {

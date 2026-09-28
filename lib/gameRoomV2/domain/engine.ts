@@ -5,8 +5,14 @@ import type { GameRoomQuestionType } from './questionTypes'
 // actually playable, and lets a shipped engine be pulled without
 // deleting it. DISABLED intentionally sits after ACTIVE, not before
 // ALPHA -- it's a distinct "was live, turned off" state, not a synonym
-// for COMING_SOON.
-export const GAME_ENGINE_STATUSES = ['COMING_SOON', 'ALPHA', 'BETA', 'ACTIVE', 'DISABLED'] as const
+// for COMING_SOON. HIDDEN is an engine that exists in code but must not
+// appear on ANY GameRoom surface (not even as "Coming Soon") -- e.g. a
+// concept with no gameplay at all.
+//
+// How each status surfaces is decided in ONE place,
+// lib/gameRoomV2/gameAvailability.ts -- screens never compare statuses
+// themselves.
+export const GAME_ENGINE_STATUSES = ['COMING_SOON', 'ALPHA', 'BETA', 'ACTIVE', 'DISABLED', 'HIDDEN'] as const
 export type GameEngineStatus = (typeof GAME_ENGINE_STATUSES)[number]
 
 // Declares which question shapes an engine knows how to render/play.
@@ -33,6 +39,15 @@ export interface GameEngineCompatibility {
 // is explicitly designed not to repeat). An engine's job is purely:
 // given a question set that satisfies its `compatibility`, render and
 // score a play session for it.
+// Short, human-facing statement of what a question set needs for this
+// engine to play it -- shown on a disabled game card as the reason it
+// can't play the current set (e.g. "Requires matching-pair questions"),
+// instead of the game silently disappearing.
+export interface GameEngineRequirement {
+  en: string
+  ta: string
+}
+
 export interface GameEngine {
   // Stable, unique across the V2 registry -- persisted on session rows
   // once sessions exist (not yet, per migration 073's scope note).
@@ -50,6 +65,12 @@ export interface GameEngine {
   // constraint enforced anywhere.
   estimatedDurationMinutes: number | null
   status: GameEngineStatus
+  // Why a set that fails compatibility can't be played here. Optional:
+  // without it the reason falls back to the unsupported question types.
+  requirement?: GameEngineRequirement
+  // The question types this engine plays BEST (a subset of
+  // supportedQuestionTypes) -- guidance for authors, never a filter.
+  recommendedQuestionTypes?: GameRoomQuestionType[]
   // Semver-ish free string (e.g. "0.1.0") -- lets an engine's own
   // internal session/scoring logic evolve without renaming its id.
   version: string

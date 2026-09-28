@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireGameV2Access } from '@/lib/gameRoomV2/requireAccess'
-import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
+import { listedEngines } from '@/lib/gameRoomV2/gameAvailability'
 
 // GET /api/gameroom-v2/engines -- lists the V2 engine registry.
 // Entirely separate namespace from /api/game-room/* (legacy); this
@@ -15,5 +15,5 @@ export async function GET() {
     return NextResponse.json({ error: access.error }, { status: access.status })
   }
 
-  return NextResponse.json({ engines: GAME_ENGINES_V2 })
+  return NextResponse.json({ engines: listedEngines() })
 }

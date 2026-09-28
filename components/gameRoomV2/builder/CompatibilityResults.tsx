@@ -1,29 +1,19 @@
 import { FiCheck, FiX } from 'react-icons/fi'
-import { checkEngineCompatibility, type GameRoomQuestionType } from '@/lib/gameRoomV2/domain'
-import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
+import type { GameRoomQuestionType } from '@/lib/gameRoomV2/domain'
+import { gamePickerForSet } from '@/lib/gameRoomV2/gameAvailability'
 import { GameV2Card } from '@/components/gameRoomV2'
-
-const TYPE_LABEL: Record<string, string> = {
-  MULTIPLE_CHOICE: 'Multiple Choice',
-  TRUE_FALSE: 'True/False',
-  IMAGE_CHOICE: 'Image Choice',
-  TEXT_INPUT: 'Text Input',
-  FILL_BLANK: 'Fill in the Blank',
-  MATCH: 'Match',
-  ORDER_LETTERS: 'Order Letters',
-  ORDER_WORDS: 'Order Words',
-  CATEGORIZE: 'Categorize',
-  AUDIO_CHOICE: 'Audio Choice',
-}
 
 // "PLAYABLE GAMES" -- computed fresh every render from the set's actual
 // question types against the V2 engine registry's declared
-// compatibility (checkEngineCompatibility), never a stored/cached
-// list -- so this always reflects the CURRENT question mix, including
-// while a teacher is still editing before saving.
+// compatibility via gamePickerForSet (the shared availability rule),
+// never a stored/cached list -- so this always reflects the CURRENT
+// question mix, including while a teacher is still editing before
+// saving. Lists every ACTIVE game; Coming Soon games are named
+// separately and never counted as playable.
 export function CompatibilityResults({ questionTypes }: { questionTypes: GameRoomQuestionType[] }) {
-  const results = checkEngineCompatibility(GAME_ENGINES_V2, questionTypes)
-  const compatibleCount = results.filter((r) => r.compatible).length
+  const picker = gamePickerForSet(questionTypes)
+  const results = picker.active.map((a) => ({ engine: a.engine, compatible: a.playable, reason: a.reason }))
+  const compatibleCount = picker.playable.length
 
   return (
     <GameV2Card>
@@ -32,7 +22,7 @@ export function CompatibilityResults({ questionTypes }: { questionTypes: GameRoo
         {compatibleCount} of {results.length} games can play this set, based on its question types.
       </p>
       <div className="space-y-2">
-        {results.map(({ engine, compatible, unsupportedTypes }) => (
+        {results.map(({ engine, compatible, reason }) => (
           <div
             key={engine.id}
             className={`flex items-start gap-3 px-3 py-2.5 rounded-xl ${
@@ -55,15 +45,14 @@ export function CompatibilityResults({ questionTypes }: { questionTypes: GameRoo
                   <span className="ml-2 font-normal text-xs text-stone-400 dark:text-stone-500">~{engine.estimatedDurationMinutes} min</span>
                 )}
               </p>
-              {!compatible && unsupportedTypes.length > 0 && (
-                <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
-                  Doesn&apos;t support: {unsupportedTypes.map((t) => TYPE_LABEL[t] ?? t).join(', ')}
-                </p>
-              )}
+              {!compatible && reason && <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">{reason.en}</p>}
             </div>
           </div>
         ))}
       </div>
+      {picker.comingSoon.length > 0 && (
+        <p className="mt-3 text-xs text-stone-400 dark:text-stone-500">Coming soon (not playable yet): {picker.comingSoon.map((e) => e.name).join(', ')}</p>
+      )}
     </GameV2Card>
   )
 }

@@ -1,11 +1,10 @@
 import 'server-only'
-import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
+import { launchableEngines, playableEnginesForSet } from '@/lib/gameRoomV2/gameAvailability'
 import { ACHIEVEMENTS, getAchievement } from '@/lib/gameRoomV2/progression/achievements'
 import { levelForXp } from '@/lib/gameRoomV2/progression'
 import { dailyChallengeForDate } from '@/lib/gameRoomV2/progression/dailyChallenge'
 import { allTopicSummaries, LEARNING_BOARDS } from '@/lib/gameRoomV2/builtin/summaries'
 import { isBuiltinSetId } from '@/lib/gameRoomV2/builtin/catalog'
-import { checkEngineCompatibility } from '@/lib/gameRoomV2/domain'
 import type { StudentLearning } from '@/lib/gameRoomV2/builtin/studentLearning'
 import type { createClient } from '@/lib/supabase/server'
 import type { HomeScreenClient } from './HomeScreenClient'
@@ -37,7 +36,7 @@ export async function buildStudentHomeProps(
     }
   }
 
-  const playable = GAME_ENGINES_V2.filter((e) => e.status === 'ACTIVE' || e.status === 'BETA')
+  const playable = launchableEngines('solo')
 
   // Sets teachers published for independent play (same rule as
   // /api/gameroom-v2/student/question-sets: published, non-empty, and
@@ -62,9 +61,7 @@ export async function buildStudentHomeProps(
         title: s.title,
         tamilTitle: s.tamil_title,
         questionCount: s.question_count,
-        engines: checkEngineCompatibility(playable, s.question_types ?? [])
-          .filter((r) => r.compatible)
-          .map((r) => ({ id: r.engine.id, name: r.engine.name })),
+        engines: playableEnginesForSet(s.question_types ?? [], 'solo').map((e) => ({ id: e.id, name: e.name })),
       }))
       .filter((s) => s.engines.length > 0)
       .slice(0, 12)
@@ -77,9 +74,9 @@ export async function buildStudentHomeProps(
     boards: LEARNING_BOARDS,
     teacherSets,
     featuredTopicKeys: FEATURED_TOPIC_KEYS,
-    games: playable
-      .map((e) => ({ id: e.id, name: e.name, topicCount: topics.filter((t) => t.engines.some((x) => x.engineId === e.id)).length }))
-      .filter((g) => g.topicCount > 0),
+    // Every launchable game, always -- never filtered by whether it has
+    // built-in topics (the registry verifier guarantees each one does).
+    games: playable.map((e) => ({ id: e.id, name: e.name, topicCount: topics.filter((t) => t.engines.some((x) => x.engineId === e.id)).length })),
     dailyChallenge: { name: challenge.name, description: challenge.description, progress, goal: challenge.goalCount, completed },
     earnedAchievements: learning.achievementIds
       .map((a) => getAchievement(a.id))

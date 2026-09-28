@@ -7,7 +7,7 @@ import { FiTrash2, FiFileText, FiBook } from 'react-icons/fi'
 import { DataTable, type DataTableColumn } from '@/components/dashboard/DataTable'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { toast } from '@/lib/toast'
-import { formatDateOnly } from '@/lib/dates'
+import { formatDateOnly, sortByDueDate } from '@/lib/dates'
 import type { SmsAssignment, SmsClass } from '@/types/database'
 
 export interface AdminAssignmentRow extends SmsAssignment {
@@ -15,7 +15,7 @@ export interface AdminAssignmentRow extends SmsAssignment {
   creator: { first_name: string; last_name: string } | null
 }
 
-type SortKey = 'size-desc' | 'date-asc' | 'date-desc'
+type SortKey = 'due' | 'size-desc' | 'date-asc' | 'date-desc'
 
 function formatBytes(bytes: number | null): string {
   if (!bytes) return '—'
@@ -26,9 +26,10 @@ function formatBytes(bytes: number | null): string {
 export function AdminAssignmentsClient({ initialAssignments }: { initialAssignments: AdminAssignmentRow[] }) {
   const router = useRouter()
   const confirm = useConfirm()
-  const [sort, setSort] = useState<SortKey>('size-desc')
+  const [sort, setSort] = useState<SortKey>('due')
 
   const sorted = useMemo(() => {
+    if (sort === 'due') return sortByDueDate(initialAssignments)
     const rows = [...initialAssignments]
     if (sort === 'size-desc') {
       rows.sort((a, b) => (b.image_size ?? 0) - (a.image_size ?? 0))
@@ -110,6 +111,7 @@ export function AdminAssignmentsClient({ initialAssignments }: { initialAssignme
           onChange={(e) => setSort(e.target.value as SortKey)}
           className="px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-600 focus:border-transparent"
         >
+          <option value="due">Due date (upcoming first)</option>
           <option value="size-desc">Largest image first</option>
           <option value="date-asc">Oldest first</option>
           <option value="date-desc">Newest first</option>

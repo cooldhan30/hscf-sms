@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { FiEye, FiPlay, FiSend, FiCopy, FiEdit2, FiHeart, FiUsers, FiLock, FiGlobe, FiClock } from 'react-icons/fi'
 import { GameV2Card, GameV2Button } from '@/components/gameRoomV2'
-import { checkEngineCompatibility, type GameRoomQuestionType, type QuestionSetVisibility } from '@/lib/gameRoomV2/domain'
-import { GAME_ENGINES_V2 } from '@/lib/gameRoomV2/registry'
+import type { GameRoomQuestionType, QuestionSetVisibility } from '@/lib/gameRoomV2/domain'
+import { playableEnginesForSet } from '@/lib/gameRoomV2/gameAvailability'
 import { GRADE_LEVEL_OPTIONS } from '@/lib/constants'
 
 export interface LibrarySet {
@@ -58,7 +58,7 @@ export function LibrarySetCard({
   const [busy, setBusy] = useState<'favorite' | null>(null)
   const isOwner = set.created_by === currentProfileId
   const VisIcon = VISIBILITY_ICON[set.visibility]
-  const compatibleEngines = checkEngineCompatibility(GAME_ENGINES_V2, set.question_types).filter((r) => r.compatible)
+  const compatibleEngines = playableEnginesForSet(set.question_types)
 
   async function handleFavoriteClick() {
     setBusy('favorite')
@@ -131,7 +131,7 @@ export function LibrarySetCard({
 
       <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-2">
         {compatibleEngines.length} game{compatibleEngines.length === 1 ? '' : 's'} compatible:{' '}
-        {compatibleEngines.length > 0 ? compatibleEngines.map((r) => r.engine.name).join(', ') : 'none yet'}
+        {compatibleEngines.length > 0 ? compatibleEngines.map((e) => e.name).join(', ') : 'none yet'}
       </p>
 
       <div className="flex items-center flex-wrap gap-1.5 mt-4 pt-3 border-t border-stone-200 dark:border-stone-800">
