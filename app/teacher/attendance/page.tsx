@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { getSchoolEventsByDate } from '@/lib/schoolCalendar'
 import { AttendanceClient } from './AttendanceClient'
 
 export const dynamic = 'force-dynamic'
@@ -7,10 +8,10 @@ export const dynamic = 'force-dynamic'
 export default async function TeacherAttendancePage() {
   const supabase = createClient()
 
-  const { data: classes } = await supabase
-    .from('sms_classes')
-    .select('id, name, grade_level')
-    .order('name')
+  const [{ data: classes }, schoolEvents] = await Promise.all([
+    supabase.from('sms_classes').select('id, name, grade_level').order('name'),
+    getSchoolEventsByDate(supabase),
+  ])
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -22,7 +23,7 @@ export default async function TeacherAttendancePage() {
       </div>
 
       <Suspense fallback={null}>
-        <AttendanceClient classes={classes ?? []} />
+        <AttendanceClient classes={classes ?? []} schoolEvents={schoolEvents} />
       </Suspense>
     </div>
   )

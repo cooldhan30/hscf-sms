@@ -1,5 +1,6 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { todayISODate } from '@/lib/dates'
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused' | 'holiday' | 'online'
 
@@ -69,7 +70,7 @@ export async function buildClassAttendanceReport(
       .eq('class_id', classId)
       .eq('status', 'active')
       .returns<{ student: { id: string; first_name: string; last_name: string } }[]>(),
-    client.from('sms_attendance').select('student_id, date, status').eq('class_id', classId),
+    client.from('sms_attendance').select('student_id, date, status').eq('class_id', classId).lte('date', todayISODate()),
   ])
 
   const students = (enrollments ?? []).map((e) => e.student).filter((s): s is { id: string; first_name: string; last_name: string } => Boolean(s))

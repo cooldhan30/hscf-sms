@@ -43,6 +43,13 @@ function toISODate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// Today as a DATE-column string. Attendance rates only count rows up to
+// today: school-calendar holidays are pre-marked ahead of time (migration
+// 090), and a future day must not count as attended yet.
+export function todayISODate(now: Date = new Date()): string {
+  return toISODate(now)
+}
+
 // The school's first-ever class day. sms_academic_years.start_date
 // isn't populated today, so this is a fixed stand-in rather than
 // depending on an unset column.

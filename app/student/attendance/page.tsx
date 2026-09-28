@@ -3,6 +3,8 @@ import { auth } from '@clerk/nextjs/server'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { FiCalendar } from 'react-icons/fi'
 import { AttendanceRecordView } from '@/components/attendance/AttendanceRecordView'
+import { todayISODate } from '@/lib/dates'
+import { getSchoolEventsByDate } from '@/lib/schoolCalendar'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,12 +24,16 @@ export default async function StudentAttendancePage() {
     .order('date', { ascending: false })
 
   const all = records ?? []
+  const schoolEvents = await getSchoolEventsByDate(supabase)
   // A day marked 'holiday' still counts as a held class day, and counts
   // toward the student the same as 'present' -- marking a day holiday
   // never hurts this percentage. Attending remotely also counts as full
   // attendance credit, same as being physically present.
-  const total = all.length
-  const presentCount = all.filter((r) => r.status === 'present' || r.status === 'online' || r.status === 'holiday').length
+  // Pre-marked future holidays show on the calendar but don't count yet
+  const today = todayISODate()
+  const counted = all.filter((r) => r.date <= today)
+  const total = counted.length
+  const presentCount = counted.filter((r) => r.status === 'present' || r.status === 'online' || r.status === 'holiday').length
   const overallPctLabel = total > 0 ? `${((presentCount / total) * 100).toFixed(1)}%` : '—'
 
   return (
@@ -42,7 +48,7 @@ export default async function StudentAttendancePage() {
         <p className="text-sm text-primary-700 dark:text-primary-400 mt-1">Overall attendance rate ({presentCount} of {total} days present)</p>
       </div>
 
-      {total === 0 ? <EmptyState icon={FiCalendar} title="No attendance records yet" /> : <AttendanceRecordView records={all} />}
+      {all.length === 0 && Object.keys(schoolEvents).length === 0 ? <EmptyState icon={FiCalendar} title="No attendance records yet" /> : <AttendanceRecordView records={all} events={schoolEvents} />}
     </div>
   )
 }

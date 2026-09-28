@@ -1,5 +1,6 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { todayISODate } from '@/lib/dates'
 
 export interface AttendanceSummary {
   total: number
@@ -127,6 +128,7 @@ export async function buildStudentReport(
       .eq('student_id', studentId)
       .in('class_id', classIds)
       .eq('class.academic_year', academicYear)
+      .lte('date', todayISODate())
       .order('date', { ascending: false }),
     client
       .from('sms_assignments')

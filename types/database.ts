@@ -294,6 +294,7 @@ export interface SmsCalendarEvent {
   event_date: string
   end_date: string | null
   description: string | null
+  event_type: 'holiday' | 'exam' | 'event'
   created_at: string
 }
 

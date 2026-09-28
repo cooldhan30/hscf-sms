@@ -7,6 +7,14 @@ import { TextField, TextAreaField } from '@/components/settings/FormField'
 import { ListManager } from '@/components/settings/ListManager'
 import { Button } from '@/components/ui/Button'
 import type { SmsSchoolSettings, SmsCalendarEvent } from '@/types/database'
+import { formatDateOnly } from '@/lib/dates'
+
+const EVENT_TYPE_OPTIONS = [
+  { value: 'holiday', label: 'Holiday (no school -- marks attendance as Holiday)' },
+  { value: 'exam', label: 'Exam day' },
+  { value: 'event', label: 'School event' },
+]
+const EVENT_TYPE_LABEL: Record<string, string> = { holiday: 'Holiday', exam: 'Exam', event: 'Event' }
 
 export function SchoolInfoTab() {
   const [settings, setSettings] = useState<SmsSchoolSettings | null>(null)
@@ -105,19 +113,21 @@ export function SchoolInfoTab() {
 
       <ListManager<SmsCalendarEvent>
         title="School Calendar"
-        description="Holidays, exam dates, and other calendar events."
+        description="Holidays, exam dates, and other calendar events. Shown on every student, parent and teacher attendance calendar; adding a Holiday marks that day as Holiday for every enrolled student."
         endpoint="/api/admin/settings/calendar"
         rows={events}
         onChanged={load}
         itemLabel={(e) => e.title}
         columns={[
           { header: 'Title', accessor: (e) => e.title },
-          { header: 'Date', accessor: (e) => new Date(e.event_date).toLocaleDateString() },
-          { header: 'End Date', accessor: (e) => (e.end_date ? new Date(e.end_date).toLocaleDateString() : '—') },
+          { header: 'Type', accessor: (e) => EVENT_TYPE_LABEL[e.event_type] ?? e.event_type },
+          { header: 'Date', accessor: (e) => formatDateOnly(e.event_date) },
+          { header: 'End Date', accessor: (e) => (e.end_date ? formatDateOnly(e.end_date) : '—') },
           { header: 'Description', accessor: (e) => e.description || '—' },
         ]}
         fields={[
           { key: 'title', label: 'Title', type: 'text', required: true },
+          { key: 'event_type', label: 'Type', type: 'select', options: EVENT_TYPE_OPTIONS, defaultValue: 'event' },
           { key: 'event_date', label: 'Date', type: 'date', required: true },
           { key: 'end_date', label: 'End Date (optional)', type: 'date' },
           { key: 'description', label: 'Description', type: 'textarea' },

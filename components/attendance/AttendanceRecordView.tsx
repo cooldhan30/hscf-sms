@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { AttendanceCalendar, type AttendanceCellStatus } from '@/components/attendance/AttendanceCalendar'
+import { SCHOOL_EVENT_LABEL, type SchoolEventsByDate } from '@/lib/schoolCalendar'
+import { todayISODate } from '@/lib/dates'
 
 export interface AttendanceRecordRow {
   date: string
@@ -34,8 +36,11 @@ const STATUS_COLOR: Record<string, string> = {
 // marking UI, just whatever the teacher already recorded. Shared between
 // the student and parent attendance pages (a parent viewing their child's
 // attendance needs exactly the same view a student sees of their own).
-export function AttendanceRecordView({ records }: { records: AttendanceRecordRow[] }) {
-  const [selectedDate, setSelectedDate] = useState<string | null>(records[0]?.date ?? null)
+export function AttendanceRecordView({ records, events }: { records: AttendanceRecordRow[]; events?: SchoolEventsByDate }) {
+  // Latest day that has happened -- records also hold pre-marked future holidays
+  const today = todayISODate()
+  const [selectedDate, setSelectedDate] = useState<string | null>(records.find((r) => r.date <= today)?.date ?? today)
+  const selectedEvents = selectedDate ? (events?.[selectedDate] ?? []) : []
 
   const dateStatus = Object.fromEntries(records.map((r) => [r.date, r.status]))
   const recordByDate = new Map(records.map((r) => [r.date, r]))
@@ -47,7 +52,12 @@ export function AttendanceRecordView({ records }: { records: AttendanceRecordRow
         <p className="text-sm text-stone-500 dark:text-stone-400 mb-2">
           Click a date to see that day&apos;s attendance.
         </p>
-        <AttendanceCalendar dateStatus={dateStatus} selectedDate={selectedDate ?? undefined} onDateClick={setSelectedDate} />
+        <AttendanceCalendar
+          dateStatus={dateStatus}
+          selectedDate={selectedDate ?? undefined}
+          onDateClick={setSelectedDate}
+          events={events}
+        />
       </div>
 
       <div className="space-y-3">
@@ -61,6 +71,17 @@ export function AttendanceRecordView({ records }: { records: AttendanceRecordRow
             })}
           </p>
         )}
+
+        {selectedEvents.map((e, i) => (
+          <div
+            key={i}
+            className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-4 py-3"
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{SCHOOL_EVENT_LABEL[e.type]}</p>
+            <p className="font-semibold text-stone-800 dark:text-stone-100">{e.title}</p>
+            {e.description && <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">{e.description}</p>}
+          </div>
+        ))}
 
         <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-4">
           {selected ? (

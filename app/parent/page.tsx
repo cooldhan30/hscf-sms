@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { RichTextContent } from '@/components/announcements/RichTextContent'
-import { formatDateOnly } from '@/lib/dates'
+import { formatDateOnly, todayISODate } from '@/lib/dates'
 import type { ChildOption } from './child-utils'
 
 export const dynamic = 'force-dynamic'
@@ -30,7 +30,7 @@ export default async function ParentDashboardPage() {
     Promise.all(
       children.map(async (child) => {
         const [{ data: attendance }, { data: grades }] = await Promise.all([
-          supabase.from('sms_attendance').select('status').eq('student_id', child.id),
+          supabase.from('sms_attendance').select('status').eq('student_id', child.id).lte('date', todayISODate()),
           supabase
             .from('sms_grades')
             .select('score, assignment:sms_assignments!inner(max_score)')

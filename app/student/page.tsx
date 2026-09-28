@@ -5,7 +5,7 @@ import { auth } from '@clerk/nextjs/server'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { RichTextContent } from '@/components/announcements/RichTextContent'
 import { TheniJoinBanner } from '@/components/theni/TheniJoinBanner'
-import { formatDateOnly } from '@/lib/dates'
+import { formatDateOnly, todayISODate } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +38,7 @@ export default async function StudentDashboardPage() {
         .not('score', 'is', null)
         .order('graded_at', { ascending: false })
         .limit(5),
-      supabase.from('sms_attendance').select('status').eq('student_id', studentId),
+      supabase.from('sms_attendance').select('status').eq('student_id', studentId).lte('date', todayISODate()),
       supabase.from('sms_announcements').select('*').order('created_at', { ascending: false }).limit(3),
       supabase.from('sms_theni_enrollments').select('id').eq('student_id', studentId).limit(1).maybeSingle(),
     ])

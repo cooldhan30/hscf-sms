@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi'
+import type { SchoolEventsByDate, SchoolEventType } from '@/lib/schoolCalendar'
 
 export type AttendanceCellStatus = 'present' | 'absent' | 'late' | 'excused' | 'holiday' | 'online' | 'marked'
 
@@ -23,6 +24,15 @@ const LEGEND: { status: AttendanceCellStatus; label: string }[] = [
   { status: 'holiday', label: 'Holiday' },
   { status: 'online', label: 'Online' },
 ]
+
+// School-calendar markers (a dot on the day). A holiday with no attendance
+// row yet is shaded like a marked holiday, just lighter.
+const EVENT_DOT: Record<SchoolEventType, string> = {
+  holiday: 'bg-sky-500',
+  exam: 'bg-indigo-600',
+  event: 'bg-pink-500',
+}
+const UNMARKED_HOLIDAY_CELL = 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
@@ -53,6 +63,7 @@ export function AttendanceCalendar({
   initialYear,
   initialMonth,
   onMonthChange,
+  events,
 }: {
   dateStatus: Record<string, AttendanceCellStatus>
   onDateClick?: (date: string) => void
@@ -67,6 +78,9 @@ export function AttendanceCalendar({
   // alone left old data (and its green shading) on screen until the
   // next click or a manual refresh.
   onMonthChange?: (year: number, month: number) => void
+  // School calendar (holidays, exams, events) -- dots on the day plus a
+  // list of this month's events under the grid
+  events?: SchoolEventsByDate
 }) {
   const now = new Date()
   const [year, setYear] = useState(initialYear ?? now.getFullYear())
@@ -91,6 +105,10 @@ export function AttendanceCalendar({
   const cells: (number | null)[] = [...Array(firstWeekday).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
   const today = todayISO()
   const monthLabel = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  const monthPrefix = toISODate(year, month, 1).slice(0, 8)
+  const monthEvents = Object.entries(events ?? {})
+    .filter(([iso]) => iso.startsWith(monthPrefix))
+    .sort(([a], [b]) => a.localeCompare(b))
 
   return (
     <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-4">
@@ -125,6 +143,8 @@ export function AttendanceCalendar({
           if (day === null) return <div key={`empty-${i}`} />
           const iso = toISODate(year, month, day)
           const status = dateStatus[iso]
+          const dayEvents = events?.[iso] ?? []
+          const unmarkedHoliday = !status && dayEvents.some((e) => e.type === 'holiday')
           const isToday = iso === today
           const isSelected = iso === selectedDate
           const clickable = Boolean(onDateClick)
@@ -135,15 +155,25 @@ export function AttendanceCalendar({
               type="button"
               disabled={!clickable}
               onClick={() => onDateClick?.(iso === selectedDate ? '' : iso)}
-              className={`aspect-square rounded-lg text-sm font-medium flex items-center justify-center transition-colors ${
+              title={dayEvents.map((e) => e.title).join(', ') || undefined}
+              className={`relative aspect-square rounded-lg text-sm font-medium flex items-center justify-center transition-colors ${
                 status
                   ? CELL_STYLES[status]
-                  : 'text-stone-600 dark:text-stone-300' + (clickable ? ' hover:bg-stone-100 dark:hover:bg-stone-800' : '')
+                  : unmarkedHoliday
+                    ? UNMARKED_HOLIDAY_CELL
+                    : 'text-stone-600 dark:text-stone-300' + (clickable ? ' hover:bg-stone-100 dark:hover:bg-stone-800' : '')
               } ${isSelected ? 'ring-2 ring-offset-2 ring-primary-600 dark:ring-offset-stone-900' : ''} ${
                 isToday && !status ? 'font-bold text-primary-700 dark:text-primary-400' : ''
               } ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
             >
               {day}
+              {dayEvents.length > 0 && (
+                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
+                  {Array.from(new Set(dayEvents.map((e) => e.type))).map((t) => (
+                    <span key={t} className={`w-1.5 h-1.5 rounded-full ring-1 ring-white dark:ring-stone-900 ${EVENT_DOT[t]}`} />
+                  ))}
+                </span>
+              )}
             </button>
           )
         })}
@@ -157,7 +187,36 @@ export function AttendanceCalendar({
               {l.label}
             </div>
           ))}
+          {events && (
+            <>
+              <div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400">
+                <span className={`w-1.5 h-1.5 rounded-full ${EVENT_DOT.exam}`} /> Exam day
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400">
+                <span className={`w-1.5 h-1.5 rounded-full ${EVENT_DOT.event}`} /> School event
+              </div>
+            </>
+          )}
         </div>
+      )}
+
+      {monthEvents.length > 0 && (
+        <ul className="mt-4 pt-4 border-t border-stone-100 dark:border-stone-800 space-y-1.5">
+          {monthEvents.map(([iso, list]) =>
+            list.map((e, i) => (
+              <li key={`${iso}-${i}`} className="flex items-center gap-2 text-sm">
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${EVENT_DOT[e.type]}`} />
+                <span className="font-semibold text-stone-700 dark:text-stone-200 w-14 flex-shrink-0">
+                  {new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </span>
+                <span className="text-stone-600 dark:text-stone-300">
+                  {e.title}
+                  {e.type === 'holiday' && <span className="text-stone-400 dark:text-stone-500"> · No school</span>}
+                </span>
+              </li>
+            ))
+          )}
+        </ul>
       )}
     </div>
   )

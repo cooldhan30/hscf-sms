@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { SkeletonTable } from '@/components/ui/Skeleton'
 import { AttendanceCalendar } from '@/components/attendance/AttendanceCalendar'
+import { holidayOn, SCHOOL_EVENT_LABEL, type SchoolEventsByDate } from '@/lib/schoolCalendar'
 
 interface ClassOption {
   id: string
@@ -40,7 +41,9 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
+const NO_EVENTS: SchoolEventsByDate = {}
+
+export function AttendanceClient({ classes, schoolEvents = NO_EVENTS }: { classes: ClassOption[]; schoolEvents?: SchoolEventsByDate }) {
   const searchParams = useSearchParams()
   const requestedClassId = searchParams.get('classId')
   const initialClassId =
@@ -114,9 +117,14 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
 
       setRoster(data.roster ?? [])
       const initial: Record<string, { status: AttendanceRecord['status'] | null; notes: string }> = {}
+      // On a school-calendar holiday, anyone not yet marked starts as Holiday
+      const holiday = holidayOn(schoolEvents, date)
       for (const s of data.roster ?? []) {
         const existing = (data.attendance ?? []).find((a: AttendanceRecord) => a.student_id === s.id)
-        initial[s.id] = { status: existing?.status ?? null, notes: existing?.notes ?? '' }
+        initial[s.id] = {
+          status: existing?.status ?? (holiday ? 'holiday' : null),
+          notes: existing?.notes ?? (holiday && !existing ? holiday.title : ''),
+        }
       }
       setMarks(initial)
       setHasExistingRecords((data.attendance ?? []).length > 0)
@@ -126,7 +134,7 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
     return () => {
       cancelled = true
     }
-  }, [classId, date])
+  }, [classId, date, schoolEvents])
 
   function setMark(studentId: string, status: AttendanceRecord['status']) {
     setMarks((prev) => ({ ...prev, [studentId]: { ...prev[studentId], status } }))
@@ -200,7 +208,9 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
     return <EmptyState title="No classes assigned" description="Once you're assigned a class, you can take attendance here." />
   }
 
-  const dateStatus = Object.fromEntries(markedDates.map((d) => [d, 'marked' as const]))
+  // A marked school holiday shows as Holiday rather than generic "marked"
+  const dateStatus = Object.fromEntries(markedDates.map((d) => [d, holidayOn(schoolEvents, d) ? ('holiday' as const) : ('marked' as const)]))
+  const selectedEvents = date ? (schoolEvents[date] ?? []) : []
 
   return (
     <div className="space-y-4">
@@ -232,6 +242,7 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
             initialYear={Number(calendarMonth.slice(0, 4))}
             initialMonth={Number(calendarMonth.slice(5, 7)) - 1}
             legend={false}
+            events={schoolEvents}
           />
         </div>
 
@@ -241,6 +252,16 @@ export function AttendanceClient({ classes }: { classes: ClassOption[] }) {
               ? new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
               : 'No date selected'}
           </p>
+
+          {selectedEvents.map((e, i) => (
+            <p
+              key={i}
+              className="text-sm text-stone-700 dark:text-stone-200 bg-stone-50 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-700 rounded-lg px-3 py-2"
+            >
+              <span className="font-semibold">{SCHOOL_EVENT_LABEL[e.type]}:</span> {e.title}
+              {e.type === 'holiday' && ' -- students default to Holiday.'}
+            </p>
+          ))}
 
           {error && (
             <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">

@@ -10,13 +10,17 @@ import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { toast } from '@/lib/toast'
 import { Pagination } from '@/components/ui/Pagination'
 import { usePagination } from '@/lib/hooks/usePagination'
-import { TextField, TextAreaField } from './FormField'
+import { TextField, TextAreaField, SelectField } from './FormField'
 
 export interface ListManagerField {
   key: string
   label: string
-  type: 'text' | 'textarea' | 'date' | 'number'
+  type: 'text' | 'textarea' | 'date' | 'number' | 'select'
   required?: boolean
+  // 'select' only
+  options?: { value: string; label: string }[]
+  // Initial value when adding a new row (otherwise blank)
+  defaultValue?: string
 }
 
 export interface ListManagerColumn<T> {
@@ -59,7 +63,7 @@ export function ListManager<T extends { id: string }>({
 
   function openAdd() {
     setEditingId(null)
-    setForm(Object.fromEntries(fields.map((f) => [f.key, ''])))
+    setForm(Object.fromEntries(fields.map((f) => [f.key, f.defaultValue ?? ''])))
     setError(null)
     setModalOpen(true)
   }
@@ -210,13 +214,21 @@ export function ListManager<T extends { id: string }>({
             </p>
           )}
           {fields.map((f) =>
-            f.type === 'textarea' ? (
+            f.type === 'select' ? (
+              <SelectField
+                key={f.key}
+                label={f.label}
+                value={form[f.key] ?? ''}
+                onChange={(v) => setForm({ ...form, [f.key]: v })}
+                options={f.options ?? []}
+              />
+            ) : f.type === 'textarea' ? (
               <TextAreaField key={f.key} label={f.label} value={form[f.key] ?? ''} onChange={(v) => setForm({ ...form, [f.key]: v })} />
             ) : (
               <TextField
                 key={f.key}
                 label={f.label}
-                type={f.type}
+                type={f.type as 'text' | 'date' | 'number'}
                 value={form[f.key] ?? ''}
                 onChange={(v) => setForm({ ...form, [f.key]: v })}
                 required={f.required}
