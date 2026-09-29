@@ -11,6 +11,8 @@ import {
   FiMusic,
   FiFileText,
   FiTrash2,
+  FiCheckSquare,
+  FiSquare,
   FiEye,
   FiDownload,
   FiX,
@@ -203,6 +205,11 @@ export function ResourcesClient({
   const [worksheetGeneratorOpen, setWorksheetGeneratorOpen] = useState(false)
   const [preview, setPreview] = useState<ResourceRow | null>(null)
   const [pendingFiles, setPendingFiles] = useState<PendingUpload[]>([])
+  // Bulk delete: only resources the caller may delete (owner or admin)
+  // can be selected; the database enforces the same rule on delete.
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [title, setTitle] = useState('')
@@ -496,6 +503,54 @@ export function ResourcesClient({
     }
   }
 
+  function canDelete(resource: ResourceRow): boolean {
+    return canDeleteAny || resource.created_by === currentProfileId
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    const confirmed = await confirm({
+      title: `Delete ${ids.length} resource${ids.length === 1 ? '' : 's'}?`,
+      description: 'They will be removed for everyone. This cannot be undone.',
+      confirmLabel: `Delete ${ids.length}`,
+      tone: 'danger',
+    })
+    if (!confirmed) return
+
+    setBulkDeleting(true)
+    const res = await fetch('/api/resources/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setBulkDeleting(false)
+    if (!res.ok) {
+      toast.error(data.error || 'Failed to delete resources')
+      return
+    }
+    const deleted: number = data.deleted?.length ?? 0
+    if (deleted === ids.length) toast.success(`Deleted ${deleted} resource${deleted === 1 ? '' : 's'}`)
+    else toast.error(`Deleted ${deleted} of ${ids.length} -- the rest weren't yours to delete or were already gone`)
+    exitSelectMode()
+    router.refresh()
+  }
+
   async function handleDelete(resource: ResourceRow) {
     const confirmed = await confirm({
       title: `Delete "${resource.title}"?`,
@@ -617,6 +672,11 @@ export function ResourcesClient({
         </div>
 
         <div className="flex gap-2">
+          {initialResources.some(canDelete) && !selectMode && (
+            <Button variant="outline" size="sm" icon={<FiCheckSquare />} onClick={() => setSelectMode(true)}>
+              Select
+            </Button>
+          )}
           {canGenerateWorksheet && (
             <Button variant="outline" size="sm" icon={<FiFeather />} onClick={() => setWorksheetGeneratorOpen(true)}>
               Generate Worksheet
@@ -632,6 +692,39 @@ export function ResourcesClient({
 
       <ResourceFilterPanel value={filters} onChange={setFilters} availableTags={availableTags} />
 
+      {selectMode && (
+        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 px-4 py-3 rounded-xl border border-primary-200 dark:border-primary-900 bg-primary-50/95 dark:bg-primary-950/95 backdrop-blur">
+          <span className="text-sm font-semibold text-primary-900 dark:text-primary-200 mr-auto">
+            {selectedIds.size === 0 ? 'Tick the resources to delete' : `${selectedIds.size} selected`}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedIds(new Set(filtered.filter(canDelete).map((r) => r.id)))}
+            disabled={bulkDeleting}
+          >
+            Select all mine shown ({filtered.filter(canDelete).length})
+          </Button>
+          {selectedIds.size > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())} disabled={bulkDeleting}>
+              Clear
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<FiTrash2 />}
+            onClick={handleBulkDelete}
+            disabled={selectedIds.size === 0 || bulkDeleting}
+          >
+            {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size || ''}`.trim()}
+          </Button>
+          <Button variant="outline" size="sm" onClick={exitSelectMode} disabled={bulkDeleting}>
+            Done
+          </Button>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <EmptyState
           title="No resources found matching your selected filters"
@@ -642,11 +735,26 @@ export function ResourcesClient({
           {filtered.map((r) => (
             <div
               key={r.id}
-              className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 overflow-hidden flex flex-col"
+              className={`relative rounded-2xl border bg-white dark:bg-stone-900 overflow-hidden flex flex-col ${
+                selectMode && selectedIds.has(r.id)
+                  ? 'border-terracotta-500 ring-2 ring-terracotta-400 dark:border-terracotta-500'
+                  : 'border-stone-200 dark:border-stone-800'
+              }`}
             >
+              {selectMode && canDelete(r) && (
+                <button
+                  type="button"
+                  onClick={() => toggleSelected(r.id)}
+                  aria-pressed={selectedIds.has(r.id)}
+                  aria-label={`${selectedIds.has(r.id) ? 'Unselect' : 'Select'} ${r.title}`}
+                  className="absolute top-2 left-2 z-10 p-1.5 rounded-lg bg-white/90 dark:bg-stone-900/90 shadow text-terracotta-600 dark:text-terracotta-400"
+                >
+                  {selectedIds.has(r.id) ? <FiCheckSquare className="w-5 h-5" /> : <FiSquare className="w-5 h-5" />}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setPreview(r)}
+                onClick={() => (selectMode && canDelete(r) ? toggleSelected(r.id) : setPreview(r))}
                 className="relative aspect-square flex items-center justify-center bg-stone-50 dark:bg-stone-950/40 text-stone-400 dark:text-stone-600 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
               >
                 {kindOf(r.file_type) === 'image' ? (
