@@ -4,7 +4,7 @@ import 'server-only'
 // If Groq deprecates/removes this model, the chat-completion call below
 // will start failing; check console.groq.com/docs/deprecations for a
 // replacement before swapping this constant.
-export const GROQ_MODEL = 'qwen/qwen3.6-27b'
+export const GROQ_MODEL = 'qwen/qwen3.8-27b'
 
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 const REQUEST_TIMEOUT_MS = 30_000
@@ -135,4 +135,68 @@ export async function verifyStoryMatchesTheme(story: string, theme: string): Pro
   } catch {
     return true
   }
+}
+
+// Vision model for reading a resource image's title (Resources upload).
+// Pinned like GROQ_MODEL. Chosen by testing on real Tamil story pages:
+// with the image scaled to 1024px wide it read 4 of 5 titles exactly and
+// the fifth to within one letter (the teacher reviews every name anyway).
+export const GROQ_VISION_MODEL = 'qwen/qwen3.8-27b'
+
+export class GroqVisionRateLimitError extends Error {
+  constructor(public retryAfterSeconds: number) {
+    super('Groq rate limit reached')
+    this.name = 'GroqVisionRateLimitError'
+  }
+}
+
+// Returns the title printed on the image, or null if there isn't one.
+// imageDataUrl: a data:image/...;base64 URL (the browser sends a
+// downscaled JPEG). Throws GroqVisionRateLimitError on 429 so the caller
+// can tell the browser how long to wait before the next image.
+export async function groqReadImageTitle(imageDataUrl: string): Promise<string | null> {
+  const apiKey = process.env.GROQ_API_KEY
+  if (!apiKey) throw new GroqRequestError('GROQ_API_KEY is not configured')
+
+  const res = await fetch(GROQ_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: GROQ_VISION_MODEL,
+      reasoning_effort: 'none',
+      temperature: 0,
+      max_tokens: 80,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'This image is a page from a Tamil school resource (often a story). Reply with ONLY its title or main heading exactly as written, in the original script. If there is no clear title, reply NONE.',
+            },
+            { type: 'image_url', image_url: { url: imageDataUrl } },
+          ],
+        },
+      ],
+    }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  })
+
+  if (res.status === 429) {
+    const retryAfter = Number(res.headers.get('retry-after'))
+    throw new GroqVisionRateLimitError(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.ceil(retryAfter) : 10)
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new GroqRequestError(`Groq vision request failed (${res.status}): ${body || res.statusText}`, res.status)
+  }
+
+  const data = await res.json()
+  const raw: unknown = data?.choices?.[0]?.message?.content
+  if (typeof raw !== 'string') return null
+  const title = raw
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .trim()
+    .replace(/^["'“”*#\s]+|["'“”*.\s]+$/g, '')
+  return !title || /^none$/i.test(title) ? null : title
 }

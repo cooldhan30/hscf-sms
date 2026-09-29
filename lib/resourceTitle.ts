@@ -1,7 +1,8 @@
 // Suggested resource name for an uploaded file (Resources multi-upload).
 //   .txt / .md -> first non-empty line
 //   .pdf       -> the heading on page 1 (largest text near the top)
-//   anything else (images, Word, ...) -> the file name, tidied
+//   images     -> the title printed on it, read by AI (/api/resources/suggest-title)
+//   anything else (Word, ...) or nothing found -> the file name, tidied
 // Always just a suggestion: the upload form shows it in an editable field.
 
 // Same hard-coded prefix as lib/gameRoom/sound.ts -- next.config.mjs basePath.
@@ -91,11 +92,70 @@ async function headingFromPdf(file: File): Promise<string | null> {
   }
 }
 
+const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'gif']
+// Groq's vision model reads titles reliably at this width (tested on real
+// Tamil story pages) and a ~250 KB JPEG costs far less of the per-minute
+// quota than the original multi-MB PNG.
+const IMAGE_WIDTH = 1024
+
+async function imageToJpegDataUrl(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file)
+  const scale = Math.min(1, IMAGE_WIDTH / bitmap.width)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bitmap.width * scale)
+  canvas.height = Math.round(bitmap.height * scale)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('No canvas')
+  ctx.fillStyle = '#fff' // transparent PNG areas would turn black in a JPEG
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+  return canvas.toDataURL('image/jpeg', 0.85)
+}
+
+// Images are read one at a time: the free Groq tier allows only a few per
+// minute, so several at once would just trip the limit. When the server
+// says to wait (429 retryAfter), this waits and tries the same image again.
+let imageQueue: Promise<unknown> = Promise.resolve()
+function enqueue<T>(task: () => Promise<T>): Promise<T> {
+  const run = imageQueue.then(task, task)
+  imageQueue = run.catch(() => undefined)
+  return run
+}
+
+async function headingFromImage(file: File): Promise<string | null> {
+  const image = await imageToJpegDataUrl(file)
+  return enqueue(async () => {
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const res = await fetch('/api/resources/suggest-title', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.status === 429) {
+        await new Promise((r) => setTimeout(r, (Number(data.retryAfter) || 10) * 1000 + 500))
+        continue
+      }
+      if (!res.ok || typeof data.title !== 'string') return null
+      const title = cleanLine(data.title)
+      return title && looksReadable(title) ? title : null
+    }
+    return null
+  })
+}
+
 export async function suggestTitleFromFile(file: File): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
   try {
     const heading =
-      ext === 'txt' || ext === 'md' ? await headingFromText(file) : ext === 'pdf' ? await headingFromPdf(file) : null
+      ext === 'txt' || ext === 'md'
+        ? await headingFromText(file)
+        : ext === 'pdf'
+          ? await headingFromPdf(file)
+          : IMAGE_EXTS.includes(ext) && typeof window !== 'undefined'
+            ? await headingFromImage(file)
+            : null
     if (heading) return heading
   } catch {
     // Unreadable or unusual file -- the file name is still a fine start

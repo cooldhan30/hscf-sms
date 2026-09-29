@@ -980,8 +980,8 @@ export function ResourcesClient({
                 />
               </label>
               <p className="text-xs text-stone-400 dark:text-stone-500 mt-1.5">
-                Each file becomes its own resource. Names come from the heading inside a PDF or text file, otherwise from the
-                file name. Check them before uploading.
+                Each file becomes its own resource. Names are read from the title in each image, PDF or text file (images take a
+                few seconds each), otherwise taken from the file name. Check them before uploading.
               </p>
 
               {pendingFiles.length > 0 && (
@@ -1023,7 +1023,7 @@ export function ResourcesClient({
                       <input
                         type="text"
                         value={p.title}
-                        placeholder="Reading name from file..."
+                        placeholder="Reading the title from the file..."
                         onChange={(e) =>
                           setPendingFiles((prev) => prev.map((x) => (x.key === p.key ? { ...x, title: e.target.value, edited: true } : x)))
                         }
