@@ -49,6 +49,30 @@ const LIVE_ENGINES: Record<string, React.ComponentType<EngineProps>> = {
   'letter-parade': dynamic(() => import('@/components/gameRoomV2/letterParade/LetterParadeGame').then((m) => m.LetterParadeGame), {
     loading: engineLoading,
   }),
+  'frog-jump': dynamic(() => import('@/components/gameRoomV2/frogJump/FrogJumpGame').then((m) => m.FrogJumpGame), {
+    loading: engineLoading,
+  }),
+  'busy-bee': dynamic(() => import('@/components/gameRoomV2/busyBee/BusyBeeGame').then((m) => m.BusyBeeGame), {
+    loading: engineLoading,
+  }),
+  'dinosaur-egg': dynamic(() => import('@/components/gameRoomV2/dinosaurEgg/DinosaurEggGame').then((m) => m.DinosaurEggGame), {
+    loading: engineLoading,
+  }),
+  'ice-cream-shop': dynamic(() => import('@/components/gameRoomV2/iceCreamShop/IceCreamShopGame').then((m) => m.IceCreamShopGame), {
+    loading: engineLoading,
+  }),
+  'treasure-hunt': dynamic(() => import('@/components/gameRoomV2/treasureHunt/TreasureHuntGame').then((m) => m.TreasureHuntGame), {
+    loading: engineLoading,
+  }),
+  'build-a-house': dynamic(() => import('@/components/gameRoomV2/buildAHouse/BuildAHouseGame').then((m) => m.BuildAHouseGame), {
+    loading: engineLoading,
+  }),
+  'sort-baskets': dynamic(() => import('@/components/gameRoomV2/sortBaskets/SortBasketsGame').then((m) => m.SortBasketsGame), {
+    loading: engineLoading,
+  }),
+  'listen-choose': dynamic(() => import('@/components/gameRoomV2/listenChoose/ListenChooseGame').then((m) => m.ListenChooseGame), {
+    loading: engineLoading,
+  }),
 }
 
 const HEARTBEAT_INTERVAL_MS = 8000

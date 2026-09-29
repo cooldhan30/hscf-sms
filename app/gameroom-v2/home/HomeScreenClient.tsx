@@ -63,6 +63,9 @@ export function HomeScreenClient({
         description={`${firstName ? `Welcome, ${firstName}. ` : ''}Pick a Tamil topic, then choose a game to practise it.`}
         actions={
           <>
+            <Link href="/gameroom-v2/trace" className={secondaryLinkButton}>
+              <span aria-hidden>✍️</span> <span className="font-tamil">எழுதிப் பழகு</span> · Trace & Learn
+            </Link>
             <Link href="/gameroom-v2/progress" className={secondaryLinkButton}>
               <FiBarChart2 className="w-4 h-4" aria-hidden /> My Progress
             </Link>

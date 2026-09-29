@@ -20,6 +20,8 @@ await build({
   minify: true,
   alias: { '@': root },
   define: { 'process.env.NODE_ENV': '"production"' },
+  // next/link (Trace & Learn) reads process.env.__NEXT_*; outside Next there is no process
+  banner: { js: 'globalThis.process = globalThis.process || { env: { NODE_ENV: "production" } };' },
   logLevel: 'warning',
 })
 execFileSync(process.execPath, [path.join(root, 'node_modules/tailwindcss/lib/cli.js'), '-c', path.join(root, 'tailwind.config.ts'), '-i', path.join(root, 'app/globals.css'), '-o', path.join(out, 'harness.css'), '--minify'], { stdio: 'inherit', cwd: root })

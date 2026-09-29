@@ -25,6 +25,14 @@ import {
   FiDroplet,
   FiMove,
   FiList,
+  FiAward,
+  FiCoffee,
+  FiFeather,
+  FiGift,
+  FiHeadphones,
+  FiHome,
+  FiShoppingBag,
+  FiSmile,
 } from 'react-icons/fi'
 
 // Shared building blocks for GameRoom application pages. Every class here
@@ -52,6 +60,14 @@ export const ENGINE_ICONS: Record<string, IconType> = {
   'fishing-pond': FiDroplet,
   'missing-letter': FiMove,
   'letter-parade': FiList,
+  'frog-jump': FiSmile,
+  'busy-bee': FiFeather,
+  'dinosaur-egg': FiGift,
+  'ice-cream-shop': FiCoffee,
+  'treasure-hunt': FiAward,
+  'build-a-house': FiHome,
+  'sort-baskets': FiShoppingBag,
+  'listen-choose': FiHeadphones,
 }
 
 export function engineIcon(engineId: string): IconType {

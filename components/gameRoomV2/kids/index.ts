@@ -1,3 +1,5 @@
 export * from './useKidsGame'
 export * from './KidsUI'
 export * from './useDragTiles'
+export * from './ChoiceGrid'
+export * from './KidsChoiceGame'

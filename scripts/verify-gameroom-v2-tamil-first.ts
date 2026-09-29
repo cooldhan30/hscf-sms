@@ -30,7 +30,7 @@ for (const [k, v] of Object.entries(TA)) {
   assert(v.en.trim().length > 0 && !TAMIL.test(v.en), `TA.${k} has an English gloss`)
 }
 const active = GAME_ENGINES_V2.filter((e) => e.status === 'ACTIVE')
-assert(active.length === 13, `13 active games (got ${active.length})`)
+assert(active.length === 21, `21 active games (got ${active.length})`)
 for (const e of active) {
   assert(e.tamilName && TAMIL.test(e.tamilName), `${e.id} has a Tamil name in the registry`)
   assert(GAME_TAMIL_NAMES[e.id] === e.tamilName, `${e.id}: glossary and registry agree`)

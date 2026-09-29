@@ -48,12 +48,12 @@ function assert(condition: boolean, message: string) {
 const read = (p: string) => readFileSync(p, 'utf8')
 const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i])
 
-const EXPECTED_ACTIVE = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'word-ninja', 'matching', 'memory', 'balloon-pop', 'letter-train', 'parachute-catch', 'fishing-pond', 'missing-letter', 'letter-parade']
+const EXPECTED_ACTIVE = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'word-ninja', 'matching', 'memory', 'balloon-pop', 'letter-train', 'parachute-catch', 'fishing-pond', 'missing-letter', 'letter-parade', 'frog-jump', 'busy-bee', 'dinosaur-egg', 'ice-cream-shop', 'treasure-hunt', 'build-a-house', 'sort-baskets', 'listen-choose']
 const EXPECTED_COMING_SOON = ['treasure-quest', 'space-mission', 'kingdom-builder', 'mystery-mansion']
 const CHECKPOINT_GAMES = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle']
 const MATCH_GAMES = ['matching', 'memory']
 // Little Learners games play choice questions only (no typed answers)
-const CHOICE_ONLY_GAMES = ['balloon-pop', 'letter-train', 'parachute-catch', 'fishing-pond', 'missing-letter']
+const CHOICE_ONLY_GAMES = ['balloon-pop', 'letter-train', 'parachute-catch', 'fishing-pond', 'missing-letter', 'frog-jump', 'busy-bee', 'dinosaur-egg', 'ice-cream-shop', 'treasure-hunt', 'build-a-house', 'listen-choose']
 
 const activeIds = launchableEngines().map((e) => e.id)
 
@@ -170,7 +170,7 @@ console.log('-- Matching-compatible set --')
 expectPicker('MATCH set', ['MATCH'], MATCH_GAMES)
 
 console.log('-- Sorting set --')
-expectPicker('CATEGORIZE set', ['CATEGORIZE'], ['tower-defense', 'word-ninja'])
+expectPicker('CATEGORIZE set', ['CATEGORIZE'], ['tower-defense', 'word-ninja', 'sort-baskets'])
 
 console.log('-- Empty set --')
 assert(gamePickerForSet([]).playable.length === 0 && gamePickerForSet([]).active.length === EXPECTED_ACTIVE.length, `empty set: nothing playable, all ${EXPECTED_ACTIVE.length} still visible`)

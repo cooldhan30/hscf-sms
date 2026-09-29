@@ -134,10 +134,12 @@ export function KidsTopBar({
       >
         <FiX className="w-6 h-6" />
       </button>
-      <div className="flex-1 flex items-center justify-center gap-1 flex-wrap" aria-label={`கேள்வி ${Math.min(index + 1, total)} / ${total}`}>
+      <div className="flex-1 flex justify-center">
+      <div className="flex items-center justify-center gap-1 flex-wrap rounded-full bg-sky-900/15 px-2 py-1.5" aria-label={`கேள்வி ${Math.min(index + 1, total)} / ${total}`}>
         {Array.from({ length: total }, (_, i) => (
-          <span key={i} className={`${dotClass} ${i < index ? 'bg-amber-400' : i === index ? 'bg-rose-500 ring-2 ring-white' : 'bg-white/70'}`} />
+          <span key={i} className={`${dotClass} ${i < index ? 'bg-amber-400' : i === index ? 'bg-rose-500 ring-2 ring-white' : 'bg-white/80'}`} />
         ))}
+      </div>
       </div>
       <div
         className="flex items-center gap-1 rounded-full bg-white/90 shadow-md px-3 h-12 text-amber-600 font-extrabold text-xl tabular-nums"

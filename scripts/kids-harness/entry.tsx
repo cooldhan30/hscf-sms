@@ -14,6 +14,15 @@ import { ParachuteCatchGame } from '@/components/gameRoomV2/parachuteCatch/Parac
 import { FishingPondGame } from '@/components/gameRoomV2/fishingPond/FishingPondGame'
 import { MissingLetterGame } from '@/components/gameRoomV2/missingLetter/MissingLetterGame'
 import { LetterParadeGame } from '@/components/gameRoomV2/letterParade/LetterParadeGame'
+import { FrogJumpGame } from '@/components/gameRoomV2/frogJump/FrogJumpGame'
+import { BusyBeeGame } from '@/components/gameRoomV2/busyBee/BusyBeeGame'
+import { DinosaurEggGame } from '@/components/gameRoomV2/dinosaurEgg/DinosaurEggGame'
+import { IceCreamShopGame } from '@/components/gameRoomV2/iceCreamShop/IceCreamShopGame'
+import { TreasureHuntGame } from '@/components/gameRoomV2/treasureHunt/TreasureHuntGame'
+import { BuildAHouseGame } from '@/components/gameRoomV2/buildAHouse/BuildAHouseGame'
+import { SortBasketsGame } from '@/components/gameRoomV2/sortBaskets/SortBasketsGame'
+import { ListenChooseGame } from '@/components/gameRoomV2/listenChoose/ListenChooseGame'
+import { TraceLearn } from '@/components/gameRoomV2/trace/TraceLearn'
 
 type Q = { type: string; prompt: string; payload: Record<string, unknown>; answer: string | boolean; reveal: string }
 
@@ -36,8 +45,39 @@ const ORDER: Q[] = [
   { type: 'ORDER_WORDS', prompt: 'சொற்களை வரிசைப்படுத்தி வாக்கியம் அமை (Make the sentence)', payload: { words: ['செல்கிறேன்', 'நான்', 'பள்ளிக்குச்'] }, answer: 'நான் பள்ளிக்குச் செல்கிறேன்', reveal: 'நான் பள்ளிக்குச் செல்கிறேன்' },
 ]
 
+// The built-in grammar/letter sorting sets (CATEGORIZE); reveal is "item: basket, ..."
+const SORT: Q[] = [
+  {
+    type: 'CATEGORIZE',
+    prompt: 'உயர்திணையா அஃறிணையா? வகைப்படுத்துக',
+    payload: { items: ['மனிதன்', 'நாய்', 'அம்மா', 'மரம்', 'ஆசிரியர்', 'வீடு'], categories: ['உயர்திணை', 'அஃறிணை'] },
+    answer: JSON.stringify({ மனிதன்: 'உயர்திணை', நாய்: 'அஃறிணை', அம்மா: 'உயர்திணை', மரம்: 'அஃறிணை', ஆசிரியர்: 'உயர்திணை', வீடு: 'அஃறிணை' }),
+    reveal: 'மனிதன்: உயர்திணை, அம்மா: உயர்திணை, ஆசிரியர்: உயர்திணை, நாய்: அஃறிணை, மரம்: அஃறிணை, வீடு: அஃறிணை',
+  },
+  {
+    type: 'CATEGORIZE',
+    prompt: 'உயிரா மெய்யா? வகைப்படுத்துக (Vowel or consonant?)',
+    payload: { items: ['அ', 'க்', 'இ', 'ம்'], categories: ['உயிர்', 'மெய்'] },
+    answer: JSON.stringify({ அ: 'உயிர்', 'க்': 'மெய்', இ: 'உயிர்', 'ம்': 'மெய்' }),
+    reveal: 'அ: உயிர், இ: உயிர், க்: மெய், ம்: மெய்',
+  },
+  {
+    type: 'CATEGORIZE',
+    prompt: 'எந்தப் பால்? வகைப்படுத்துக',
+    payload: { items: ['அவன்', 'அவள்', 'அவர்கள்', 'தம்பி', 'அக்கா', 'மக்கள்'], categories: ['ஆண்பால்', 'பெண்பால்', 'பலர்பால்'] },
+    answer: JSON.stringify({ அவன்: 'ஆண்பால்', அவள்: 'பெண்பால்', அவர்கள்: 'பலர்பால்', தம்பி: 'ஆண்பால்', அக்கா: 'பெண்பால்', மக்கள்: 'பலர்பால்' }),
+    reveal: 'அவன்: ஆண்பால், தம்பி: ஆண்பால், அவள்: பெண்பால், அக்கா: பெண்பால், அவர்கள்: பலர்பால், மக்கள்: பலர்பால்',
+  },
+]
+// Listen & Choose plays no true/false: the last question is a choice with the same labels
+const LISTEN: Q[] = [
+  ...VOWELS.slice(0, 5),
+  { type: 'MULTIPLE_CHOICE', prompt: 'உயிரெழுத்துகள் 12. (There are 12 vowels.)', payload: { options: ['சரி ✓', 'தவறு ✗'] }, answer: 'சரி ✓', reveal: 'சரி ✓' },
+]
+
 const params = new URLSearchParams(location.search)
-const QUESTIONS = params.get('engine') === 'letter-parade' ? ORDER : VOWELS
+const ENGINE_ID = params.get('engine') ?? 'balloon-pop'
+const QUESTIONS = ENGINE_ID === 'letter-parade' ? ORDER : ENGINE_ID === 'sort-baskets' ? SORT : ENGINE_ID === 'listen-choose' ? LISTEN : VOWELS
 const autoWrong = params.get('wrong') === '1'
 const session = { status: 'ACTIVE' as string, currentIndex: Number(params.get('start') ?? 0), correct: 0 }
 ;(window as unknown as { __harness: unknown }).__harness = { session, QUESTIONS }
@@ -51,10 +91,17 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const action = m[1]
   const total = QUESTIONS.length
   if (action === 'answer') {
-    const body = JSON.parse(String(init?.body ?? '{}')) as { questionIndex: number; answer: string | boolean | string[] }
+    const body = JSON.parse(String(init?.body ?? '{}')) as { questionIndex: number; answer: string | boolean | string[] | Record<string, string> }
     const q = QUESTIONS[body.questionIndex]
-    // Ordering answers arrive as arrays; compare them as the joined string
-    const given = Array.isArray(body.answer) ? (body.answer as string[]).join(q.type === 'ORDER_WORDS' ? ' ' : '') : body.answer
+    // Ordering answers arrive as arrays, sorting as { item: basket }
+    const given = Array.isArray(body.answer)
+      ? (body.answer as string[]).join(q.type === 'ORDER_WORDS' ? ' ' : '')
+      : body.answer && typeof body.answer === 'object'
+        ? JSON.stringify(JSON.parse(q.answer as string), Object.keys(JSON.parse(q.answer as string))) ===
+          JSON.stringify(body.answer, Object.keys(JSON.parse(q.answer as string)))
+          ? q.answer
+          : 'wrong'
+        : body.answer
     const correct = !autoWrong && given === q.answer
     if (correct) session.correct++
     session.currentIndex = Math.min(total, session.currentIndex + 1)
@@ -65,6 +112,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     return json({ sessionId: 'harness', score: session.correct * 1000, accuracyPct: Math.round((session.correct / total) * 100), correctCount: session.correct, incorrectCount: total - session.correct, totalQuestions: total, xpEarned: session.correct * 12, coinsEarned: session.correct * 2, bestStreak: session.correct, skillsPracticed: ['உயிரெழுத்துகள்'], newlyEarnedAchievementIds: [] })
   }
   if (action === 'abandon') return json({ ok: true })
+  // Stand-in for Sarvam TTS: any short sound from the app's public folder
+  if (action === 'listen') return json({ url: '/tamizhi/sounds/correct.wav' })
   const q = session.status === 'ACTIVE' && session.currentIndex < total ? QUESTIONS[session.currentIndex] : null
   return json({
     status: session.status,
@@ -83,6 +132,15 @@ const ENGINES: Record<string, ComponentType<{ sessionId: string; onExit: () => v
   'fishing-pond': FishingPondGame,
   'missing-letter': MissingLetterGame,
   'letter-parade': LetterParadeGame,
+  'frog-jump': FrogJumpGame,
+  'busy-bee': BusyBeeGame,
+  'dinosaur-egg': DinosaurEggGame,
+  'ice-cream-shop': IceCreamShopGame,
+  'treasure-hunt': TreasureHuntGame,
+  'build-a-house': BuildAHouseGame,
+  'sort-baskets': SortBasketsGame,
+  'listen-choose': ListenChooseGame,
+  trace: TraceLearn as unknown as ComponentType<{ sessionId: string; onExit: () => void }>,
 }
 const Engine = ENGINES[params.get('engine') ?? 'balloon-pop']
 const root = createRoot(document.getElementById('root') as HTMLElement)

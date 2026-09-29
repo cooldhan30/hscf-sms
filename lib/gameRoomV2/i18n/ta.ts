@@ -130,4 +130,12 @@ export const GAME_TAMIL_NAMES: Record<string, string> = {
   'fishing-pond': 'மீன் பிடிப்போம்',
   'missing-letter': 'விடுபட்ட எழுத்து',
   'letter-parade': 'எழுத்து ஊர்வலம்',
+  'frog-jump': 'தவளைத் தாவல்',
+  'busy-bee': 'சுறுசுறுப்புத் தேனீ',
+  'dinosaur-egg': 'டைனோசர் முட்டை',
+  'ice-cream-shop': 'ஐஸ்கிரீம் கடை',
+  'treasure-hunt': 'புதையல் வேட்டை',
+  'build-a-house': 'வீடு கட்டுவோம்',
+  'sort-baskets': 'கூடையில் போடு',
+  'listen-choose': 'கேட்டுத் தேர்ந்தெடு',
 }

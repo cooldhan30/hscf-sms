@@ -502,6 +502,238 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     status: 'ACTIVE',
     version: '0.1.0',
   },
+  {
+    // Little Learners (ages 4-9) -- see components/gameRoomV2/frogJump/FrogJumpGame.tsx and lib/gameRoomV2/kids.
+    id: 'frog-jump',
+    name: 'Frog Jump',
+    tamilName: 'தவளைத் தாவல்',
+    description: 'For little learners: the answers float on lily pads -- tap the right pad and the frog jumps on. No timer, no pressure.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child plays their own session the live system
+      // creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires choice questions (multiple choice, picture, listening or true/false)',
+      ta: 'தேர்வு வகை வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  {
+    // Little Learners (ages 4-9) -- see components/gameRoomV2/busyBee/BusyBeeGame.tsx and lib/gameRoomV2/kids.
+    id: 'busy-bee',
+    name: 'Busy Bee',
+    tamilName: 'சுறுசுறுப்புத் தேனீ',
+    description: 'For little learners: the answers are in flowers -- tap the right flower and the bee collects its honey. No timer, no pressure.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child plays their own session the live system
+      // creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires choice questions (multiple choice, picture, listening or true/false)',
+      ta: 'தேர்வு வகை வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  {
+    // Little Learners (ages 4-9) -- see components/gameRoomV2/dinosaurEgg/DinosaurEggGame.tsx and lib/gameRoomV2/kids.
+    id: 'dinosaur-egg',
+    name: 'Dinosaur Egg',
+    tamilName: 'டைனோசர் முட்டை',
+    description: 'For little learners: tap the egg with the right answer to hatch a baby dinosaur for your collection. No timer, no pressure.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child plays their own session the live system
+      // creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires choice questions (multiple choice, picture, listening or true/false)',
+      ta: 'தேர்வு வகை வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  {
+    // Little Learners (ages 4-9) -- see components/gameRoomV2/iceCreamShop/IceCreamShopGame.tsx and lib/gameRoomV2/kids.
+    id: 'ice-cream-shop',
+    name: 'Ice Cream Shop',
+    tamilName: 'ஐஸ்கிரீம் கடை',
+    description: 'For little learners (4-7): tap the scoop with the right answer and your ice cream cone grows taller. No timer, no pressure.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child plays their own session the live system
+      // creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires choice questions (multiple choice, picture, listening or true/false)',
+      ta: 'தேர்வு வகை வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  {
+    // Little Learners (ages 4-9) -- see components/gameRoomV2/treasureHunt/TreasureHuntGame.tsx and lib/gameRoomV2/kids.
+    id: 'treasure-hunt',
+    name: 'Treasure Hunt',
+    tamilName: 'புதையல் வேட்டை',
+    description: 'For little learners: walk the treasure map one question at a time, collecting a gem for every right answer. Great for longer sets.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child plays their own session the live system
+      // creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires choice questions (multiple choice, picture, listening or true/false)',
+      ta: 'தேர்வு வகை வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  {
+    // Little Learners (ages 4-9) -- see components/gameRoomV2/buildAHouse/BuildAHouseGame.tsx and lib/gameRoomV2/kids.
+    id: 'build-a-house',
+    name: 'Build a House',
+    tamilName: 'வீடு கட்டுவோம்',
+    description: 'For little learners: every right answer adds a piece to your house -- walls, door, windows, roof and garden. No timer, no pressure.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child plays their own session the live system
+      // creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires choice questions (multiple choice, picture, listening or true/false)',
+      ta: 'தேர்வு வகை வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  {
+    // Little Learners (ages 4-9) -- see components/gameRoomV2/sortBaskets/SortBasketsGame.tsx and lib/gameRoomV2/kids.
+    id: 'sort-baskets',
+    name: 'Sort the Baskets',
+    tamilName: 'கூடையில் போடு',
+    description: 'For little learners: drag (or tap) each item into the right basket -- great for letter types and Tamil grammar groups.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['CATEGORIZE'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child plays their own session the live system
+      // creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires sorting questions (items to put into groups)',
+      ta: 'வகைப்படுத்தும் வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['CATEGORIZE'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  {
+    // Little Learners (ages 4-9) -- see components/gameRoomV2/listenChoose/ListenChooseGame.tsx and lib/gameRoomV2/kids.
+    id: 'listen-choose',
+    name: 'Listen & Choose',
+    tamilName: 'கேட்டுத் தேர்ந்தெடு',
+    description: 'For little learners: hear the answer spoken in Tamil, then tap what you heard. Builds real listening skills.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child plays their own session the live system
+      // creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires multiple choice, picture or listening questions',
+      ta: 'தேர்வு, படம் அல்லது கேட்டல் வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['AUDIO_CHOICE', 'MULTIPLE_CHOICE'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
   // --- Not playable: listed only in a separate "Coming Soon" section ---
   {
     id: 'treasure-quest',

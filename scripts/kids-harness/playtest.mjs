@@ -61,6 +61,108 @@ async function tapBalloon(page, label) {
   throw new Error(`choice "${label}" never came into view`)
 }
 
+// Sort the Baskets: tap-then-basket, one real drag, one wrong sort.
+async function sortFlow(page, vp, r) {
+  const basket = (name) => page.getByRole('button', { name: `கூடை: ${name} · Basket: ${name}` })
+  const tapInto = async (item, name) => {
+    await page.getByRole('button', { name: item, exact: true }).click()
+    await basket(name).click()
+    await page.waitForTimeout(120)
+  }
+  // Q1 right, by taps -- screenshot half way
+  await tapInto('மனிதன்', 'உயர்திணை')
+  await tapInto('நாய்', 'அஃறிணை')
+  await page.getByRole('button', { name: 'அம்மா', exact: true }).click()
+  await page.screenshot({ path: path.join(outDir, `${vp.name}-2b-placing.png`) })
+  await basket('உயர்திணை').click()
+  await tapInto('மரம்', 'அஃறிணை')
+  await tapInto('ஆசிரியர்', 'உயர்திணை')
+  await tapInto('வீடு', 'அஃறிணை')
+  await page.waitForTimeout(1100)
+  await page.screenshot({ path: path.join(outDir, `${vp.name}-3-correct-pop.png`) })
+  r.stars1 = await page.$eval('[aria-label$="stars"]', (e) => e.textContent.trim())
+  await page.waitForTimeout(2000)
+  // Q2: a real drag for the first item, then one wrong basket on purpose
+  const tile = await page.getByRole('button', { name: 'அ', exact: true }).boundingBox()
+  const b = await basket('உயிர்').boundingBox()
+  await page.mouse.move(tile.x + tile.width / 2, tile.y + tile.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(tile.x + tile.width / 2 + 6, tile.y + tile.height / 2 + 6, { steps: 2 })
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 })
+  await page.mouse.up()
+  // Gone from the pile (a chip with the same name now sits in the basket)
+  r.dragWorked = (await page.locator('[data-kids-choice][aria-label="அ"]').count()) === 0
+  await tapInto('க்', 'உயிர்')
+  await tapInto('இ', 'உயிர்')
+  await tapInto('ம்', 'மெய்')
+  await page.waitForTimeout(1300)
+  await page.screenshot({ path: path.join(outDir, `${vp.name}-4-wrong-reveal.png`) })
+  r.revealShown = await page.getByText("Here's the right sorting!").isVisible()
+  await page.waitForTimeout(3600)
+  // Q3: three baskets
+  await page.screenshot({ path: path.join(outDir, `${vp.name}-5-long-word.png`) })
+  for (const [item, name] of [['அவன்', 'ஆண்பால்'], ['அவள்', 'பெண்பால்'], ['அவர்கள்', 'பலர்பால்'], ['தம்பி', 'ஆண்பால்'], ['அக்கா', 'பெண்பால்'], ['மக்கள்', 'பலர்பால்']]) await tapInto(item, name)
+  await page.waitForTimeout(4200)
+  await page.screenshot({ path: path.join(outDir, `${vp.name}-6-results.png`), fullPage: true })
+  r.resultsShown = await page.getByText("You're a star!").isVisible()
+  r.balloons = []
+}
+
+// Trace & Learn: a good trace (following the letter's own ink) passes, a
+// lazy scribble gets "almost".
+async function traceFlow(page, vp, r) {
+  await page.goto(url + '?engine=trace')
+  await page.waitForTimeout(1500)
+  await page.screenshot({ path: path.join(outDir, `${vp.name}-1-start.png`) })
+  const pad = await page.locator('[data-trace-pad]').boundingBox()
+  // A short scribble in a corner first
+  await page.mouse.move(pad.x + 20, pad.y + 20)
+  await page.mouse.down()
+  await page.mouse.move(pad.x + 60, pad.y + 40, { steps: 5 })
+  await page.mouse.up()
+  await page.getByRole('button', { name: /Done/ }).click()
+  await page.waitForTimeout(400)
+  r.scribbleRejected = await page.getByText('Almost!').isVisible()
+  await page.screenshot({ path: path.join(outDir, `${vp.name}-4-wrong-reveal.png`) })
+  await page.getByRole('button', { name: /Clear/ }).click()
+  // Follow the ink: horizontal strokes across every run of ink, row by row
+  const runs = await page.evaluate(() => {
+    const c = document.querySelector('[data-trace-pad]').previousElementSibling
+    const ctx = c.getContext('2d')
+    const { width, height } = c
+    const data = ctx.getImageData(0, 0, width, height).data
+    const scale = c.getBoundingClientRect().width / width
+    const out = []
+    for (let y = 0; y < height; y += Math.max(4, Math.round(height / 60))) {
+      let start = -1
+      for (let x = 0; x <= width; x++) {
+        const ink = x < width && data[(y * width + x) * 4 + 3] > 40
+        if (ink && start < 0) start = x
+        if (!ink && start >= 0) {
+          out.push([start * scale, x * scale, y * scale])
+          start = -1
+        }
+      }
+    }
+    return out
+  })
+  for (const [x0, x1, y] of runs) {
+    await page.mouse.move(pad.x + x0, pad.y + y)
+    await page.mouse.down()
+    await page.mouse.move(pad.x + x1, pad.y + y, { steps: 3 })
+    await page.mouse.up()
+  }
+  await page.screenshot({ path: path.join(outDir, `${vp.name}-2-question.png`) })
+  await page.getByRole('button', { name: /Done/ }).click()
+  await page.waitForTimeout(400)
+  r.traceStars = await page.$eval('[aria-label$="stars"]', (e) => e.textContent.trim())
+  await page.screenshot({ path: path.join(outDir, `${vp.name}-3-correct-pop.png`) })
+  r.revealShown = r.scribbleRejected
+  r.resultsShown = r.traceStars === '1'
+  r.horizontalScroll = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+  r.balloons = []
+}
+
 // Letter Parade: put the letters on the caterpillar in order.
 async function paradeFlow(page, vp, r) {
   const tap = async (label) => {
@@ -115,6 +217,11 @@ for (const vp of VIEWPORTS) {
   page.on('console', (m) => m.type() === 'error' && !/fonts\.g|favicon|sounds\//.test(m.text()) && errors.push(m.text()))
   const r = (report[vp.name] = { errors })
 
+  if (ENGINE === 'trace') {
+    await traceFlow(page, vp, r)
+    await ctx.close()
+    continue
+  }
   await page.goto(url + '?engine=' + ENGINE)
   await page.waitForTimeout(800)
   await page.screenshot({ path: path.join(outDir, `${vp.name}-1-start.png`) })
@@ -138,6 +245,11 @@ for (const vp of VIEWPORTS) {
 
   if (ENGINE === 'letter-parade') {
     await paradeFlow(page, vp, r)
+    await ctx.close()
+    continue
+  }
+  if (ENGINE === 'sort-baskets') {
+    await sortFlow(page, vp, r)
     await ctx.close()
     continue
   }
@@ -180,16 +292,16 @@ for (const vp of VIEWPORTS) {
   await ctx.close()
 }
 
-// Reduced motion: balloons stand still in a row
-{
+// Reduced motion: balloons stand still in a row (not for the trace page)
+if (ENGINE !== 'trace') {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', hasTouch: true })
   const page = await ctx.newPage()
   await page.goto(url + '?engine=' + ENGINE)
   await page.getByRole('button', { name: /Start/ }).click()
   await page.waitForTimeout(1500)
-  const a = await page.getByRole('button', { name: 'அ', exact: true }).boundingBox()
+  const a = await page.locator('[data-kids-choice]').first().boundingBox()
   await page.waitForTimeout(1000)
-  const b = await page.getByRole('button', { name: 'அ', exact: true }).boundingBox()
+  const b = await page.locator('[data-kids-choice]').first().boundingBox()
   report.reducedMotion = { still: Math.abs(a.y - b.y) < 1, onScreen: a.y > 0 && a.y + a.height < 844 }
   await page.screenshot({ path: path.join(outDir, 'phone-390-reduced-motion.png') })
   await ctx.close()
