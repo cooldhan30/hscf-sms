@@ -19,6 +19,7 @@ import {
   FiCheckCircle,
   FiCircle,
   FiClock,
+  FiSun,
 } from 'react-icons/fi'
 
 // Shared building blocks for GameRoom application pages. Every class here
@@ -40,6 +41,7 @@ export const ENGINE_ICONS: Record<string, IconType> = {
   crossword: FiEdit3,
   matching: FiLink,
   memory: FiLayers,
+  'balloon-pop': FiSun,
 }
 
 export function engineIcon(engineId: string): IconType {

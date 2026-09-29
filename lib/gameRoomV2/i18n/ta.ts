@@ -124,4 +124,5 @@ export const GAME_TAMIL_NAMES: Record<string, string> = {
   'word-ninja': 'சொல் வீரன்',
   matching: 'பொருத்துக',
   memory: 'நினைவுப் பெட்டகம்',
+  'balloon-pop': 'பலூன் உடைப்போம்',
 }

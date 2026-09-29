@@ -325,6 +325,38 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     status: 'ACTIVE',
     version: '0.1.0',
   },
+  {
+    // Little Learners (ages 4-9): answers float up in balloons; tap the
+    // right one to pop it. No timer, lives or game over -- a wrong pop
+    // just shows the right balloon. See lib/gameRoomV2/balloonPop and
+    // components/gameRoomV2/balloonPop/BalloonPopGame.tsx.
+    id: 'balloon-pop',
+    name: 'Balloon Pop',
+    tamilName: 'பலூன் உடைப்போம்',
+    description: 'For little learners: answers float up in balloons -- tap the right one to pop it. No timer, no pressure.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child pops balloons on their own session the
+      // live system creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires choice questions (multiple choice, picture, listening or true/false)',
+      ta: 'தேர்வு வகை வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
   // --- Not playable: listed only in a separate "Coming Soon" section ---
   {
     id: 'treasure-quest',

@@ -47,6 +47,9 @@ const ENGINE_COMPONENTS: Record<string, ComponentType<EngineProps>> = {
   }),
   matching: dynamic(() => import('@/components/gameRoomV2/matching/MatchingGame').then((m) => m.MatchingGame), { loading: engineLoading }),
   memory: dynamic(() => import('@/components/gameRoomV2/memory/MemoryGame').then((m) => m.MemoryGame), { loading: engineLoading }),
+  'balloon-pop': dynamic(() => import('@/components/gameRoomV2/balloonPop/BalloonPopGame').then((m) => m.BalloonPopGame), {
+    loading: engineLoading,
+  }),
 }
 
 const GameSessionRuntime = dynamic(() => import('@/components/gameRoomV2/gameplay/GameSessionRuntime').then((m) => m.GameSessionRuntime), {

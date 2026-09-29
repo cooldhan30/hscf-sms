@@ -31,6 +31,9 @@ const LIVE_ENGINES: Record<string, React.ComponentType<EngineProps>> = {
   'word-ninja': dynamic(() => import('@/components/gameRoomV2/wordNinja/WordNinjaGame').then((m) => m.WordNinjaGame), { loading: engineLoading }),
   matching: dynamic(() => import('@/components/gameRoomV2/matching/MatchingGame').then((m) => m.MatchingGame), { loading: engineLoading }),
   memory: dynamic(() => import('@/components/gameRoomV2/memory/MemoryGame').then((m) => m.MemoryGame), { loading: engineLoading }),
+  'balloon-pop': dynamic(() => import('@/components/gameRoomV2/balloonPop/BalloonPopGame').then((m) => m.BalloonPopGame), {
+    loading: engineLoading,
+  }),
 }
 
 const HEARTBEAT_INTERVAL_MS = 8000

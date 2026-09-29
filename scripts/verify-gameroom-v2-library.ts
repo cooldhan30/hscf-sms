@@ -65,7 +65,7 @@ assert(nothingPlayable.length === 0, 'a set with only an unimplemented question 
 // (alongside verify-gameroom-v2-domain.ts) because it's the exact
 // guarantee ChooseGameModal relies on: only ACTIVE/BETA engines are
 // clickable, everything else shows an inert "Coming Soon" badge.
-const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'word-ninja', 'matching', 'memory']
+const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'word-ninja', 'matching', 'memory', 'balloon-pop']
 assert(
   GAME_ENGINES_V2.filter((e) => e.status !== 'COMING_SOON' && e.status !== 'HIDDEN').every((e) => ACTIVE_ENGINE_IDS.includes(e.id)),
   `the only non-COMING_SOON/HIDDEN engines are {${ACTIVE_ENGINE_IDS.join(', ')}} -- every other engine stays unimplemented`

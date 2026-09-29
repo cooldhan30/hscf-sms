@@ -48,10 +48,12 @@ function assert(condition: boolean, message: string) {
 const read = (p: string) => readFileSync(p, 'utf8')
 const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i])
 
-const EXPECTED_ACTIVE = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'word-ninja', 'matching', 'memory']
+const EXPECTED_ACTIVE = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'word-ninja', 'matching', 'memory', 'balloon-pop']
 const EXPECTED_COMING_SOON = ['treasure-quest', 'space-mission', 'kingdom-builder', 'mystery-mansion']
 const CHECKPOINT_GAMES = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle']
 const MATCH_GAMES = ['matching', 'memory']
+// Little Learners games play choice questions only (no typed answers)
+const CHOICE_ONLY_GAMES = ['balloon-pop']
 
 const activeIds = launchableEngines().map((e) => e.id)
 
@@ -151,7 +153,7 @@ function expectPicker(label: string, types: GameRoomQuestionType[], playable: st
 }
 
 console.log('-- Normal teacher-created MCQ set --')
-expectPicker('MCQ set', ['MULTIPLE_CHOICE'], CHECKPOINT_GAMES)
+expectPicker('MCQ set', ['MULTIPLE_CHOICE'], [...CHECKPOINT_GAMES, ...CHOICE_ONLY_GAMES])
 const mcq = gamePickerForSet(['MULTIPLE_CHOICE'])
 const reasonOf = (id: string) => mcq.active.find((a) => a.engine.id === id)?.reason?.en ?? ''
 assert(/matching-pair/i.test(reasonOf('matching')) && /matching-pair/i.test(reasonOf('memory')), 'MCQ set: Matching/Memory say "Requires matching-pair questions"')
@@ -170,7 +172,7 @@ console.log('-- Sorting set --')
 expectPicker('CATEGORIZE set', ['CATEGORIZE'], ['tower-defense', 'word-ninja'])
 
 console.log('-- Empty set --')
-assert(gamePickerForSet([]).playable.length === 0 && gamePickerForSet([]).active.length === 7, 'empty set: nothing playable, all 7 still visible')
+assert(gamePickerForSet([]).playable.length === 0 && gamePickerForSet([]).active.length === EXPECTED_ACTIVE.length, `empty set: nothing playable, all ${EXPECTED_ACTIVE.length} still visible`)
 
 console.log('-- Imported set == manually created equivalent --')
 function importedTypes(csv: string, style: 'choices' | 'typed'): GameRoomQuestionType[] {
@@ -190,7 +192,12 @@ const importedMc = importedTypes(CSV, 'choices')
 assert(same(importedMc, ['MULTIPLE_CHOICE']), 'imported choice-style set is MULTIPLE_CHOICE')
 assert(same(ids(importedMc), ids(['MULTIPLE_CHOICE'])), 'imported MCQ set has exactly the same games as a manual MCQ set')
 const importedTyped = importedTypes(CSV, 'typed')
-assert(same(ids(importedTyped), ids(['TEXT_INPUT'])), 'imported typed set has exactly the same games as a manual short-answer set')
+// Rows that carry wrong answers become multiple choice even in the typed
+// style (questionImport.buildQuestion), so this CSV imports as MCQ either way.
+// (This used to compare against TEXT_INPUT and only passed while every
+// MCQ game also played short answers.)
+assert(same(importedTyped, ['MULTIPLE_CHOICE']), 'imported typed set with wrong answers is still MULTIPLE_CHOICE')
+assert(same(ids(importedTyped), ids(['MULTIPLE_CHOICE'])), 'imported typed set has exactly the same games as a manual MCQ set')
 assert(['tower-defense', 'racing'].every((id) => ids(importedTyped).includes(id)), 'imported typed set: Tower Defense and Racing are playable')
 
 console.log('-- Built-in sets use the same rule --')

@@ -74,11 +74,12 @@ export function GameResultsScreen({
         <Stat value={result.totalQuestions} label={<Bi k="questions" />} tone="text-stone-800 dark:text-stone-100" />
       </div>
 
-      <div className="mt-6 flex items-center justify-center gap-4">
-        <div className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary-50 dark:bg-primary-950 text-primary-800 dark:text-primary-200 font-semibold">
+      {/* Wraps on narrow phones: the bilingual labels are long */}
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-4">
+        <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-full px-4 py-2 rounded-full bg-primary-50 dark:bg-primary-950 text-primary-800 dark:text-primary-200 font-semibold">
           <FiStar className="w-4 h-4" aria-hidden /> +{result.xpEarned} <Bi k="xp" inline />
         </div>
-        <div className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 font-semibold">
+        <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-full px-4 py-2 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 font-semibold">
           +{result.coinsEarned} <Bi k="coins" inline />
         </div>
       </div>

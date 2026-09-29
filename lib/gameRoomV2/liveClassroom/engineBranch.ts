@@ -9,7 +9,7 @@
 // though its liveClassroomSupport is true, because classic-quiz IS the
 // generic GameSessionRuntime fallback (a thin reference engine with no
 // custom visual layer of its own), so it needs no dedicated branch.
-export const LIVE_CLASSROOM_INTEGRATED_ENGINE_IDS = ['racing', 'boss-battle', 'tower-defense', 'word-ninja', 'matching', 'memory'] as const
+export const LIVE_CLASSROOM_INTEGRATED_ENGINE_IDS = ['racing', 'boss-battle', 'tower-defense', 'word-ninja', 'matching', 'memory', 'balloon-pop'] as const
 
 export function hasDedicatedLiveClassroomComponent(engineId: string): boolean {
   return (LIVE_CLASSROOM_INTEGRATED_ENGINE_IDS as readonly string[]).includes(engineId)
