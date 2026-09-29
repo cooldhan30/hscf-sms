@@ -192,6 +192,11 @@ const ENGINE_SET_PREFERENCE: Record<string, BuiltinSetKind[]> = {
   'treasure-quest': ['quiz', 'match', 'sort'],
   'kingdom-builder': ['quiz', 'match', 'sort'],
   'balloon-pop': ['quiz'],
+  'letter-train': ['quiz'],
+  'parachute-catch': ['quiz'],
+  'fishing-pond': ['quiz'],
+  'missing-letter': ['quiz'],
+  'letter-parade': ['order'],
 }
 
 // Built-in sets use the exact same availability rule as teacher-made

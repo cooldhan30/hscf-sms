@@ -125,4 +125,9 @@ export const GAME_TAMIL_NAMES: Record<string, string> = {
   matching: 'பொருத்துக',
   memory: 'நினைவுப் பெட்டகம்',
   'balloon-pop': 'பலூன் உடைப்போம்',
+  'letter-train': 'எழுத்து ரயில்',
+  'parachute-catch': 'பாராசூட் பிடி',
+  'fishing-pond': 'மீன் பிடிப்போம்',
+  'missing-letter': 'விடுபட்ட எழுத்து',
+  'letter-parade': 'எழுத்து ஊர்வலம்',
 }

@@ -357,6 +357,151 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     status: 'ACTIVE',
     version: '0.1.0',
   },
+  {
+    // Little Learners (ages 4-9) -- see components/gameRoomV2/letterTrain/LetterTrainGame.tsx and lib/gameRoomV2/kids.
+    id: 'letter-train',
+    name: 'Letter Train',
+    tamilName: 'எழுத்து ரயில்',
+    description: 'For little learners: a friendly train chugs in with answers in its carriages -- tap the right carriage. No timer, no pressure.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child plays their own session the live system
+      // creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires choice questions (multiple choice, picture, listening or true/false)',
+      ta: 'தேர்வு வகை வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  {
+    // Little Learners (ages 4-9) -- see components/gameRoomV2/parachuteCatch/ParachuteCatchGame.tsx and lib/gameRoomV2/kids.
+    id: 'parachute-catch',
+    name: 'Parachute Catch',
+    tamilName: 'பாராசூட் பிடி',
+    description: 'For little learners: answers drift down on parachutes -- tap the right one to catch it in the basket. No timer, no pressure.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child plays their own session the live system
+      // creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires choice questions (multiple choice, picture, listening or true/false)',
+      ta: 'தேர்வு வகை வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  {
+    // Little Learners (ages 4-9) -- see components/gameRoomV2/fishingPond/FishingPondGame.tsx and lib/gameRoomV2/kids.
+    id: 'fishing-pond',
+    name: 'Fishing Pond',
+    tamilName: 'மீன் பிடிப்போம்',
+    description: 'For little learners: fish carrying answers swim across the pond -- tap the right fish to catch it. No timer, no pressure.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child plays their own session the live system
+      // creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires choice questions (multiple choice, picture, listening or true/false)',
+      ta: 'தேர்வு வகை வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  {
+    // Little Learners (ages 4-9) -- see components/gameRoomV2/missingLetter/MissingLetterGame.tsx and lib/gameRoomV2/kids.
+    id: 'missing-letter',
+    name: 'Missing Letter',
+    tamilName: 'விடுபட்ட எழுத்து',
+    description: 'For little learners: drag the right letter block into the gap (or just tap it). Best with questions that have a ___ gap.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child plays their own session the live system
+      // creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires choice questions (multiple choice, picture, listening or true/false)',
+      ta: 'தேர்வு வகை வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['MULTIPLE_CHOICE'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
+  {
+    // Little Learners (ages 4-9) -- see components/gameRoomV2/letterParade/LetterParadeGame.tsx and lib/gameRoomV2/kids.
+    id: 'letter-parade',
+    name: 'Letter Parade',
+    tamilName: 'எழுத்து ஊர்வலம்',
+    description: 'For little learners: put the letters (or words) on the caterpillar in the right order -- tap or drag. No timer, no pressure.',
+    icon: null,
+    thumbnail: null,
+    compatibility: {
+      supportedQuestionTypes: ['ORDER_LETTERS', 'ORDER_WORDS'],
+      soloSupport: true,
+      multiplayerSupport: false,
+      // Live Classroom: each child plays their own session the live system
+      // creates (same question order, server grading).
+      liveClassroomSupport: true,
+      homeworkSupport: true,
+      minPlayers: 1,
+      maxPlayers: 1,
+    },
+    requirement: {
+      en: 'Requires ordering questions (letters or words to put in order)',
+      ta: 'வரிசைப்படுத்தும் வினாக்கள் தேவை',
+    },
+    recommendedQuestionTypes: ['ORDER_LETTERS', 'ORDER_WORDS'],
+    recommendedLevel: 'mazhalai',
+    estimatedDurationMinutes: 5,
+    status: 'ACTIVE',
+    version: '0.1.0',
+  },
   // --- Not playable: listed only in a separate "Coming Soon" section ---
   {
     id: 'treasure-quest',

@@ -48,12 +48,12 @@ function assert(condition: boolean, message: string) {
 const read = (p: string) => readFileSync(p, 'utf8')
 const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i])
 
-const EXPECTED_ACTIVE = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'word-ninja', 'matching', 'memory', 'balloon-pop']
+const EXPECTED_ACTIVE = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'word-ninja', 'matching', 'memory', 'balloon-pop', 'letter-train', 'parachute-catch', 'fishing-pond', 'missing-letter', 'letter-parade']
 const EXPECTED_COMING_SOON = ['treasure-quest', 'space-mission', 'kingdom-builder', 'mystery-mansion']
 const CHECKPOINT_GAMES = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle']
 const MATCH_GAMES = ['matching', 'memory']
 // Little Learners games play choice questions only (no typed answers)
-const CHOICE_ONLY_GAMES = ['balloon-pop']
+const CHOICE_ONLY_GAMES = ['balloon-pop', 'letter-train', 'parachute-catch', 'fishing-pond', 'missing-letter']
 
 const activeIds = launchableEngines().map((e) => e.id)
 
@@ -62,7 +62,8 @@ assert(new Set(GAME_ENGINES_V2.map((e) => e.id)).size === GAME_ENGINES_V2.length
 assert(same(activeIds, EXPECTED_ACTIVE), `ACTIVE games, in display order: ${activeIds.join(', ')}`)
 assert(same(comingSoonEngines().map((e) => e.id), EXPECTED_COMING_SOON), 'Coming Soon: Treasure Quest, Space Mission, Kingdom Builder, Mystery Mansion')
 assert(!listedEngines().some((e) => e.id === 'crossword'), 'Crossword (never built) is HIDDEN from every surface')
-assert(GAME_ENGINES_V2.filter((e) => /rac/i.test(e.id) || /rac/i.test(e.name)).length === 1, 'exactly ONE Racing entry in the registry')
+// Whole word: "Parachute" contains "rac" too
+assert(GAME_ENGINES_V2.filter((e) => /racing/i.test(e.id) || /\bracing\b/i.test(e.name)).length === 1, 'exactly ONE Racing entry in the registry')
 for (const e of launchableEngines()) {
   assert(Boolean(e.name && e.tamilName && e.description), `${e.id}: English name, Tamil name and description present`)
   assert((e.estimatedDurationMinutes ?? 0) > 0, `${e.id}: positive duration`)

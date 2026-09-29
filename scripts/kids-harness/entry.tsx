@@ -9,6 +9,11 @@
 import { createRoot } from 'react-dom/client'
 import type { ComponentType } from 'react'
 import { BalloonPopGame } from '@/components/gameRoomV2/balloonPop/BalloonPopGame'
+import { LetterTrainGame } from '@/components/gameRoomV2/letterTrain/LetterTrainGame'
+import { ParachuteCatchGame } from '@/components/gameRoomV2/parachuteCatch/ParachuteCatchGame'
+import { FishingPondGame } from '@/components/gameRoomV2/fishingPond/FishingPondGame'
+import { MissingLetterGame } from '@/components/gameRoomV2/missingLetter/MissingLetterGame'
+import { LetterParadeGame } from '@/components/gameRoomV2/letterParade/LetterParadeGame'
 
 type Q = { type: string; prompt: string; payload: Record<string, unknown>; answer: string | boolean; reveal: string }
 
@@ -22,8 +27,17 @@ const VOWELS: Q[] = [
   { type: 'TRUE_FALSE', prompt: 'உயிரெழுத்துகள் 12. (There are 12 vowels.)', payload: {}, answer: true, reveal: 'True' },
 ]
 
+// The built-in "Put the vowels / consonants in order" sets, plus a sentence
+const ORDER: Q[] = [
+  { type: 'ORDER_LETTERS', prompt: 'உயிரெழுத்துகளை வரிசைப்படுத்துக (Put the vowels in order)', payload: { letters: ['இ', 'அ', 'ஈ', 'ஆ'] }, answer: 'அஆஇஈ', reveal: 'அஆஇஈ' },
+  { type: 'ORDER_LETTERS', prompt: 'உயிரெழுத்துகளை வரிசைப்படுத்துக (Put the vowels in order)', payload: { letters: ['ஔ', 'ஒ', 'ஐ', 'ஓ'] }, answer: 'ஐஒஓஔ', reveal: 'ஐஒஓஔ' },
+  { type: 'ORDER_LETTERS', prompt: 'மெய்யெழுத்துகளை வரிசைப்படுத்துக (Put the consonants in order)', payload: { letters: ['ங்', 'க்', 'ஞ்', 'ச்'] }, answer: 'க்ங்ச்ஞ்', reveal: 'க்ங்ச்ஞ்' },
+  { type: 'ORDER_LETTERS', prompt: 'உயிரெழுத்துகளை வரிசைப்படுத்துக (Put the vowels in order)', payload: { letters: ['எ', 'இ', 'ஊ', 'உ', 'ஈ'] }, answer: 'இஈஉஊஎ', reveal: 'இஈஉஊஎ' },
+  { type: 'ORDER_WORDS', prompt: 'சொற்களை வரிசைப்படுத்தி வாக்கியம் அமை (Make the sentence)', payload: { words: ['செல்கிறேன்', 'நான்', 'பள்ளிக்குச்'] }, answer: 'நான் பள்ளிக்குச் செல்கிறேன்', reveal: 'நான் பள்ளிக்குச் செல்கிறேன்' },
+]
+
 const params = new URLSearchParams(location.search)
-const QUESTIONS = VOWELS
+const QUESTIONS = params.get('engine') === 'letter-parade' ? ORDER : VOWELS
 const autoWrong = params.get('wrong') === '1'
 const session = { status: 'ACTIVE' as string, currentIndex: Number(params.get('start') ?? 0), correct: 0 }
 ;(window as unknown as { __harness: unknown }).__harness = { session, QUESTIONS }
@@ -37,9 +51,11 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const action = m[1]
   const total = QUESTIONS.length
   if (action === 'answer') {
-    const body = JSON.parse(String(init?.body ?? '{}')) as { questionIndex: number; answer: string | boolean }
+    const body = JSON.parse(String(init?.body ?? '{}')) as { questionIndex: number; answer: string | boolean | string[] }
     const q = QUESTIONS[body.questionIndex]
-    const correct = !autoWrong && body.answer === q.answer
+    // Ordering answers arrive as arrays; compare them as the joined string
+    const given = Array.isArray(body.answer) ? (body.answer as string[]).join(q.type === 'ORDER_WORDS' ? ' ' : '') : body.answer
+    const correct = !autoWrong && given === q.answer
     if (correct) session.correct++
     session.currentIndex = Math.min(total, session.currentIndex + 1)
     if (session.currentIndex >= total) session.status = 'COMPLETED'
@@ -62,6 +78,11 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 
 const ENGINES: Record<string, ComponentType<{ sessionId: string; onExit: () => void; onPlayAgain?: () => void; onHome?: () => void }>> = {
   'balloon-pop': BalloonPopGame,
+  'letter-train': LetterTrainGame,
+  'parachute-catch': ParachuteCatchGame,
+  'fishing-pond': FishingPondGame,
+  'missing-letter': MissingLetterGame,
+  'letter-parade': LetterParadeGame,
 }
 const Engine = ENGINES[params.get('engine') ?? 'balloon-pop']
 const root = createRoot(document.getElementById('root') as HTMLElement)

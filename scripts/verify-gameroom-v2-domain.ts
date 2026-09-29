@@ -38,7 +38,7 @@ assert(
 assert(GAME_ROOM_V2_QUESTION_TYPES.length === 12, `exactly 12 question types declared (found ${GAME_ROOM_V2_QUESTION_TYPES.length})`)
 
 console.log('\n== Engine registry ==')
-assert(GAME_ENGINES_V2.length === 13, `13 engines registered (found ${GAME_ENGINES_V2.length})`)
+assert(GAME_ENGINES_V2.length === 18, `18 engines registered (found ${GAME_ENGINES_V2.length})`)
 // Classic Quiz (a thin reference engine mounting GameSessionRuntime
 // directly), Tower Defense, Racing, Boss Battle, Treasure Quest (each a
 // custom visual frame built around QuestionOverlay), Word Ninja (its
@@ -54,7 +54,7 @@ assert(GAME_ENGINES_V2.length === 13, `13 engines registered (found ${GAME_ENGIN
 // components/gameRoomV2/{towerDefense,racing,bossBattle,treasureQuest,wordNinja,spaceMission,kingdomBuilder,mysteryMansion,matching,memory}/
 // -- are the real, playable engines so far; every other engine stays
 // COMING_SOON until it gets the same treatment.
-const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'word-ninja', 'matching', 'memory', 'balloon-pop']
+const ACTIVE_ENGINE_IDS = ['classic-quiz', 'tower-defense', 'racing', 'boss-battle', 'word-ninja', 'matching', 'memory', 'balloon-pop', 'letter-train', 'parachute-catch', 'fishing-pond', 'missing-letter', 'letter-parade']
 // Built, but hidden (COMING_SOON) by the gameplay overhaul until each is
 // rebuilt into a real game -- see lib/gameRoomV2/registry.ts.
 const HIDDEN_ENGINE_IDS = ['treasure-quest', 'space-mission', 'kingdom-builder', 'mystery-mansion']

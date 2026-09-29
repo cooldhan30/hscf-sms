@@ -34,6 +34,21 @@ const LIVE_ENGINES: Record<string, React.ComponentType<EngineProps>> = {
   'balloon-pop': dynamic(() => import('@/components/gameRoomV2/balloonPop/BalloonPopGame').then((m) => m.BalloonPopGame), {
     loading: engineLoading,
   }),
+  'letter-train': dynamic(() => import('@/components/gameRoomV2/letterTrain/LetterTrainGame').then((m) => m.LetterTrainGame), {
+    loading: engineLoading,
+  }),
+  'parachute-catch': dynamic(() => import('@/components/gameRoomV2/parachuteCatch/ParachuteCatchGame').then((m) => m.ParachuteCatchGame), {
+    loading: engineLoading,
+  }),
+  'fishing-pond': dynamic(() => import('@/components/gameRoomV2/fishingPond/FishingPondGame').then((m) => m.FishingPondGame), {
+    loading: engineLoading,
+  }),
+  'missing-letter': dynamic(() => import('@/components/gameRoomV2/missingLetter/MissingLetterGame').then((m) => m.MissingLetterGame), {
+    loading: engineLoading,
+  }),
+  'letter-parade': dynamic(() => import('@/components/gameRoomV2/letterParade/LetterParadeGame').then((m) => m.LetterParadeGame), {
+    loading: engineLoading,
+  }),
 }
 
 const HEARTBEAT_INTERVAL_MS = 8000
