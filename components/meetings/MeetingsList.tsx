@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FiVideo } from 'react-icons/fi'
+import { FiVideo, FiExternalLink } from 'react-icons/fi'
 import { createClient } from '@/lib/supabase/server'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 
@@ -9,7 +9,10 @@ type ClassRow = { id: string; name: string; schedule_day: string | null; start_t
 // exactly the classes this person belongs to -- every class for an admin,
 // their own for a teacher, enrolled ones for a student, their children's
 // for a parent. No role branching needed here.
-export async function MeetingsList({ rolePrefix }: { rolePrefix: string }) {
+// Join opens the meeting in its own tab (/meeting/[classId], no portal
+// sidebar), so the rest of the portal stays usable in this tab without
+// dropping out of the call.
+export async function MeetingsList() {
   const supabase = createClient()
 
   const { data: classes } = await supabase
@@ -43,11 +46,15 @@ export async function MeetingsList({ rolePrefix }: { rolePrefix: string }) {
             </p>
           </div>
           <Link
-            href={`${rolePrefix}/meetings/${c.id}`}
+            href={`/meeting/${c.id}`}
+            target="_blank"
+            rel="noopener"
+            title="Opens in a new tab"
             className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold bg-primary-700 text-white hover:bg-primary-800 transition-colors"
           >
             <FiVideo className="w-4 h-4" />
             Join
+            <FiExternalLink className="w-3.5 h-3.5 opacity-80" />
           </Link>
         </li>
       ))}

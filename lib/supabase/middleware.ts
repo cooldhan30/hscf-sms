@@ -27,10 +27,13 @@ export async function applyRoleGating(
   const { pathname } = request.nextUrl
   const isAuthRoute = pathname === '/login' || pathname === '/sign-up'
   const isPendingRoute = pathname === '/pending-approval'
+  // Stand-alone meeting tab (opened from any portal's Meetings list).
+  // Any active role; the page and the token endpoint check the class.
+  const isMeetingRoute = pathname.startsWith('/meeting/')
   const matchedRolePrefix = ROLE_PREFIXES.find((r) => pathname.startsWith(r.prefix))
 
   // Not signed in, hitting a protected route -> send to /login
-  if (!userId && (matchedRolePrefix || isPendingRoute)) {
+  if (!userId && (matchedRolePrefix || isPendingRoute || isMeetingRoute)) {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = '/login'
     redirectUrl.searchParams.set('next', pathname)
@@ -84,6 +87,12 @@ export async function applyRoleGating(
   if (isAuthRoute) {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = role ? ROLE_HOME[role] : '/pending-approval'
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  if (isMeetingRoute && !role) {
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = '/pending-approval'
     return NextResponse.redirect(redirectUrl)
   }
 

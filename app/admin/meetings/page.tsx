@@ -11,7 +11,7 @@ export default function AdminMeetingsPage() {
           Join the live meeting room for any of your classes. Rooms stay open with no end time.
         </p>
       </div>
-      <MeetingsList rolePrefix="/admin" />
+      <MeetingsList />
     </div>
   )
 }

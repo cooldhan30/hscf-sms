@@ -9,7 +9,8 @@ import {
   useRoomInfo,
 } from '@livekit/components-react'
 import '@livekit/components-styles'
-import { FiVideo, FiAlertCircle, FiMaximize, FiMinimize, FiMicOff, FiMic } from 'react-icons/fi'
+import { FiVideo, FiAlertCircle, FiMaximize, FiMinimize, FiMicOff, FiMic, FiExternalLink } from 'react-icons/fi'
+import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/lib/toast'
 
@@ -24,13 +25,29 @@ type FullscreenDoc = Document & {
 // The token is fetched on mount rather than rendered into the page from
 // the server: it is a credential with a 12h life, and keeping it out of
 // the initial HTML keeps it out of any cached document or view-source.
-export function MeetingRoom({ classId, className }: { classId: string; className: string }) {
+// standalone: the meeting's own tab (/meeting/[classId]) -- fills the
+// window, and leaving shows a Rejoin screen instead of navigating "back"
+// (a fresh tab has nowhere to go back to).
+export function MeetingRoom({ classId, className, standalone = false }: { classId: string; className: string; standalone?: boolean }) {
   const router = useRouter()
   const [token, setToken] = useState<string | null>(null)
   const [serverUrl, setServerUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [joining, setJoining] = useState(false)
   const [canModerate, setCanModerate] = useState(false)
+  const [left, setLeft] = useState(false)
+
+  // While connected, closing or reloading the tab asks first, so a stray
+  // click doesn't drop the teacher out of class.
+  useEffect(() => {
+    if (!token) return
+    function warn(e: BeforeUnloadEvent) {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [token])
   const containerRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
@@ -90,6 +107,7 @@ export function MeetingRoom({ classId, className }: { classId: string; className
     }
 
     setServerUrl(data.serverUrl)
+    setLeft(false)
     setCanModerate(Boolean(data.canModerate))
     setToken(data.token)
   }
@@ -98,7 +116,8 @@ export function MeetingRoom({ classId, className }: { classId: string; className
   // on a dead screen with a disconnected room.
   function handleDisconnect() {
     setToken(null)
-    router.back()
+    if (standalone) setLeft(true)
+    else router.back()
   }
 
   if (token && serverUrl) {
@@ -111,7 +130,9 @@ export function MeetingRoom({ classId, className }: { classId: string; className
         className={
           isFullscreen
             ? 'relative h-screen w-screen bg-stone-950'
-            : 'relative h-[calc(100vh-8rem)] rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-800'
+            : standalone
+              ? 'relative h-screen w-screen bg-stone-950'
+              : 'relative h-[calc(100vh-8rem)] rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-800'
         }
       >
         <button
@@ -164,13 +185,30 @@ export function MeetingRoom({ classId, className }: { classId: string; className
         </p>
       )}
 
+      {left && <p className="text-sm font-semibold text-stone-600 dark:text-stone-300">You left the meeting.</p>}
+
       <Button variant="primary" onClick={join} disabled={joining} icon={<FiVideo />}>
-        {joining ? 'Connecting...' : 'Join meeting'}
+        {joining ? 'Connecting...' : left ? 'Rejoin meeting' : 'Join meeting'}
       </Button>
 
       <p className="text-xs text-stone-400 dark:text-stone-500">
         Your camera and microphone start on. You can turn them off once you are in.
       </p>
+
+      {standalone ? (
+        <p className="text-xs text-stone-400 dark:text-stone-500">
+          This meeting has its own tab -- keep it open and use the portal in your other tab.
+        </p>
+      ) : (
+        <Link
+          href={`/meeting/${classId}`}
+          target="_blank"
+          rel="noopener"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 dark:text-primary-400 hover:underline"
+        >
+          <FiExternalLink className="w-3.5 h-3.5" /> Open in a new tab instead
+        </Link>
+      )}
     </div>
   )
 }

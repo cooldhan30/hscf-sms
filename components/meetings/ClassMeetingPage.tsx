@@ -7,7 +7,7 @@ import { MeetingRoom } from './MeetingRoom'
 // renders at all -- a class you have no relationship to is a 404, and the
 // token endpoint independently re-checks the same thing before minting
 // anything. Neither one trusts the other.
-export async function ClassMeetingPage({ classId }: { classId: string }) {
+export async function ClassMeetingPage({ classId, standalone = false }: { classId: string; standalone?: boolean }) {
   const supabase = createClient()
 
   const { data: cls } = await supabase
@@ -17,6 +17,10 @@ export async function ClassMeetingPage({ classId }: { classId: string }) {
     .maybeSingle()
 
   if (!cls) notFound()
+
+  if (standalone) {
+    return <MeetingRoom classId={cls.id} className={cls.name} standalone />
+  }
 
   return (
     <div className="max-w-6xl mx-auto">

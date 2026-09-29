@@ -11,7 +11,7 @@ export default function ParentMeetingsPage() {
           Join the live meeting room for any of your classes. Rooms stay open with no end time.
         </p>
       </div>
-      <MeetingsList rolePrefix="/parent" />
+      <MeetingsList />
     </div>
   )
 }
