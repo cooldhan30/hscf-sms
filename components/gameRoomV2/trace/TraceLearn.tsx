@@ -185,29 +185,83 @@ function TracePad({
     const c = guideRef.current
     if (!c) return
     const family = getComputedStyle(boxRef.current ?? document.body).fontFamily || 'sans-serif'
+    // Browsers disagree on Tamil text metrics on a canvas (Safari's
+    // baseline/width for these fonts, a fallback font before the web font
+    // loads...), which pushed the letter off to one side on some phones.
+    // So the letter is drawn on a large scratch canvas first, its REAL ink
+    // is found by scanning the pixels, and exactly that is scaled to fill
+    // ~78% of the board and centred -- whatever the font's metrics say.
     const paint = () => {
       const dpr = window.devicePixelRatio || 1
-      c.width = size * dpr
-      c.height = size * dpr
+      const W = Math.round(size * dpr)
+      c.width = W
+      c.height = W
       const ctx = c.getContext('2d')
       if (!ctx) return
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      ctx.clearRect(0, 0, size, size)
-      let px = size * 0.62
-      ctx.font = `800 ${px}px ${family}`
-      const w = ctx.measureText(letter).width
-      if (w > size * 0.84) {
-        px *= (size * 0.84) / w
-        ctx.font = `800 ${px}px ${family}`
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.clearRect(0, 0, W, W)
+
+      const px = Math.max(120, Math.round(W * 0.6))
+      // Scratch canvas sized from the letter's measured width with wide
+      // margins; if the ink still reaches an edge (a font measuring short),
+      // try again bigger, so no letter (ஔ is very wide) is ever cut off.
+      let margin = 1
+      let scratch: HTMLCanvasElement | null = null
+      let box: { minX: number; minY: number; maxX: number; maxY: number } | null = null
+      for (let attempt = 0; attempt < 3 && !box; attempt++, margin *= 2) {
+        const probe = document.createElement('canvas').getContext('2d')
+        if (!probe) return
+        probe.font = `800 ${px}px ${family}`
+        const textW = probe.measureText(letter).width
+        const SW = Math.round(textW * (1 + margin) + px * margin)
+        const SH = Math.round(px * (1.6 + margin))
+        const cvs = document.createElement('canvas')
+        cvs.width = SW
+        cvs.height = SH
+        const sctx = cvs.getContext('2d', { willReadFrequently: true })
+        if (!sctx) return
+        sctx.font = `800 ${px}px ${family}`
+        sctx.textAlign = 'center'
+        sctx.textBaseline = 'middle'
+        sctx.fillStyle = '#cbd5e1'
+        sctx.fillText(letter, SW / 2, SH / 2)
+        sctx.setLineDash([px * 0.02, px * 0.02])
+        sctx.lineWidth = Math.max(2, px * 0.007)
+        sctx.strokeStyle = '#94a3b8'
+        sctx.strokeText(letter, SW / 2, SH / 2)
+
+        // Where the ink actually is
+        const data = sctx.getImageData(0, 0, SW, SH).data
+        let minX = SW
+        let minY = SH
+        let maxX = -1
+        let maxY = -1
+        for (let y = 0; y < SH; y++) {
+          for (let x = 0; x < SW; x++) {
+            if (data[(y * SW + x) * 4 + 3] > 10) {
+              if (x < minX) minX = x
+              if (x > maxX) maxX = x
+              if (y < minY) minY = y
+              if (y > maxY) maxY = y
+            }
+          }
+        }
+        if (maxX < 0) return // nothing drawn (font not usable yet) -- fonts.ready repaints
+        const touchesEdge = minX === 0 || minY === 0 || maxX === SW - 1 || maxY === SH - 1
+        if (!touchesEdge || attempt === 2) {
+          scratch = cvs
+          box = { minX, minY, maxX, maxY }
+        }
       }
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillStyle = '#cbd5e1'
-      ctx.fillText(letter, size / 2, size * 0.54)
-      ctx.setLineDash([6, 6])
-      ctx.lineWidth = 2
-      ctx.strokeStyle = '#94a3b8'
-      ctx.strokeText(letter, size / 2, size * 0.54)
+      if (!scratch || !box) return
+      const { minX, minY, maxX, maxY } = box
+      const bw = maxX - minX + 1
+      const bh = maxY - minY + 1
+      const target = W * 0.78
+      const scale = Math.min(target / bw, target / bh)
+      const w = bw * scale
+      const h = bh * scale
+      ctx.drawImage(scratch, minX, minY, bw, bh, (W - w) / 2, (W - h) / 2, w, h)
     }
     paint()
     document.fonts?.ready.then(paint).catch(() => undefined)
