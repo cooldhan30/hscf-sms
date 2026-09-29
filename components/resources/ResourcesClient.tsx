@@ -203,6 +203,7 @@ export function ResourcesClient({
   const [worksheetGeneratorOpen, setWorksheetGeneratorOpen] = useState(false)
   const [preview, setPreview] = useState<ResourceRow | null>(null)
   const [pendingFiles, setPendingFiles] = useState<PendingUpload[]>([])
+  const [dragActive, setDragActive] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -786,7 +787,14 @@ export function ResourcesClient({
       )}
 
       <Modal open={uploadOpen} title="Add Resource" onClose={() => setUploadOpen(false)}>
-        <form onSubmit={handleUpload} className="space-y-4">
+        <form
+          onSubmit={handleUpload}
+          // A file dropped anywhere else in the form would make the browser
+          // open it and leave the page
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => e.preventDefault()}
+          className="space-y-4"
+        >
           {error && (
             <p className="text-sm text-terracotta-700 dark:text-terracotta-300 bg-terracotta-50 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-900 rounded-lg px-3 py-2">
               {error}
@@ -820,20 +828,52 @@ export function ResourcesClient({
 
           {uploadMode === 'file' ? (
             <div>
-              <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Files</label>
-              <input
-                type="file"
-                multiple
-                onChange={(e) => {
-                  addFiles(e.target.files)
-                  e.target.value = ''
+              <p className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Files</p>
+              {/* Drop zone: the whole box is the (visually hidden) file input's
+                  label, so clicking opens the picker and files can also be dropped */}
+              <label
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  if (!saving) setDragActive(true)
                 }}
-                disabled={saving}
-                className="block w-full text-sm text-stone-600 dark:text-stone-300"
-              />
-              <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
-                Pick one or several -- each file becomes its own resource. Names come from the heading inside a PDF or text file,
-                otherwise from the file name. Check them before uploading.
+                onDragLeave={(e) => {
+                  // Moving over the text inside the box fires dragleave too
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragActive(false)
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setDragActive(false)
+                  if (!saving) addFiles(e.dataTransfer.files)
+                }}
+                className={`flex flex-col items-center justify-center gap-1.5 px-4 py-6 rounded-xl border-2 border-dashed text-center transition-colors ${
+                  saving ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                } ${
+                  dragActive
+                    ? 'border-primary-600 bg-primary-50 dark:border-primary-400 dark:bg-primary-950/40'
+                    : 'border-stone-300 dark:border-stone-700 hover:border-primary-400 hover:bg-stone-50 dark:hover:bg-stone-800/50'
+                }`}
+              >
+                <FiUpload className="w-6 h-6 text-primary-700 dark:text-primary-400" />
+                <span className="text-sm font-semibold text-stone-700 dark:text-stone-200">
+                  {dragActive ? 'Drop the files here' : 'Drag and drop files here, or click to choose'}
+                </span>
+                <span className="text-xs text-stone-500 dark:text-stone-400">
+                  You can pick several at once (Ctrl-click or Shift-click; ⌘-click on a Mac)
+                </span>
+                <input
+                  type="file"
+                  multiple
+                  onChange={(e) => {
+                    addFiles(e.target.files)
+                    e.target.value = ''
+                  }}
+                  disabled={saving}
+                  className="sr-only"
+                />
+              </label>
+              <p className="text-xs text-stone-400 dark:text-stone-500 mt-1.5">
+                Each file becomes its own resource. Names come from the heading inside a PDF or text file, otherwise from the
+                file name. Check them before uploading.
               </p>
 
               {pendingFiles.length > 0 && (
