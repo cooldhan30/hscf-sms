@@ -38,6 +38,19 @@ import { WorksheetGeneratorPanel } from '@/components/resources/WorksheetGenerat
 import { categoryLabel, subcategoryLabel, RESOURCE_DIFFICULTIES, RESOURCE_FORMATS, RESOURCE_SKILLS } from '@/lib/resourceTaxonomy'
 import { GRADE_LEVEL_OPTIONS } from '@/lib/constants'
 import { extractYouTubeId, youTubeThumbnailUrl, youTubeEmbedUrl } from '@/lib/youtube'
+import { suggestTitleFromFile } from '@/lib/resourceTitle'
+
+// One row of a (multi-)file upload: each file becomes its own resource.
+// The name is pre-filled from the file (heading inside a PDF/.txt, else the
+// file name) until the teacher edits it.
+interface PendingUpload {
+  key: string
+  file: File
+  title: string
+  edited: boolean
+  status: 'pending' | 'uploading' | 'done' | 'error'
+  error?: string
+}
 
 export interface ResourceRow {
   id: string
@@ -189,7 +202,7 @@ export function ResourcesClient({
   const [uploadMode, setUploadMode] = useState<'file' | 'link'>('file')
   const [worksheetGeneratorOpen, setWorksheetGeneratorOpen] = useState(false)
   const [preview, setPreview] = useState<ResourceRow | null>(null)
-  const [file, setFile] = useState<File | null>(null)
+  const [pendingFiles, setPendingFiles] = useState<PendingUpload[]>([])
   const [linkUrl, setLinkUrl] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -257,7 +270,7 @@ export function ResourcesClient({
   }, [initialResources, classFilter, typeFilter, teacherClassIds, debouncedSearch, filters])
 
   function openUpload() {
-    setFile(null)
+    setPendingFiles([])
     setLinkUrl('')
     setUploadMode('file')
     setTitle('')
@@ -314,48 +327,83 @@ export function ResourcesClient({
       return
     }
 
-    if (!file) {
-      setError('Choose a file to upload')
+    const toUpload = pendingFiles.filter((p) => p.status !== 'done')
+    if (toUpload.length === 0) {
+      setError('Choose at least one file to upload')
+      return
+    }
+    if (toUpload.some((p) => !p.title.trim())) {
+      setError('Give every file a name')
       return
     }
     setSaving(true)
     setError(null)
 
-    try {
-      const { publicUrl } = await uploadFile({ supabase, bucket: 'resources', file })
-      if (!publicUrl) throw new Error('Upload succeeded but no URL was returned')
+    // One at a time, each its own resource; class, description and tags
+    // apply to all. A failure doesn't stop the rest -- it stays in the
+    // list with its error so the teacher can retry just that one.
+    let uploaded = 0
+    for (const item of toUpload) {
+      setPendingFiles((prev) => prev.map((p) => (p.key === item.key ? { ...p, status: 'uploading', error: undefined } : p)))
+      try {
+        const { publicUrl } = await uploadFile({ supabase, bucket: 'resources', file: item.file })
+        if (!publicUrl) throw new Error('Upload succeeded but no URL was returned')
 
-      const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : null
+        const ext = item.file.name.includes('.') ? item.file.name.split('.').pop()!.toLowerCase() : null
 
-      const res = await fetch('/api/resources', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          description: description || null,
-          fileUrl: publicUrl,
-          fileType: ext,
-          fileSize: file.size,
-          classId: uploadClassId || null,
-          category: uploadTaxonomy.category || null,
-          subcategory: uploadTaxonomy.subcategory || null,
-          difficulty: uploadTaxonomy.difficulty || null,
-          format: uploadTaxonomy.format || null,
-          levels: uploadTaxonomy.levels,
-          skills: uploadTaxonomy.skills,
-          tags: uploadTaxonomy.tags,
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || 'Failed to save resource')
+        const res = await fetch('/api/resources', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: item.title.trim(),
+            description: description || null,
+            fileUrl: publicUrl,
+            fileType: ext,
+            fileSize: item.file.size,
+            classId: uploadClassId || null,
+            category: uploadTaxonomy.category || null,
+            subcategory: uploadTaxonomy.subcategory || null,
+            difficulty: uploadTaxonomy.difficulty || null,
+            format: uploadTaxonomy.format || null,
+            levels: uploadTaxonomy.levels,
+            skills: uploadTaxonomy.skills,
+            tags: uploadTaxonomy.tags,
+          }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'Failed to save resource')
 
+        uploaded++
+        setPendingFiles((prev) => prev.map((p) => (p.key === item.key ? { ...p, status: 'done' } : p)))
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Upload failed'
+        setPendingFiles((prev) => prev.map((p) => (p.key === item.key ? { ...p, status: 'error', error: message } : p)))
+      }
+    }
+
+    setSaving(false)
+    if (uploaded > 0) router.refresh()
+    if (uploaded === toUpload.length) {
       setUploadOpen(false)
-      toast.success('Resource uploaded')
-      router.refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed')
-    } finally {
-      setSaving(false)
+      toast.success(uploaded === 1 ? 'Resource uploaded' : `${uploaded} resources uploaded`)
+    } else {
+      setError(`${uploaded} of ${toUpload.length} uploaded. Fix or remove the ones marked below and click Upload again.`)
+    }
+  }
+
+  function addFiles(list: FileList | null) {
+    const added: PendingUpload[] = Array.from(list ?? []).map((file) => ({
+      key: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+      file,
+      title: '',
+      edited: false,
+      status: 'pending',
+    }))
+    setPendingFiles((prev) => [...prev, ...added])
+    for (const item of added) {
+      suggestTitleFromFile(item.file).then((suggested) =>
+        setPendingFiles((prev) => prev.map((p) => (p.key === item.key && !p.edited ? { ...p, title: suggested } : p)))
+      )
     }
   }
 
@@ -772,13 +820,74 @@ export function ResourcesClient({
 
           {uploadMode === 'file' ? (
             <div>
-              <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">File</label>
+              <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Files</label>
               <input
                 type="file"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                multiple
+                onChange={(e) => {
+                  addFiles(e.target.files)
+                  e.target.value = ''
+                }}
+                disabled={saving}
                 className="block w-full text-sm text-stone-600 dark:text-stone-300"
-                required
               />
+              <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+                Pick one or several -- each file becomes its own resource. Names come from the heading inside a PDF or text file,
+                otherwise from the file name. Check them before uploading.
+              </p>
+
+              {pendingFiles.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {pendingFiles.map((p) => (
+                    <li
+                      key={p.key}
+                      className={`rounded-lg border p-2.5 ${
+                        p.status === 'error'
+                          ? 'border-terracotta-300 dark:border-terracotta-800'
+                          : p.status === 'done'
+                            ? 'border-primary-300 dark:border-primary-800 opacity-70'
+                            : 'border-stone-200 dark:border-stone-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <span className="text-xs text-stone-500 dark:text-stone-400 truncate" title={p.file.name}>
+                          {p.file.name}
+                        </span>
+                        <span className="flex items-center gap-2 flex-shrink-0 text-xs font-semibold">
+                          {p.status === 'uploading' && <span className="text-stone-500">Uploading...</span>}
+                          {p.status === 'done' && (
+                            <span className="inline-flex items-center gap-1 text-primary-700 dark:text-primary-400">
+                              <FiCheckCircle className="w-3.5 h-3.5" /> Uploaded
+                            </span>
+                          )}
+                          {(p.status === 'pending' || p.status === 'error') && !saving && (
+                            <button
+                              type="button"
+                              onClick={() => setPendingFiles((prev) => prev.filter((x) => x.key !== p.key))}
+                              className="p-1 rounded text-stone-400 hover:text-terracotta-600"
+                              aria-label={`Remove ${p.file.name}`}
+                            >
+                              <FiX className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </span>
+                      </div>
+                      <input
+                        type="text"
+                        value={p.title}
+                        placeholder="Reading name from file..."
+                        onChange={(e) =>
+                          setPendingFiles((prev) => prev.map((x) => (x.key === p.key ? { ...x, title: e.target.value, edited: true } : x)))
+                        }
+                        disabled={saving || p.status === 'done'}
+                        aria-label={`Name for ${p.file.name}`}
+                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-sm text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                      />
+                      {p.error && <p className="text-xs text-terracotta-700 dark:text-terracotta-300 mt-1">{p.error}</p>}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ) : (
             <div>
@@ -799,16 +908,18 @@ export function ResourcesClient({
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Name</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
-            />
-          </div>
+          {uploadMode === 'link' && (
+            <div>
+              <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Name</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
@@ -841,7 +952,11 @@ export function ResourcesClient({
           <ResourceTaxonomyFields value={uploadTaxonomy} onChange={setUploadTaxonomy} />
 
           <Button type="submit" variant="primary" fullWidth disabled={saving}>
-            {saving ? 'Uploading...' : 'Upload'}
+            {saving
+              ? `Uploading ${Math.min(pendingFiles.filter((p) => p.status === 'done').length + 1, pendingFiles.length)} of ${pendingFiles.length}...`
+              : uploadMode === 'file' && pendingFiles.filter((p) => p.status !== 'done').length > 1
+                ? `Upload ${pendingFiles.filter((p) => p.status !== 'done').length} files`
+                : 'Upload'}
           </Button>
         </form>
       </Modal>
