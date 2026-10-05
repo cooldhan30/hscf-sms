@@ -56,7 +56,7 @@ export function PopRound({
 }) {
   const items = useMemo(() => ((question.payload.items as string[]) ?? []).filter((x) => typeof x === 'string'), [question])
   const categories = useMemo(() => ((question.payload.categories as string[]) ?? []).filter((x) => typeof x === 'string'), [question])
-  const target = popTarget(categories, index) ?? ''
+  const target = popTarget(categories) ?? ''
   const stream = useMemo(() => popStream(items), [items])
   const narrow = useNarrow()
   // Stable per screen size: the scene clock restarts when its inputs change

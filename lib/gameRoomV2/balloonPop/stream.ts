@@ -14,13 +14,14 @@ export const POP_REPEAT = 2
 export const POINTS_PER_POP = 10
 export const XP_PER_POP = 2
 
-// The category a round asks for. Rotates through the categories by
-// question index (round 1: the first category, round 2: the second...),
-// so a set of உயிர்/மெய் questions practises both. Known to the client
-// from /state (categories are not secret); only which ITEM belongs to it is.
-export function popTarget(categories: readonly string[], questionIndex: number): string | null {
-  if (!categories.length) return null
-  return categories[((questionIndex % categories.length) + categories.length) % categories.length]
+// The category every round asks for: the question's FIRST category, which
+// is the one its topic is about (உயிரெழுத்துகள் lists உயிரெழுத்து first,
+// மெய்யெழுத்துகள் lists மெய்யெழுத்து first). The same in every round, so
+// choosing உயிரெழுத்துகள் means popping உயிரெழுத்து all game. Known to the
+// client from /state (categories are not secret); only which ITEM belongs
+// to it is.
+export function popTarget(categories: readonly string[]): string | null {
+  return categories[0] ?? null
 }
 
 export interface Pop {
@@ -58,7 +59,7 @@ export function gradePops(payload: CategorizeLike, questionIndex: number, submit
   const items = Array.isArray(payload.items) ? payload.items.filter((x): x is string => typeof x === 'string') : []
   const categories = Array.isArray(payload.categories) ? payload.categories.filter((x): x is string => typeof x === 'string') : []
   const answerKey = (payload.answerKey && typeof payload.answerKey === 'object' ? payload.answerKey : {}) as Record<string, string>
-  const target = popTarget(categories, questionIndex)
+  const target = popTarget(categories)
   const itemSet = new Set(items)
   const targets = items.filter((i) => answerKey[i] === target).length * POP_REPEAT
 
@@ -89,7 +90,7 @@ export function checkPop(payload: CategorizeLike, questionIndex: number, item: s
   const categories = Array.isArray(payload.categories) ? payload.categories.filter((x): x is string => typeof x === 'string') : []
   const answerKey = (payload.answerKey && typeof payload.answerKey === 'object' ? payload.answerKey : {}) as Record<string, string>
   const category = typeof answerKey[item] === 'string' ? answerKey[item] : null
-  return { isTarget: category !== null && category === popTarget(categories, questionIndex), category }
+  return { isTarget: category !== null && category === popTarget(categories), category }
 }
 
 // The order balloons float up in a round: every item POP_REPEAT times,

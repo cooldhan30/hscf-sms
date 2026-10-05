@@ -28,10 +28,15 @@ const payload = {
 }
 
 console.log('\n== The asked-for type ==')
-assert(popTarget(payload.categories, 0) === 'உயிரெழுத்து', 'round 1 asks for the first type')
-assert(popTarget(payload.categories, 1) === 'மெய்யெழுத்து', 'round 2 asks for the second type')
-assert(popTarget(payload.categories, 2) === 'உயிரெழுத்து', 'round 3 comes back to the first')
-assert(popTarget([], 0) === null, 'no categories, no target')
+assert(popTarget(payload.categories) === 'உயிரெழுத்து', 'every round asks for the first type')
+assert(checkPop(payload, 1, 'அ')?.isTarget === true && checkPop(payload, 2, 'அ')?.isTarget === true, 'later rounds still ask for it (no switching to the other type)')
+assert(popTarget([]) === null, 'no categories, no target')
+for (const key of ['uyir-ezhuthukkal', 'mei-ezhuthukkal']) {
+  const topic = getBuiltinTopic(key)!
+  const set = setForEngine(topic, BALLOON_POP_ENGINE_ID)!
+  const want = key === 'uyir-ezhuthukkal' ? 'உயிரெழுத்து' : 'மெய்யெழுத்து'
+  assert(set.questions.every((q) => popTarget((q.payload as { categories: string[] }).categories) === want), `${topic.tamilTitle}: every round asks for ${want}`)
+}
 
 console.log('\n== The balloon stream ==')
 let seed = 7
@@ -44,7 +49,6 @@ assert(stream.every((p, i) => i === 0 || p.item !== stream[i - 1].item), 'never 
 console.log('\n== One pop ==')
 assert(checkPop(payload, 0, 'அ')?.isTarget === true, 'அ is a உயிரெழுத்து in a உயிர் round')
 assert(checkPop(payload, 0, 'க்')?.isTarget === false && checkPop(payload, 0, 'க்')?.category === 'மெய்யெழுத்து', 'க் is not, and the check says what it is')
-assert(checkPop(payload, 1, 'க்')?.isTarget === true, 'க் IS the target in a மெய் round')
 assert(checkPop(payload, 0, 'ஃ') === null, 'an item that is not in the round is refused')
 
 console.log('\n== Scoring a round ==')
@@ -53,7 +57,7 @@ const perfect = gradePops(payload, 0, pops(['அ', 0], ['அ', 1], ['இ', 0], [
 assert(perfect.targets === 2 * POP_REPEAT, 'targets = target items x repeats')
 assert(perfect.correct === 4 && perfect.wrong === 0 && perfect.missed === 0 && perfect.perfect, 'all targets, nothing else: a perfect round')
 assert(perfect.points === 4 * POINTS_PER_POP && perfect.xp === 4 * XP_PER_POP && perfect.coins > 0, 'points and XP per right pop, coins for perfect')
-const mixed = gradePops(payload, 0, pops(['அ', 0], ['க்', 0], ['ம்', 1]))
+const mixed = gradePops(payload, 1, pops(['அ', 0], ['க்', 0], ['ம்', 1]))
 assert(mixed.correct === 1 && mixed.wrong === 2 && mixed.missed === 3 && !mixed.perfect, 'right, wrong and missed are all counted')
 assert(mixed.points === POINTS_PER_POP && mixed.xp === XP_PER_POP, 'wrong pops cost nothing, they just score nothing')
 const none = gradePops(payload, 0, { popped: [] })
