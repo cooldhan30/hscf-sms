@@ -29,8 +29,8 @@ export default async function ImportQuestionSetPage() {
           title="Import Question Set"
           tamilTitle="வினாத் தொகுப்பைப் பதிவேற்று"
           description="Upload a .txt or .csv file, check the preview, then create the set."
-          backHref="/gameroom-v2/library"
-          backLabel="Question Set Library"
+          backHref="/gameroom-v2"
+          backLabel="Game Room"
         />
         <ImportWizard />
       </div>

@@ -330,8 +330,8 @@ Answer: சென்னை`}</pre>
           </p>
         </div>
         <div className="flex flex-wrap justify-center gap-2">
-          <Link href={`/gameroom-v2/live/host?set=${created.id}`} className={primaryLinkButton}>
-            <FiPlayCircle className="w-4 h-4" aria-hidden /> Host Live with this set
+          <Link href={`/gameroom-v2?topic=set:${created.id}`} className={primaryLinkButton}>
+            <FiPlayCircle className="w-4 h-4" aria-hidden /> Play it in the Game Room
           </Link>
           <Link href={`/gameroom-v2/builder/${created.id}`} className={secondaryLinkButton}>
             <FiEdit2 className="w-4 h-4" aria-hidden /> Open in Builder

@@ -1,18 +1,19 @@
 import { GameRoomShell, GameRoomUnavailable } from '@/components/gameRoomV2/shell/GameRoomShell'
 import { loadGameRoomPage } from '@/lib/gameRoomV2/builtin/pageContext'
-import { isBuiltinSetId } from '@/lib/gameRoomV2/builtin/catalog'
 import { HomeScreenClient } from './home/HomeScreenClient'
-import { buildStudentHomeProps } from './home/studentHomeData'
+import { buildStudentLauncher, buildTeacherLauncher } from './home/launcherData'
 import { TeacherHome } from './TeacherHome'
 
 export const dynamic = 'force-dynamic'
 
 // GameRoom home. /gameroom (the sidebar entry) lands here directly while
-// V2 is released. Students get the Tamil learning dashboard; teachers and
-// admins get the teacher home. Rendered inside the app's normal
-// DashboardLayout (GameRoomShell).
-export default async function GameRoomV2Page() {
-  const ctx = await loadGameRoomPage('/gameroom-v2')
+// V2 is released. Everyone gets the same four-choice launcher (topic,
+// game, questions, time); students then Play, teachers and admins start a
+// live game for their class and manage their own questions at the top.
+// ?topic=<key> preselects a topic (e.g. from a topic page). Rendered
+// inside the app's normal DashboardLayout (GameRoomShell).
+export default async function GameRoomV2Page({ searchParams }: { searchParams: { topic?: string } }) {
+  const ctx = await loadGameRoomPage('/gameroom-v2', { withLearning: false })
   if (!ctx.ok) {
     return (
       <GameRoomShell>
@@ -21,23 +22,21 @@ export default async function GameRoomV2Page() {
     )
   }
 
+  const initialTopicKey = typeof searchParams.topic === 'string' ? searchParams.topic : null
+
   if (ctx.role === 'student') {
-    const props = await buildStudentHomeProps(ctx.supabase, ctx.studentId, ctx.firstName, ctx.learning!)
+    const props = await buildStudentLauncher(ctx.supabase, ctx.studentId, ctx.firstName)
     return (
       <GameRoomShell>
-        <HomeScreenClient {...props} />
+        <HomeScreenClient {...props} initialTopicKey={initialTopicKey} />
       </GameRoomShell>
     )
   }
 
-  // RLS scopes this to own sets + SCHOOL/PUBLIC shared sets.
-  const { data: sets } = await ctx.supabase.from('sms_gamev2_question_sets').select('id, created_by')
-  const rows = (sets ?? []).filter((s) => !isBuiltinSetId(s.id))
-  const mySetCount = rows.filter((s) => s.created_by === ctx.userId).length
-
+  const props = await buildTeacherLauncher(ctx.supabase, ctx.userId, ctx.role === 'admin', ctx.firstName)
   return (
     <GameRoomShell>
-      <TeacherHome mySetCount={mySetCount} sharedSetCount={rows.length - mySetCount} />
+      <TeacherHome {...props} initialTopicKey={initialTopicKey} />
     </GameRoomShell>
   )
 }

@@ -215,8 +215,8 @@ export function BuilderWizard({ initial }: { initial?: BuilderInitialData }) {
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <GameV2Button variant="ghost" onClick={() => router.push('/gameroom-v2/builder')}>
-              Back to My Sets
+            <GameV2Button variant="ghost" onClick={() => router.push(`/gameroom-v2?topic=set:${savedId}`)}>
+              Back to Game Room
             </GameV2Button>
             <GameV2Button
               variant="ghost"

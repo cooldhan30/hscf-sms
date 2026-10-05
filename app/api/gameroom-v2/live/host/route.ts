@@ -3,11 +3,12 @@ import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
 import { requireString } from '@/lib/validation'
 import { getGameEngineV2 } from '@/lib/gameRoomV2/registry'
 import { checkGameLaunch, isEngineLaunchable } from '@/lib/gameRoomV2/gameAvailability'
+import { parseQuestionCount, parseTimeLimit } from '@/lib/gameRoomV2/gameOptions'
 
 // POST /api/gameroom-v2/live/host -- the teacher flow's final step:
 // "Select Question Set -> Select compatible Game -> Host Live -> Receive
-// join code". Body: { questionSetId, engineId, classId, questionCount?
-// }. Validates the same engine/question-set compatibility
+// join code". Body: { questionSetId, engineId, classId, questionCount?,
+// timeLimitSeconds? }. Validates the same engine/question-set compatibility
 // sessions/start/route.ts already enforces for solo play, PLUS that the
 // caller actually teaches classId (a teacher can't host a live session
 // "for" a class they don't own -- the concrete mechanism behind
@@ -88,17 +89,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'This question set has no questions' }, { status: 409 })
   }
 
-  let questionCount: number | null = null
-  if (body.questionCount !== undefined && body.questionCount !== null) {
-    const parsed = Number(body.questionCount)
-    if (!Number.isInteger(parsed) || parsed <= 0) {
-      return NextResponse.json({ error: 'Question count must be a positive whole number' }, { status: 400 })
-    }
-    if (parsed > questions.length) {
-      return NextResponse.json({ error: `This question set only has ${questions.length} question${questions.length === 1 ? '' : 's'}` }, { status: 400 })
-    }
-    questionCount = parsed
-  }
+  const count = parseQuestionCount(body.questionCount, questions.length)
+  if (!count.ok) return NextResponse.json({ error: count.error }, { status: 400 })
+  const questionCount = count.value
+
+  // Time per question (lib/gameRoomV2/gameOptions.ts). Stored on the live
+  // session; migration 093 copies it onto every student's own session.
+  const timeLimit = parseTimeLimit(body.timeLimitSeconds)
+  if (!timeLimit.ok) return NextResponse.json({ error: timeLimit.error }, { status: 400 })
 
   // Racing needs one shared difficulty for every racer (see migration
   // 081) -- meaningless for every other engine, so only validated/
@@ -150,6 +148,7 @@ export async function POST(request: Request) {
         question_set_id: questionSetId,
         engine_id: engineId,
         question_count: questionCount,
+        question_time_limit_seconds: timeLimit.value,
         race_difficulty: raceDifficulty,
         boss_id: bossId,
         boss_difficulty: bossDifficulty,

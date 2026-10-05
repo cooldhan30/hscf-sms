@@ -6,9 +6,10 @@ import { getGameEngineV2 } from '@/lib/gameRoomV2/registry'
 import { checkGameLaunch, isEngineLaunchable } from '@/lib/gameRoomV2/gameAvailability'
 import { shuffle } from '@/lib/gameRoomV2/shuffle'
 import { SESSION_START_LIMIT, exceedsSessionStartLimit } from '@/lib/gameRoomV2/security/limits'
+import { parseQuestionCount, parseTimeLimit } from '@/lib/gameRoomV2/gameOptions'
 
 // POST /api/gameroom-v2/sessions/start -- CREATED status. Body:
-// { questionSetId, engineId }. Validates:
+// { questionSetId, engineId, questionCount?, timeLimitSeconds? }. Validates:
 //   1. The engine is a real, registered engine (getGameEngineV2).
 //   2. The engine is actually compatible with the set's question types
 //      (checkEngineCompatibility) -- a student can never start a
@@ -93,7 +94,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'This question set has no questions' }, { status: 409 })
   }
 
-  const questionOrder = shuffle(questions.map((q) => q.id))
+  // The home screen's "Questions" and "Time per question" choices
+  // (lib/gameRoomV2/gameOptions.ts). The count is applied after the
+  // shuffle so a short game is still a random sample of the set.
+  const count = parseQuestionCount(body.questionCount, questions.length)
+  if (!count.ok) return NextResponse.json({ error: count.error }, { status: 400 })
+  const timeLimit = parseTimeLimit(body.timeLimitSeconds)
+  if (!timeLimit.ok) return NextResponse.json({ error: timeLimit.error }, { status: 400 })
+
+  const shuffled = shuffle(questions.map((q) => q.id))
+  const questionOrder = count.value ? shuffled.slice(0, count.value) : shuffled
 
   // Created READY, not ACTIVE -- the question order/timer setup below
   // is already done, but the session only becomes ACTIVE (and its timer
@@ -112,6 +122,7 @@ export async function POST(request: Request) {
         status: 'READY',
         question_order: questionOrder,
         current_index: 0,
+        question_time_limit_seconds: timeLimit.value,
       },
     ])
     .select()

@@ -126,7 +126,7 @@ const SURFACES: Record<string, string> = {
   'Question Set Library card': 'app/gameroom-v2/library/LibrarySetCard.tsx',
   'Builder list (My Question Sets)': 'app/gameroom-v2/builder/BuilderListClient.tsx',
   'Import wizard': 'components/gameRoomV2/builder/ImportWizard.tsx',
-  'Student GameRoom home': 'app/gameroom-v2/home/studentHomeData.ts',
+  'GameRoom home launcher': 'app/gameroom-v2/home/launcherData.ts',
   'Learning Boards / topics / Quick Play (built-in catalog)': 'lib/gameRoomV2/builtin/catalog.ts',
   'Topics page game filter': 'app/gameroom-v2/topics/page.tsx',
   'Host Live options': 'app/api/gameroom-v2/live/host-options/route.ts',

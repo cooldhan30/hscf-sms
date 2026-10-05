@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireGameV2Teacher } from '@/lib/gameRoomV2/requireTeacherAccess'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { hostableClasses } from '@/lib/gameRoomV2/liveClassroom/hostableClasses'
 import { launchableEngines, gameAvailability } from '@/lib/gameRoomV2/gameAvailability'
 import { isBuiltinSetId } from '@/lib/gameRoomV2/builtin/catalog'
 
@@ -23,22 +23,7 @@ export async function GET() {
     .order('updated_at', { ascending: false })
     .limit(500)
 
-  let classes: { id: string; name: string; grade_level: string | null }[] = []
-  if (isAdmin) {
-    const { data } = await supabase.from('sms_classes').select('id, name, grade_level').order('name')
-    classes = data ?? []
-  } else if (teacher) {
-    const admin = createAdminClient()
-    const [{ data: primary }, { data: assigned }] = await Promise.all([
-      admin.from('sms_classes').select('id').eq('teacher_id', teacher.id),
-      admin.from('sms_class_teachers').select('class_id').eq('teacher_id', teacher.id),
-    ])
-    const ids = Array.from(new Set([...(primary ?? []).map((c) => c.id as string), ...(assigned ?? []).map((c) => c.class_id as string)]))
-    if (ids.length) {
-      const { data } = await admin.from('sms_classes').select('id, name, grade_level').in('id', ids).order('name')
-      classes = data ?? []
-    }
-  }
+  const classes = await hostableClasses(teacher?.id ?? null, isAdmin)
 
   const games = launchableEngines('live')
 

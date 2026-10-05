@@ -28,8 +28,8 @@ export default async function NewQuestionSetPage() {
         <PageHeader
           title="Create Question Set"
           description="Create content once, then play it through any compatible game later."
-          backHref="/gameroom-v2/builder"
-          backLabel="Question Set Builder"
+          backHref="/gameroom-v2"
+          backLabel="Game Room"
         />
       </div>
       <BuilderWizard />

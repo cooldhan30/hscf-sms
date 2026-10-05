@@ -93,7 +93,7 @@ export default async function EditQuestionSetPage({ params }: { params: { id: st
   return (
     <GameRoomShell>
       <div className="max-w-4xl mx-auto mb-6">
-        <PageHeader title={`Edit "${questionSet.title}"`} backHref="/gameroom-v2/builder" backLabel="Question Set Builder" />
+        <PageHeader title={`Edit "${questionSet.title}"`} backHref="/gameroom-v2" backLabel="Game Room" />
       </div>
       <BuilderWizard initial={initial} />
     </GameRoomShell>

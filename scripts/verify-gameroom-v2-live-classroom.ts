@@ -117,7 +117,9 @@ assert(/bossId = 'suran'/.test(hostRoute), 'Boss Battle no longer needs a boss p
 const classesRoute = readFileSync('app/api/gameroom-v2/live/classes/route.ts', 'utf8')
 const optionsRoute = readFileSync('app/api/gameroom-v2/live/host-options/route.ts', 'utf8')
 for (const [name, src] of [['classes', classesRoute], ['host-options', optionsRoute]] as const) {
-  assert(/sms_class_teachers/.test(src), `${name}: co-teachers see the classes the server lets them host (same source as sms_teacher_owns_class)`)
+  // host-options (and the GameRoom home) share lib/gameRoomV2/liveClassroom/hostableClasses.ts
+  const classSource = /hostableClasses\(/.test(src) ? readFileSync('lib/gameRoomV2/liveClassroom/hostableClasses.ts', 'utf8') : src
+  assert(/sms_class_teachers/.test(classSource), `${name}: co-teachers see the classes the server lets them host (same source as sms_teacher_owns_class)`)
   assert(/requireGameV2Teacher\(\)/.test(src), `${name}: teacher-only`)
 }
 const selects = (src: string) => Array.from(src.matchAll(/\.select\('([^']*)'/g)).map((m) => m[1]).join(' ')
@@ -130,6 +132,8 @@ const joinRoute = readFileSync('app/api/gameroom-v2/live/join/route.ts', 'utf8')
 assert(/sms_gamev2_resolve_live_session_by_join_code/.test(joinRoute) && /is_enrolled/.test(joinRoute), 'joining still resolves the code server-side with the enrollment check')
 assert(normalizeJoinCode(' ab7k-9pqr ') === 'AB7K9PQR' && normalizeJoinCode('ab7k 9pqr') === 'AB7K9PQR', 'join codes ignore case, spaces and dashes')
 const home = readFileSync('app/gameroom-v2/home/HomeScreenClient.tsx', 'utf8')
+const launcherData = readFileSync('app/gameroom-v2/home/launcherData.ts', 'utf8')
+assert(/hostableClasses\(/.test(launcherData), 'the GameRoom home offers the same hostable classes as host-options')
 assert(home.indexOf('<JoinLiveBox') > -1 && home.indexOf('<JoinLiveBox') < home.indexOf('<PageHeader'), 'the join box is the first thing on the student GameRoom home')
 
 console.log('\n== Lifecycle state machine: join-code validity ==')
