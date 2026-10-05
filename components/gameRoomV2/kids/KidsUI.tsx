@@ -320,6 +320,9 @@ export function KidsGameStates({
   onPlayAgain,
   onExit,
   onHome,
+  gameStats,
+  details,
+  hideLearningStats,
 }: {
   error: string | null
   hasSession: boolean
@@ -334,6 +337,10 @@ export function KidsGameStates({
   onPlayAgain?: () => void
   onExit: () => void
   onHome?: () => void
+  // Replace the default Stars / Questions tiles, and add detail below them
+  gameStats?: (result: GameResult) => { label: string; value: string | number }[]
+  details?: ReactNode
+  hideLearningStats?: boolean
 }) {
   if (error && !hasSession) return <GameV2Error description={error} onRetry={poll} />
   if (result) {
@@ -344,10 +351,14 @@ export function KidsGameStates({
           result={result}
           headline="நீ ஒரு நட்சத்திரம்! · You're a star!"
           subline={resultLine(result.correctCount)}
-          gameStats={[
-            { label: 'நட்சத்திரங்கள் · Stars', value: result.correctCount },
-            { label: 'கேள்விகள் · Questions', value: result.totalQuestions },
-          ]}
+          gameStats={
+            gameStats?.(result) ?? [
+              { label: 'நட்சத்திரங்கள் · Stars', value: result.correctCount },
+              { label: 'கேள்விகள் · Questions', value: result.totalQuestions },
+            ]
+          }
+          details={details}
+          hideLearningStats={hideLearningStats}
           onPlayAgain={onPlayAgain}
           onExit={onExit}
           onHome={onHome}

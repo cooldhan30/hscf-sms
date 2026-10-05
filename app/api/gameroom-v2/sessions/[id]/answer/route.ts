@@ -5,6 +5,7 @@ import { gradeAnswer } from '@/lib/gameRoomV2/gradeAnswer'
 import { calculatePoints, calculateRewardsForAnswer } from '@/lib/gameRoomV2/scoring'
 import { effectiveDimension, effectiveConceptTags, extractConfusionPair, confusionPairKey } from '@/lib/gameRoomV2/analytics'
 import { checkSubmittedAnswer } from '@/lib/gameRoomV2/security/limits'
+import { BALLOON_POP_ENGINE_ID, gradePops } from '@/lib/gameRoomV2/balloonPop/stream'
 
 // POST /api/gameroom-v2/sessions/[id]/answer -- the ONLY place scoring
 // happens, entirely server-side. This is the "receive correct/
@@ -80,9 +81,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
     ? Date.now() - new Date(session.current_question_started_at).getTime()
     : session.question_time_limit_seconds * 1000
 
-  const isCorrect = gradeAnswer(question.question_type, question.payload, submittedAnswer)
-  const points = calculatePoints(isCorrect, responseTimeMs, session.question_time_limit_seconds)
-  const { xp, coins } = calculateRewardsForAnswer(isCorrect, session.current_streak)
+  // Balloon Pop's "pop every <type>" rounds (CATEGORIZE questions) submit
+  // { popped: [{ item, copy }] } and are scored per correct pop
+  // (lib/gameRoomV2/balloonPop/stream.ts); "correct" means a perfect round.
+  const pops =
+    session.engine_id === BALLOON_POP_ENGINE_ID && question.question_type === 'CATEGORIZE'
+      ? gradePops(question.payload as Record<string, unknown>, questionIndex, submittedAnswer)
+      : null
+  const isCorrect = pops ? pops.perfect : gradeAnswer(question.question_type, question.payload, submittedAnswer)
+  const points = pops ? pops.points : calculatePoints(isCorrect, responseTimeMs, session.question_time_limit_seconds)
+  const { xp, coins } = pops ? { xp: pops.xp, coins: pops.coins } : calculateRewardsForAnswer(isCorrect, session.current_streak)
 
   // UNIQUE(session_id, question_index) turns a duplicate submission
   // (a race between two tabs, a retried request) into a clean insert
@@ -204,7 +212,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // A solo player who got it wrong is shown the right answer -- only now,
   // after the answer is graded, stored and the session has moved on, and
   // never in a Live Classroom (classmates may still be answering it).
-  const correctAnswer = !isCorrect && !(await isLiveBridgedSession(supabase, session.id)) ? correctAnswerText(question.question_type, question.payload) : null
+  const correctAnswer = !isCorrect && !(await isLiveBridgedSession(supabase, session.id)) && !pops ? correctAnswerText(question.question_type, question.payload) : null
 
   return NextResponse.json({
     isCorrect,
@@ -218,5 +226,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
     currentStreak: updatedSession.current_streak,
     lives: updatedSession.lives,
     completed: isNowCompleted,
+    ...(pops ? { pops: { correct: pops.correct, wrong: pops.wrong, missed: pops.missed, targets: pops.targets } } : {}),
   })
 }

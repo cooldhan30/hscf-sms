@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { CelebrationLayer } from '@/components/gameRoomV2/celebration/CelebrationLayer'
 import {
   useKidsGame,
@@ -20,13 +20,16 @@ import {
   type KidsFeedback,
 } from '@/components/gameRoomV2/kids'
 import { choiceOptions, risePosition, isRevealedAnswer, labelSizeStep, hasLongLabels, KID_COLORS, type ChoiceOption } from '@/lib/gameRoomV2/kids'
+import { BalloonShape } from './BalloonShape'
+import { PopRound, type RoundSummary } from './PopRound'
 
-// Balloon Pop (பலூன் உடைப்போம்) -- Little Learners, ages 4-9. The answer
-// options float up the sky in balloons and the child taps the right one.
-// Deliberately gentle: no timer, no lives, no score maths on screen --
-// just stars. A wrong pop wobbles the balloon and shows the right one,
-// then the next question comes. Every answer is still graded by the
-// server (/answer), exactly like every other engine.
+// Balloon Pop (பலூன் உடைப்போம்) -- Little Learners, ages 4-9.
+// Sorting questions (CATEGORIZE) are "pop every உயிரெழுத்து" rounds:
+// balloons of every type keep floating up and the child pops the asked-for
+// type, collecting points per right pop (PopRound.tsx). Choice questions
+// keep the original round: the answer options float up and the child taps
+// the right one. Deliberately gentle either way: no timer, no lives, no
+// game over. Every pop and answer is checked by the server.
 
 const SKY = 'bg-gradient-to-b from-sky-400 via-sky-200 to-sky-50'
 
@@ -44,6 +47,24 @@ export function BalloonPopGame({
   const g = useKidsGame({ sessionId })
   const cardRef = useRef<HTMLDivElement>(null)
   const skyTop = useBelowCard(cardRef)
+  // Pop rounds: running points and what was popped, for the final summary
+  const [points, setPoints] = useState(0)
+  const [totals, setTotals] = useState<RoundSummary | null>(null)
+  const { poll } = g
+  const onRoundDone = useCallback(
+    (r: RoundSummary) => {
+      setTotals((t) => ({
+        correct: (t?.correct ?? 0) + r.correct,
+        wrong: (t?.wrong ?? 0) + r.wrong,
+        missed: (t?.missed ?? 0) + r.missed,
+        points: (t?.points ?? 0) + r.points,
+        rightItems: [...(t?.rightItems ?? []), ...r.rightItems],
+        wrongItems: [...(t?.wrongItems ?? []), ...r.wrongItems],
+      }))
+      poll()
+    },
+    [poll]
+  )
 
   if (!g.started) {
     return (
@@ -57,8 +78,8 @@ export function BalloonPopGame({
         ))}
         titleTa="பலூன் உடைப்போம்!"
         titleEn="Balloon Pop"
-        howTa="சரியான விடையுள்ள பலூனைத் தொட்டு உடை!"
-        howEn="Tap the balloon with the right answer!"
+        howTa="சொன்ன வகைப் பலூன்களைத் தொட்டு உடை!"
+        howEn="Pop the balloons you are asked for!"
         onStart={g.start}
         onExit={onExit}
       />
@@ -72,17 +93,35 @@ export function BalloonPopGame({
     poll: g.poll,
     background: 'bg-gradient-to-b from-sky-300 to-sky-100',
     loadingLabel: 'பலூன்கள் தயாராகின்றன... · Getting the balloons ready...',
-    resultLine: (n) => `${n} பலூன்களைச் சரியாக உடைத்தாய் · You popped ${n} right balloons`,
+    // Pop rounds count balloons; choice rounds count right answers
+    resultLine: (n) => {
+      // g.stars counts only choice rounds answered right
+      const popped = totals ? totals.correct + g.stars : n
+      return `${popped} பலூன்களைச் சரியாக உடைத்தாய் · You popped ${popped} right balloon${popped === 1 ? '' : 's'}`
+    },
     fx: g.fx,
     soundEnabled: g.soundEnabled,
     reduced: g.reduced,
     onPlayAgain,
     onExit,
     onHome,
+    ...(totals
+      ? {
+          gameStats: (r) => [
+            { label: 'சரியாக உடைத்தவை · Popped right', value: totals.correct },
+            { label: 'தவறாக உடைத்தவை · Popped wrong', value: totals.wrong },
+            { label: 'தவறவிட்டவை · Missed', value: totals.missed },
+            { label: 'புள்ளிகள் · Points', value: r.score },
+          ],
+          details: <PoppedSummary totals={totals} />,
+          hideLearningStats: true,
+        }
+      : {}),
   })
   if (states || !g.session || !g.shown) return states
 
-  const options = choiceOptions(g.shown.question)
+  const isPopRound = g.shown.question.questionType === 'CATEGORIZE'
+  const options = isPopRound ? [] : choiceOptions(g.shown.question)
 
   return (
     <div className={`fixed inset-0 overflow-hidden select-none touch-manipulation ${SKY}`}>
@@ -91,22 +130,40 @@ export function BalloonPopGame({
       <KidsTopBar
         index={g.shown.index}
         total={g.session.totalQuestions}
-        stars={g.stars}
+        stars={isPopRound || totals ? points : g.stars}
         soundEnabled={g.soundEnabled}
         onToggleSound={g.toggleSound}
         onLeave={() => g.exit(onExit)}
       />
-      <KidsQuestionCard question={g.shown.question} soundEnabled={g.soundEnabled} cardRef={cardRef} />
-      <BalloonSky
-        key={g.shown.index}
-        top={skyTop}
-        options={options}
-        feedback={g.feedback}
-        reduced={g.reduced}
-        disabled={g.answering || !!g.feedback}
-        onPop={(o, el) => g.submit(o.answer, o.key, el)}
-      />
-      {g.feedback?.kind === 'correct' && <PraiseBubble praise={g.praise} top={skyTop + 24} reduced={g.reduced} />}
+      {isPopRound ? (
+        <PopRound
+          key={g.shown.index}
+          sessionId={sessionId}
+          index={g.shown.index}
+          question={g.shown.question}
+          top={skyTop}
+          cardRef={cardRef}
+          soundEnabled={g.soundEnabled}
+          reduced={g.reduced}
+          fx={g.fx}
+          onPoints={(d) => setPoints((p) => p + d)}
+          onDone={onRoundDone}
+        />
+      ) : (
+        <>
+          <KidsQuestionCard question={g.shown.question} soundEnabled={g.soundEnabled} cardRef={cardRef} />
+          <BalloonSky
+            key={g.shown.index}
+            top={skyTop}
+            options={options}
+            feedback={g.feedback}
+            reduced={g.reduced}
+            disabled={g.answering || !!g.feedback}
+            onPop={(o, el) => g.submit(o.answer, o.key, el)}
+          />
+        </>
+      )}
+      {!isPopRound && g.feedback?.kind === 'correct' && <PraiseBubble praise={g.praise} top={skyTop + 24} reduced={g.reduced} />}
       {g.submitError && (
         <div className="absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
           <p className="rounded-2xl bg-white/95 px-4 py-2 text-sm font-semibold text-rose-700 shadow">{g.submitError}</p>
@@ -212,27 +269,6 @@ function BalloonSky({
   )
 }
 
-function BalloonShape({ fill, dark, glow }: { fill: string; dark: string; glow: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 100 140"
-      className={`w-full h-full ${glow ? 'drop-shadow-[0_0_18px_rgba(250,204,21,0.95)]' : 'drop-shadow-[0_6px_6px_rgba(15,23,42,0.25)]'}`}
-      aria-hidden
-    >
-      {/* string */}
-      <path d="M50 96 C 44 108, 56 118, 48 139" stroke="#64748b" strokeWidth="1.6" fill="none" />
-      {/* body */}
-      <path d="M50 4 C 22 4, 6 26, 6 50 C 6 74, 28 92, 50 96 C 72 92, 94 74, 94 50 C 94 26, 78 4, 50 4 Z" fill={fill} />
-      {/* shading */}
-      <path d="M50 96 C 72 92, 94 74, 94 50 C 94 34, 86 20, 74 12 C 84 26, 86 44, 80 60 C 74 78, 62 88, 50 96 Z" fill={dark} opacity="0.35" />
-      {/* shine */}
-      <ellipse cx="30" cy="30" rx="9" ry="15" transform="rotate(-25 30 30)" fill="#ffffff" opacity="0.45" />
-      {/* knot */}
-      <path d="M44 95 L56 95 L52 101 L48 101 Z" fill={dark} />
-    </svg>
-  )
-}
-
 function Scenery({ reduced }: { reduced: boolean }) {
   return (
     <div className="absolute inset-0 pointer-events-none" aria-hidden>
@@ -258,6 +294,47 @@ function Scenery({ reduced }: { reduced: boolean }) {
         <path d="M0 90 C 250 55, 450 70, 700 88 C 900 102, 1050 70, 1200 82 L1200 120 L0 120 Z" fill="#4ade80" />
       </svg>
       <style>{`@keyframes cloud-drift { from { translate: 0 0 } to { translate: 60px 0 } }`}</style>
+    </div>
+  )
+}
+
+// Final summary of a game with pop rounds: what the child popped right,
+// and what they popped by mistake (with what it really was).
+function PoppedSummary({ totals }: { totals: RoundSummary }) {
+  const right = Array.from(new Set(totals.rightItems))
+  const wrong = Array.from(new Map(totals.wrongItems.map((w) => [w.item, w])).values())
+  if (!right.length && !wrong.length) return null
+  return (
+    <div className="mt-5 space-y-3 text-left">
+      {right.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-emerald-700 mb-1.5">
+            <span className="font-tamil">சரியாக உடைத்தவை</span> · You popped
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {right.map((x) => (
+              <span key={x} className="font-tamil text-lg font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                {x}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {wrong.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-rose-700 mb-1.5">
+            <span className="font-tamil">இவை வேறு வகை</span> · Not this time
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {wrong.map((w) => (
+              <span key={w.item} className="font-tamil text-sm px-3 py-1 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
+                <b className="text-lg">{w.item}</b>
+                {w.category && <span className="text-rose-600"> · {w.category}</span>}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -326,18 +326,20 @@ export const GAME_ENGINES_V2: GameEngine[] = [
     version: '0.1.0',
   },
   {
-    // Little Learners (ages 4-9): answers float up in balloons; tap the
-    // right one to pop it. No timer, lives or game over -- a wrong pop
-    // just shows the right balloon. See lib/gameRoomV2/balloonPop and
-    // components/gameRoomV2/balloonPop/BalloonPopGame.tsx.
+    // Little Learners (ages 4-9). Sorting questions become "pop every
+    // உயிரெழுத்து" rounds: balloons of every type keep floating up and the
+    // child pops the asked-for type, each pop checked by the server
+    // (/pop-check) and scored per correct pop (/answer). Choice questions
+    // keep the one-question balloon round. No timer, lives or game over.
+    // See lib/gameRoomV2/balloonPop and components/gameRoomV2/balloonPop.
     id: 'balloon-pop',
     name: 'Balloon Pop',
     tamilName: 'பலூன் உடைப்போம்',
-    description: 'For little learners: answers float up in balloons -- tap the right one to pop it. No timer, no pressure.',
+    description: 'For little learners: balloons float up -- pop every one of the asked-for kind (like every உயிரெழுத்து) and collect points. No timer, no pressure.',
     icon: null,
     thumbnail: null,
     compatibility: {
-      supportedQuestionTypes: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
+      supportedQuestionTypes: ['CATEGORIZE', 'MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
       soloSupport: true,
       multiplayerSupport: false,
       // Live Classroom: each child pops balloons on their own session the
@@ -348,8 +350,8 @@ export const GAME_ENGINES_V2: GameEngine[] = [
       maxPlayers: 1,
     },
     requirement: {
-      en: 'Requires choice questions (multiple choice, picture, listening or true/false)',
-      ta: 'தேர்வு வகை வினாக்கள் தேவை',
+      en: 'Requires sorting or choice questions (multiple choice, picture, listening or true/false)',
+      ta: 'வகைப்படுத்தும் அல்லது தேர்வு வகை வினாக்கள் தேவை',
     },
     recommendedQuestionTypes: ['MULTIPLE_CHOICE', 'IMAGE_CHOICE', 'AUDIO_CHOICE'],
     recommendedLevel: 'mazhalai',

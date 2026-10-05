@@ -23,6 +23,8 @@ export function GameResultsScreen({
   headline,
   subline,
   gameStats,
+  details,
+  hideLearningStats = false,
 }: {
   result: GameResult
   onPlayAgain?: () => void
@@ -34,6 +36,11 @@ export function GameResultsScreen({
   headline?: string
   subline?: string
   gameStats?: { label: string; value: string | number }[]
+  // Engine-specific detail under the stats (e.g. which balloons were popped)
+  details?: ReactNode
+  // For games whose own stats already say it better (Balloon Pop's pop
+  // rounds count pops, not questions): hides the Score/Accuracy/... grid
+  hideLearningStats?: boolean
 }) {
   const { celebrate, reduced } = useGameV2Motion()
   const newAchievements = (result.newlyEarnedAchievementIds ?? [])
@@ -65,7 +72,9 @@ export function GameResultsScreen({
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
+      {details}
+
+      <div className={`mt-6 grid grid-cols-2 sm:grid-cols-3 gap-4 ${hideLearningStats ? 'hidden' : ''}`}>
         <Stat value={result.score} label={<Bi k="score" />} tone="text-stone-800 dark:text-stone-100" />
         <Stat value={`${result.accuracyPct}%`} label={<Bi k="accuracy" />} tone="text-emerald-700 dark:text-emerald-400" />
         <Stat value={result.correctCount} label={<Bi k="correctAnswers" />} tone="text-emerald-700 dark:text-emerald-400" />

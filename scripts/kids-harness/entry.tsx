@@ -23,6 +23,7 @@ import { BuildAHouseGame } from '@/components/gameRoomV2/buildAHouse/BuildAHouse
 import { SortBasketsGame } from '@/components/gameRoomV2/sortBaskets/SortBasketsGame'
 import { ListenChooseGame } from '@/components/gameRoomV2/listenChoose/ListenChooseGame'
 import { TraceLearn } from '@/components/gameRoomV2/trace/TraceLearn'
+import { checkPop, gradePops } from '@/lib/gameRoomV2/balloonPop/stream'
 
 type Q = { type: string; prompt: string; payload: Record<string, unknown>; answer: string | boolean; reveal: string }
 
@@ -75,21 +76,58 @@ const LISTEN: Q[] = [
   { type: 'MULTIPLE_CHOICE', prompt: 'உயிரெழுத்துகள் 12. (There are 12 vowels.)', payload: { options: ['சரி ✓', 'தவறு ✗'] }, answer: 'சரி ✓', reveal: 'சரி ✓' },
 ]
 
+// Balloon Pop "pop every <type>" rounds (?engine=balloon-pop&set=pop): two
+// built-in உயிர்/மெய் sorting rounds, then one choice question (a mixed set)
+const POP: Q[] = [
+  {
+    type: 'CATEGORIZE',
+    prompt: 'உயிரெழுத்தா மெய்யெழுத்தா? வகைப்படுத்துக (Vowel or consonant?)',
+    payload: { items: ['அ', 'ஆ', 'உ', 'ஏ', 'க்', 'ட்', 'ல்', 'வ்'], categories: ['உயிரெழுத்து', 'மெய்யெழுத்து'] },
+    answer: JSON.stringify({ அ: 'உயிரெழுத்து', ஆ: 'உயிரெழுத்து', உ: 'உயிரெழுத்து', ஏ: 'உயிரெழுத்து', 'க்': 'மெய்யெழுத்து', 'ட்': 'மெய்யெழுத்து', 'ல்': 'மெய்யெழுத்து', 'வ்': 'மெய்யெழுத்து' }),
+    reveal: '',
+  },
+  {
+    type: 'CATEGORIZE',
+    prompt: 'உயிரெழுத்தா மெய்யெழுத்தா? வகைப்படுத்துக (Vowel or consonant?)',
+    payload: { items: ['இ', 'ஊ', 'ஐ', 'ஓ', 'ண்', 'ந்', 'ர்', 'ழ்'], categories: ['உயிரெழுத்து', 'மெய்யெழுத்து'] },
+    answer: JSON.stringify({ இ: 'உயிரெழுத்து', ஊ: 'உயிரெழுத்து', ஐ: 'உயிரெழுத்து', ஓ: 'உயிரெழுத்து', 'ண்': 'மெய்யெழுத்து', 'ந்': 'மெய்யெழுத்து', 'ர்': 'மெய்யெழுத்து', 'ழ்': 'மெய்யெழுத்து' }),
+    reveal: '',
+  },
+  VOWELS[0],
+]
+
 const params = new URLSearchParams(location.search)
 const ENGINE_ID = params.get('engine') ?? 'balloon-pop'
-const QUESTIONS = ENGINE_ID === 'letter-parade' ? ORDER : ENGINE_ID === 'sort-baskets' ? SORT : ENGINE_ID === 'listen-choose' ? LISTEN : VOWELS
+const QUESTIONS = ENGINE_ID === 'balloon-pop' && params.get('set') === 'pop' ? POP : ENGINE_ID === 'letter-parade' ? ORDER : ENGINE_ID === 'sort-baskets' ? SORT : ENGINE_ID === 'listen-choose' ? LISTEN : VOWELS
 const autoWrong = params.get('wrong') === '1'
-const session = { status: 'ACTIVE' as string, currentIndex: Number(params.get('start') ?? 0), correct: 0 }
+const session = { status: 'ACTIVE' as string, currentIndex: Number(params.get('start') ?? 0), correct: 0, score: 0, xp: 0 }
 ;(window as unknown as { __harness: unknown }).__harness = { session, QUESTIONS }
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
 const realFetch = window.fetch.bind(window)
 window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-  const m = url.match(/\/api\/gameroom-v2\/sessions\/[^/]+\/(\w+)/)
+  const m = url.match(/\/api\/gameroom-v2\/sessions\/[^/]+\/([\w-]+)/)
   if (!m) return realFetch(input, init)
   const action = m[1]
   const total = QUESTIONS.length
+  // Pop rounds: the real scoring rules, with the answer key the server holds
+  const popPayload = (q: Q) => ({ ...q.payload, answerKey: JSON.parse(q.answer as string) })
+  if (action === 'pop-check') {
+    const body = JSON.parse(String(init?.body ?? '{}')) as { questionIndex: number; item: string }
+    const r = checkPop(popPayload(QUESTIONS[body.questionIndex]), body.questionIndex, body.item)
+    return r ? json(r) : json({ error: 'not in round' }, 400)
+  }
+  if (action === 'answer' && QUESTIONS[session.currentIndex]?.type === 'CATEGORIZE' && ENGINE_ID === 'balloon-pop') {
+    const body = JSON.parse(String(init?.body ?? '{}')) as { questionIndex: number; answer: unknown }
+    const g = gradePops(popPayload(QUESTIONS[body.questionIndex]), body.questionIndex, body.answer)
+    if (g.perfect) session.correct++
+    session.score += g.points
+    session.xp += g.xp
+    session.currentIndex = Math.min(total, session.currentIndex + 1)
+    if (session.currentIndex >= total) session.status = 'COMPLETED'
+    return json({ isCorrect: g.perfect, points: g.points, xpEarned: g.xp, coinsEarned: g.coins, correctAnswer: null, completed: session.status === 'COMPLETED', pops: { correct: g.correct, wrong: g.wrong, missed: g.missed, targets: g.targets } })
+  }
   if (action === 'answer') {
     const body = JSON.parse(String(init?.body ?? '{}')) as { questionIndex: number; answer: string | boolean | string[] | Record<string, string> }
     const q = QUESTIONS[body.questionIndex]
@@ -104,12 +142,13 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
         : body.answer
     const correct = !autoWrong && given === q.answer
     if (correct) session.correct++
+    if (correct) session.score += 1000
     session.currentIndex = Math.min(total, session.currentIndex + 1)
     if (session.currentIndex >= total) session.status = 'COMPLETED'
     return json({ isCorrect: correct, points: correct ? 1000 : 0, xpEarned: correct ? 10 : 0, coinsEarned: correct ? 2 : 0, correctAnswer: correct ? null : q.reveal, explanation: null, completed: session.status === 'COMPLETED' })
   }
   if (action === 'complete') {
-    return json({ sessionId: 'harness', score: session.correct * 1000, accuracyPct: Math.round((session.correct / total) * 100), correctCount: session.correct, incorrectCount: total - session.correct, totalQuestions: total, xpEarned: session.correct * 12, coinsEarned: session.correct * 2, bestStreak: session.correct, skillsPracticed: ['உயிரெழுத்துகள்'], newlyEarnedAchievementIds: [] })
+    return json({ sessionId: 'harness', score: session.score, accuracyPct: Math.round((session.correct / total) * 100), correctCount: session.correct, incorrectCount: total - session.correct, totalQuestions: total, xpEarned: session.xp + session.correct * 12, coinsEarned: session.correct * 2, bestStreak: session.correct, skillsPracticed: ['உயிரெழுத்துகள்'], newlyEarnedAchievementIds: [] })
   }
   if (action === 'abandon') return json({ ok: true })
   // Stand-in for Sarvam TTS: any short sound from the app's public folder

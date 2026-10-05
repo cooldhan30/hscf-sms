@@ -170,7 +170,7 @@ console.log('-- Matching-compatible set --')
 expectPicker('MATCH set', ['MATCH'], MATCH_GAMES)
 
 console.log('-- Sorting set --')
-expectPicker('CATEGORIZE set', ['CATEGORIZE'], ['tower-defense', 'word-ninja', 'sort-baskets'])
+expectPicker('CATEGORIZE set', ['CATEGORIZE'], ['tower-defense', 'word-ninja', 'sort-baskets', 'balloon-pop'])
 
 console.log('-- Empty set --')
 assert(gamePickerForSet([]).playable.length === 0 && gamePickerForSet([]).active.length === EXPECTED_ACTIVE.length, `empty set: nothing playable, all ${EXPECTED_ACTIVE.length} still visible`)

@@ -191,7 +191,7 @@ const ENGINE_SET_PREFERENCE: Record<string, BuiltinSetKind[]> = {
   'tower-defense': ['quiz', 'sort'],
   'treasure-quest': ['quiz', 'match', 'sort'],
   'kingdom-builder': ['quiz', 'match', 'sort'],
-  'balloon-pop': ['quiz'],
+  'balloon-pop': ['sort', 'quiz'],
   'letter-train': ['quiz'],
   'parachute-catch': ['quiz'],
   'fishing-pond': ['quiz'],
