@@ -1,38 +1,52 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { FiArrowDown, FiArrowUp, FiCheckCircle, FiPlus, FiTrash2, FiUpload } from 'react-icons/fi'
-import { STARTER_CATEGORIES } from '@/lib/grClassic/categories'
-import { tilesFor } from '@/lib/grClassic/graphemes'
-import { LIBRARY } from '@/lib/grClassic/sampleData'
-import { QUESTION_KIND_FOR_GAME, type Difficulty, type Game, type GameType, type Question } from '@/lib/grClassic/types'
+import { FiArrowDown, FiArrowUp, FiCheckCircle, FiTrash2, FiUpload } from 'react-icons/fi'
+import { summarize } from '@/lib/grClassic/csv'
+import { QUESTION_KIND_FOR_GAME, type Category, type Difficulty, type Game, type GameType, type Question } from '@/lib/grClassic/types'
 import { GamePlayer } from '../games/GamePlayer'
 import { Advanced, Button, ButtonLink, Card, PrototypeNote, Segmented, Shell, TYPE_META } from '../ui'
-
-const input = 'w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-base font-semibold text-slate-900 ring-2 ring-slate-200 placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-teal-500'
-const label = 'mb-1.5 block text-sm font-bold text-slate-700'
+import { grcApi } from './api'
+import { ImportPanel } from './ImportPanel'
+import { QuestionEditor, inputClass, labelClass } from './QuestionEditor'
 
 // Create Game: 1. choose game type -> 2. choose questions -> 3. save or play.
-// Everything beyond a title and questions has a default and sits under
-// "Advanced options".
-export function CreateGameWizard({ edit }: { edit?: Game }) {
+// Questions come from the teacher's library; new ones written here are
+// saved to the library too. Everything beyond a name and questions has a
+// default and sits under "Advanced options".
+export function CreateGameWizard({ edit, library: initialLibrary, categories: initialCategories }: { edit?: Game; library: Question[]; categories: Category[] }) {
   const [step, setStep] = useState<1 | 2 | 3>(edit ? 2 : 1)
   const [type, setType] = useState<GameType>(edit?.type ?? 'quiz')
   const [title, setTitle] = useState(edit?.title ?? '')
-  const [category, setCategory] = useState(edit?.category ?? STARTER_CATEGORIES[0])
-  const [categories, setCategories] = useState(STARTER_CATEGORIES)
+  const [categories, setCategories] = useState(initialCategories)
+  const [categoryId, setCategoryId] = useState<string>(edit?.categoryId ?? '')
+  const [library, setLibrary] = useState(initialLibrary)
   const [questions, setQuestions] = useState<Question[]>(edit?.questions ?? [])
   const [difficulty, setDifficulty] = useState<Difficulty>(edit?.difficulty ?? 'easy')
   const [liveSeconds, setLiveSeconds] = useState(edit?.liveSeconds ?? 20)
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [savedId, setSavedId] = useState<string | null>(null)
   const [previewing, setPreviewing] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const kind = QUESTION_KIND_FOR_GAME[type]
+  const category = categories.find((c) => c.id === categoryId)?.name ?? ''
 
-  const game: Game = { id: edit?.id ?? 'draft', title: title.trim() || 'My new game', type, category, difficulty, questions, liveSeconds, updatedAt: new Date().toISOString() }
+  const game: Game = { id: edit?.id ?? 'draft', title: title.trim() || 'My new game', type, category, categoryId: categoryId || null, difficulty, questions, liveSeconds, updatedAt: new Date().toISOString() }
 
-  const save = () => {
+  const addToGame = (q: Question) => setQuestions((qs) => (qs.some((x) => x.id === q.id) ? qs : [...qs, q]))
+  const addToLibrary = (qs: Question[]) => setLibrary((lib) => [...qs, ...lib.filter((x) => !qs.some((q) => q.id === x.id))])
+
+  const save = async () => {
     if (!title.trim()) return setError('Give your game a name.')
     if (questions.length === 0) return setError('Add at least one question.')
     setError('')
+    setSaving(true)
+    const body = { title, type, categoryId: categoryId || null, difficulty, liveSeconds, questionIds: questions.map((q) => q.id) }
+    const res = edit ? await grcApi<{ id: string }>(`/games/${edit.id}`, { method: 'PATCH', body }) : await grcApi<{ id: string }>('/games', { method: 'POST', body })
+    setSaving(false)
+    if (!res.ok) return setError(res.error)
+    setSavedId(res.data.id)
     setStep(3)
   }
 
@@ -57,6 +71,7 @@ export function CreateGameWizard({ edit }: { edit?: Game }) {
             {(Object.keys(TYPE_META) as GameType[]).map((t) => {
               const m = TYPE_META[t]
               const Icon = m.icon
+              const n = library.filter((q) => q.kind === QUESTION_KIND_FOR_GAME[t]).length
               return (
                 <button
                   key={t}
@@ -66,7 +81,7 @@ export function CreateGameWizard({ edit }: { edit?: Game }) {
                     setQuestions([])
                     setStep(2)
                   }}
-                  className={`flex flex-col items-start gap-3 rounded-3xl bg-white p-6 text-left ring-2 ring-slate-200 transition hover:-translate-y-1 hover:shadow-lg hover:ring-slate-400`}
+                  className="flex flex-col items-start gap-3 rounded-3xl bg-white p-6 text-left ring-2 ring-slate-200 transition hover:-translate-y-1 hover:shadow-lg hover:ring-slate-400"
                 >
                   <span className={`grid h-14 w-14 place-items-center rounded-2xl text-white ${m.band}`}>
                     <Icon aria-hidden className="h-7 w-7" />
@@ -74,6 +89,7 @@ export function CreateGameWizard({ edit }: { edit?: Game }) {
                   <span className="text-xl font-black text-slate-900">{m.label}</span>
                   <span className="-mt-2 font-bold text-slate-500">{m.ta}</span>
                   <span className="text-sm font-semibold text-slate-600">{m.blurb}</span>
+                  <span className="text-xs font-bold text-slate-400">{n} in your library</span>
                 </button>
               )
             })}
@@ -93,12 +109,20 @@ export function CreateGameWizard({ edit }: { edit?: Game }) {
           </div>
           <Card className="mt-4 grid gap-4 p-5 sm:grid-cols-2">
             <div>
-              <label htmlFor="grc-title" className={label}>
+              <label htmlFor="grc-title" className={labelClass}>
                 Game name
               </label>
-              <input id="grc-title" className={input} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. உயிர் எழுத்துக்கள் வினாடி வினா" />
+              <input id="grc-title" className={inputClass} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. உயிர் எழுத்துக்கள் வினாடி வினா" />
             </div>
-            <CategoryPicker value={category} categories={categories} onChange={setCategory} onAdd={(c) => setCategories((cs) => [...cs, c])} />
+            <CategoryPicker
+              value={categoryId}
+              categories={categories}
+              onChange={setCategoryId}
+              onAdded={(c) => {
+                setCategories((cs) => (cs.some((x) => x.id === c.id) ? cs : [...cs, c]))
+                setCategoryId(c.id)
+              }}
+            />
           </Card>
 
           <h2 className="mb-2 mt-6 text-lg font-extrabold text-slate-900">
@@ -107,9 +131,37 @@ export function CreateGameWizard({ edit }: { edit?: Game }) {
           <SelectedList questions={questions} onChange={setQuestions} />
 
           <div className="mt-6 grid gap-5 lg:grid-cols-2">
-            <LibraryPicker kind={QUESTION_KIND_FOR_GAME[type]} selected={questions} onToggle={(q) => setQuestions((qs) => (qs.some((x) => x.id === q.id) ? qs.filter((x) => x.id !== q.id) : [...qs, q]))} />
-            <NewQuestion type={type} category={category} onAdd={(q) => setQuestions((qs) => [...qs, q])} />
+            <LibraryPicker library={library.filter((q) => q.kind === kind)} selected={questions} onToggle={(q) => setQuestions((qs) => (qs.some((x) => x.id === q.id) ? qs.filter((x) => x.id !== q.id) : [...qs, q]))} onImport={() => setImporting((v) => !v)} />
+            <Card className="p-5">
+              <h3 className="text-lg font-extrabold text-slate-900">Write a new question</h3>
+              <p className="mb-3 text-sm text-slate-500">It&apos;s saved to your library too, so you can reuse it.</p>
+              <QuestionEditor
+                key={type}
+                kind={kind}
+                categories={categories}
+                defaultCategoryId={categoryId || null}
+                showTopic={false}
+                onSaved={(q) => {
+                  addToLibrary([q])
+                  addToGame(q)
+                }}
+              />
+            </Card>
           </div>
+
+          {importing && (
+            <div className="mt-5">
+              <ImportPanel
+                kinds={[kind]}
+                onClose={() => setImporting(false)}
+                onImported={(qs, cats) => {
+                  setCategories(cats)
+                  addToLibrary(qs)
+                  qs.filter((q) => q.kind === kind).forEach(addToGame)
+                }}
+              />
+            </div>
+          )}
 
           <div className="mt-5">
             <Advanced summary={`${difficulty[0].toUpperCase() + difficulty.slice(1)} · ${liveSeconds}s per question when hosted live`}>
@@ -127,14 +179,14 @@ export function CreateGameWizard({ edit }: { edit?: Game }) {
             <Button tone="plain" disabled={questions.length === 0} onClick={() => setPreviewing(true)}>
               Try it
             </Button>
-            <Button tone="primary" onClick={save}>
-              <FiCheckCircle aria-hidden /> Save game
+            <Button tone="primary" onClick={save} disabled={saving}>
+              <FiCheckCircle aria-hidden /> {saving ? 'Saving…' : 'Save game'}
             </Button>
           </div>
         </>
       )}
 
-      {step === 3 && (
+      {step === 3 && savedId && (
         <Card className="mx-auto max-w-xl p-8 text-center">
           <FiCheckCircle aria-hidden className="mx-auto h-16 w-16 text-emerald-500" />
           <h1 className="mt-3 text-3xl font-black text-slate-900">Game saved!</h1>
@@ -142,62 +194,66 @@ export function CreateGameWizard({ edit }: { edit?: Game }) {
             “{game.title}” · {questions.length} {type === 'match' ? 'boards' : 'questions'}
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <Button tone="primary" onClick={() => setPreviewing(true)}>
+            <ButtonLink tone="primary" href={`/gr-classic/play/${savedId}?mode=preview`}>
               Play it
-            </Button>
-            <ButtonLink tone="indigo" href={`/gr-classic/host/${edit?.id ?? 'g-uyir-quiz'}`}>
+            </ButtonLink>
+            <ButtonLink tone="indigo" href={`/gr-classic/host/${savedId}`}>
               Host live
             </ButtonLink>
-            <ButtonLink tone="teal" href={`/gr-classic/teacher/assign/${edit?.id ?? 'g-uyir-quiz'}`}>
+            <ButtonLink tone="teal" href={`/gr-classic/teacher/assign/${savedId}`}>
               Assign
             </ButtonLink>
           </div>
           <ButtonLink tone="ghost" href="/gr-classic/teacher" className="mt-4">
             Back to My Games
           </ButtonLink>
-          <PrototypeNote>the game isn&apos;t stored yet, so Host and Assign open a sample game.</PrototypeNote>
+          <PrototypeNote>Host and Assign still use the Phase 1 sample screens (Phases 4–5).</PrototypeNote>
         </Card>
       )}
     </Shell>
   )
 }
 
-function CategoryPicker({ value, categories, onChange, onAdd }: { value: string; categories: string[]; onChange: (c: string) => void; onAdd: (c: string) => void }) {
+function CategoryPicker({ value, categories, onChange, onAdded }: { value: string; categories: Category[]; onChange: (id: string) => void; onAdded: (c: Category) => void }) {
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
+  const [error, setError] = useState('')
+  const add = async () => {
+    const n = name.trim()
+    if (!n) return setAdding(false)
+    const res = await grcApi<{ category: Category }>('/categories', { method: 'POST', body: { name: n } })
+    if (!res.ok) return setError(res.error)
+    onAdded(res.data.category)
+    setAdding(false)
+    setName('')
+    setError('')
+  }
   return (
     <div>
-      <label htmlFor="grc-category" className={label}>
+      <label htmlFor="grc-category" className={labelClass}>
         Topic
       </label>
       {adding ? (
-        <div className="flex gap-2">
-          <input autoFocus className={input} value={name} onChange={(e) => setName(e.target.value)} placeholder="New topic name" aria-label="New topic name" />
-          <Button
-            tone="teal"
-            size="sm"
-            onClick={() => {
-              const n = name.trim()
-              if (n) {
-                if (!categories.includes(n)) onAdd(n)
-                onChange(n)
-              }
-              setAdding(false)
-              setName('')
-            }}
-          >
-            Add
-          </Button>
-        </div>
+        <>
+          <div className="flex gap-2">
+            <input autoFocus className={inputClass} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="New topic name" aria-label="New topic name" />
+            <Button tone="teal" size="sm" onClick={add}>
+              Add
+            </Button>
+          </div>
+          {error && (
+            <p role="alert" className="mt-1 text-sm font-bold text-rose-700">
+              {error}
+            </p>
+          )}
+        </>
       ) : (
-        <select
-          id="grc-category"
-          className={input}
-          value={value}
-          onChange={(e) => (e.target.value === '__new' ? setAdding(true) : onChange(e.target.value))}
-        >
+        <select id="grc-category" className={inputClass} value={value} onChange={(e) => (e.target.value === '__new' ? setAdding(true) : onChange(e.target.value))}>
+          <option value="">No topic</option>
           {categories.map((c) => (
-            <option key={c}>{c}</option>
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
           ))}
           <option value="__new">+ New topic…</option>
         </select>
@@ -207,14 +263,12 @@ function CategoryPicker({ value, categories, onChange, onAdd }: { value: string;
 }
 
 function questionLabel(q: Question): string {
-  if (q.kind === 'choice') return q.prompt
-  if (q.kind === 'match') return `${q.prompt} (${q.pairs.map((p) => p.left).join(', ')})`
-  return q.answer
+  return q.kind === 'choice' ? q.prompt : summarize(q)
 }
 
 function SelectedList({ questions, onChange }: { questions: Question[]; onChange: (qs: Question[]) => void }) {
   if (questions.length === 0) {
-    return <p className="rounded-2xl border-2 border-dashed border-slate-300 p-6 text-center font-semibold text-slate-500">No questions yet — pick from the library or write a new one below.</p>
+    return <p className="rounded-2xl border-2 border-dashed border-slate-300 p-6 text-center font-semibold text-slate-500">No questions yet — pick from your library or write a new one below.</p>
   }
   const move = (i: number, d: -1 | 1) => {
     const qs = questions.slice()
@@ -233,7 +287,7 @@ function SelectedList({ questions, onChange }: { questions: Question[]; onChange
           <Button tone="ghost" size="sm" aria-label="Move down" disabled={i === questions.length - 1} onClick={() => move(i, 1)}>
             <FiArrowDown aria-hidden />
           </Button>
-          <Button tone="ghost" size="sm" aria-label="Remove" onClick={() => onChange(questions.filter((x) => x.id !== q.id))}>
+          <Button tone="ghost" size="sm" aria-label="Remove from game" onClick={() => onChange(questions.filter((x) => x.id !== q.id))}>
             <FiTrash2 aria-hidden />
           </Button>
         </li>
@@ -242,24 +296,25 @@ function SelectedList({ questions, onChange }: { questions: Question[]; onChange
   )
 }
 
-function LibraryPicker({ kind, selected, onToggle }: { kind: Question['kind']; selected: Question[]; onToggle: (q: Question) => void }) {
+function LibraryPicker({ library, selected, onToggle, onImport }: { library: Question[]; selected: Question[]; onToggle: (q: Question) => void; onImport: () => void }) {
   const [search, setSearch] = useState('')
-  const items = useMemo(() => LIBRARY.filter((q) => q.kind === kind && (questionLabel(q) + q.category).toLowerCase().includes(search.toLowerCase())), [kind, search])
+  const items = useMemo(() => library.filter((q) => (questionLabel(q) + q.category).toLowerCase().includes(search.toLowerCase())), [library, search])
   const groups = useMemo(() => Array.from(new Set(items.map((q) => q.category))), [items])
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-lg font-extrabold text-slate-900">From the question library</h3>
-        <Button tone="ghost" size="sm" disabled title="CSV upload arrives in Phase 2">
-          <FiUpload aria-hidden /> CSV
+        <h3 className="text-lg font-extrabold text-slate-900">From your question library</h3>
+        <Button tone="ghost" size="sm" onClick={onImport}>
+          <FiUpload aria-hidden /> Import CSV
         </Button>
       </div>
-      <input className={`${input} mt-3`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search questions or topics" aria-label="Search the library" />
+      <input className={`${inputClass} mt-3`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search questions or topics" aria-label="Search the library" />
       <div className="mt-3 max-h-80 space-y-4 overflow-y-auto pr-1">
-        {groups.length === 0 && <p className="text-sm font-semibold text-slate-500">Nothing matches.</p>}
+        {library.length === 0 && <p className="text-sm font-semibold text-slate-500">Your library has no questions of this type yet. Write one, or import a spreadsheet.</p>}
+        {library.length > 0 && groups.length === 0 && <p className="text-sm font-semibold text-slate-500">Nothing matches.</p>}
         {groups.map((g) => (
-          <fieldset key={g}>
-            <legend className="mb-1 text-xs font-extrabold uppercase tracking-wide text-slate-500">{g}</legend>
+          <fieldset key={g || 'none'}>
+            <legend className="mb-1 text-xs font-extrabold uppercase tracking-wide text-slate-500">{g || 'No topic'}</legend>
             <ul className="space-y-1">
               {items
                 .filter((q) => q.category === g)
@@ -276,141 +331,5 @@ function LibraryPicker({ kind, selected, onToggle }: { kind: Question['kind']; s
         ))}
       </div>
     </Card>
-  )
-}
-
-function NewQuestion({ type, category, onAdd }: { type: GameType; category: string; onAdd: (q: Question) => void }) {
-  return (
-    <Card className="p-5">
-      <h3 className="text-lg font-extrabold text-slate-900">Write a new question</h3>
-      <p className="mb-3 text-sm text-slate-500">It&apos;s saved to your library too, so you can reuse it.</p>
-      {type === 'quiz' && <ChoiceForm category={category} onAdd={onAdd} />}
-      {type === 'match' && <MatchForm category={category} onAdd={onAdd} />}
-      {type === 'word-builder' && <OrderForm category={category} onAdd={onAdd} />}
-    </Card>
-  )
-}
-
-const newId = () => `new-${Math.random().toString(36).slice(2, 9)}`
-
-function ChoiceForm({ category, onAdd }: { category: string; onAdd: (q: Question) => void }) {
-  const [prompt, setPrompt] = useState('')
-  const [options, setOptions] = useState(['', '', '', ''])
-  const [answer, setAnswer] = useState(0)
-  const [explanation, setExplanation] = useState('')
-  const [error, setError] = useState('')
-  const add = () => {
-    const filled = options.map((o) => o.trim())
-    const kept = filled.filter(Boolean)
-    if (!prompt.trim()) return setError('Write the question.')
-    if (kept.length < 2) return setError('Give at least two answers.')
-    if (!filled[answer]) return setError('Mark which answer is right.')
-    onAdd({ id: newId(), kind: 'choice', category, prompt: prompt.trim(), options: kept, answerIndex: kept.indexOf(filled[answer]), explanation: explanation.trim() || undefined })
-    setPrompt('')
-    setOptions(['', '', '', ''])
-    setAnswer(0)
-    setExplanation('')
-    setError('')
-  }
-  return (
-    <div className="space-y-3">
-      <input className={input} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Question" aria-label="Question" />
-      <fieldset className="space-y-2">
-        <legend className={label}>Answers — tick the right one</legend>
-        {options.map((o, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <input type="radio" name="grc-answer" className="h-5 w-5 accent-emerald-600" checked={answer === i} onChange={() => setAnswer(i)} aria-label={`Answer ${i + 1} is right`} />
-            <input className={input} value={o} onChange={(e) => setOptions((os) => os.map((x, k) => (k === i ? e.target.value : x)))} placeholder={i < 2 ? `Answer ${i + 1}` : `Answer ${i + 1} (optional)`} aria-label={`Answer ${i + 1}`} />
-          </div>
-        ))}
-      </fieldset>
-      <input className={input} value={explanation} onChange={(e) => setExplanation(e.target.value)} placeholder="Why it's right (optional)" aria-label="Explanation" />
-      <FormFooter error={error} onAdd={add} />
-    </div>
-  )
-}
-
-function MatchForm({ category, onAdd }: { category: string; onAdd: (q: Question) => void }) {
-  const [rows, setRows] = useState([
-    ['', ''],
-    ['', ''],
-    ['', ''],
-  ])
-  const [error, setError] = useState('')
-  const add = () => {
-    const pairs = rows.map(([l, r]) => ({ left: l.trim(), right: r.trim() })).filter((p) => p.left && p.right)
-    if (pairs.length < 2) return setError('Give at least two pairs.')
-    if (new Set(pairs.map((p) => p.right)).size !== pairs.length) return setError('Each partner must be different.')
-    onAdd({ id: newId(), kind: 'match', category, prompt: 'பொருத்துக', promptEn: 'Match the pairs', pairs })
-    setRows([
-      ['', ''],
-      ['', ''],
-      ['', ''],
-    ])
-    setError('')
-  }
-  return (
-    <div className="space-y-2">
-      {rows.map(([l, r], i) => (
-        <div key={i} className="flex items-center gap-2">
-          <input className={input} value={l} onChange={(e) => setRows((rs) => rs.map((x, k) => (k === i ? [e.target.value, x[1]] : x)))} placeholder="Item" aria-label={`Item ${i + 1}`} />
-          <span aria-hidden className="font-black text-slate-400">↔</span>
-          <input className={input} value={r} onChange={(e) => setRows((rs) => rs.map((x, k) => (k === i ? [x[0], e.target.value] : x)))} placeholder="Partner" aria-label={`Partner ${i + 1}`} />
-        </div>
-      ))}
-      {rows.length < 6 && (
-        <Button tone="ghost" size="sm" onClick={() => setRows((rs) => [...rs, ['', '']])}>
-          <FiPlus aria-hidden /> Another pair
-        </Button>
-      )}
-      <FormFooter error={error} onAdd={add} />
-    </div>
-  )
-}
-
-function OrderForm({ category, onAdd }: { category: string; onAdd: (q: Question) => void }) {
-  const [answer, setAnswer] = useState('')
-  const [clue, setClue] = useState('')
-  const [error, setError] = useState('')
-  const unit = answer.trim().includes(' ') ? 'words' : 'letters'
-  const tiles = answer.trim() ? tilesFor({ unit, answer }) : []
-  const add = () => {
-    if (tiles.length < 2) return setError('Type a word (or a sentence) with at least two parts.')
-    onAdd({ id: newId(), kind: 'order', category, unit, answer: answer.trim(), prompt: unit === 'letters' ? 'எழுத்துக்களை அடுக்கிச் சொல்லை அமை' : 'சொற்களை அடுக்கி வாக்கியம் அமை', promptEn: clue.trim() || undefined })
-    setAnswer('')
-    setClue('')
-    setError('')
-  }
-  return (
-    <div className="space-y-3">
-      <input className={input} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Word or sentence, e.g. கண்ணாடி" aria-label="Word or sentence" />
-      <input className={input} value={clue} onChange={(e) => setClue(e.target.value)} placeholder="Clue / meaning (optional), e.g. mirror" aria-label="Clue" />
-      {tiles.length > 0 && (
-        <div>
-          <p className={label}>Students will get these {unit === 'letters' ? 'letter' : 'word'} tiles:</p>
-          <ul className="flex flex-wrap gap-2" aria-label="Tile preview">
-            {tiles.map((t, i) => (
-              <li key={i} className="rounded-xl bg-amber-400 px-3 py-2 text-xl font-extrabold text-amber-950">
-                {t}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <FormFooter error={error} onAdd={add} />
-    </div>
-  )
-}
-
-function FormFooter({ error, onAdd }: { error: string; onAdd: () => void }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-      <p role="alert" className="text-sm font-bold text-rose-700">
-        {error}
-      </p>
-      <Button tone="teal" size="sm" onClick={onAdd}>
-        <FiPlus aria-hidden /> Add question
-      </Button>
-    </div>
   )
 }

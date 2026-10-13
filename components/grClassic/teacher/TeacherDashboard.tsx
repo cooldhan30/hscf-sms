@@ -2,23 +2,31 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { FiArchive, FiCopy, FiEdit2, FiPlay, FiPlusCircle, FiRadio, FiSend } from 'react-icons/fi'
+import { FiArchive, FiBookOpen, FiCopy, FiEdit2, FiPlay, FiPlusCircle, FiRadio, FiSend } from 'react-icons/fi'
 import { dueLabel, formatDue, isPast } from '@/lib/grClassic/format'
-import { ASSIGNMENTS, GAMES, className, gameById, resultsFor } from '@/lib/grClassic/sampleData'
-import type { Game } from '@/lib/grClassic/types'
+import { ASSIGNMENTS, className, gameById, resultsFor } from '@/lib/grClassic/sampleData'
+import type { GameSummary } from '@/lib/grClassic/types'
 import { Button, ButtonLink, Card, Pill, PrototypeNote, Shell, TYPE_META, buttonClass } from '../ui'
+import { grcApi } from './api'
 
 type Tab = 'games' | 'assignments'
 
-export function TeacherDashboard({ pick, tab: initialTab = 'games' }: { pick?: 'host' | 'assign'; tab?: Tab }) {
+export function TeacherDashboard({ games: initialGames, pick, tab: initialTab = 'games' }: { games: GameSummary[]; pick?: 'host' | 'assign'; tab?: Tab }) {
   const [tab, setTab] = useState<Tab>(initialTab)
-  const [games, setGames] = useState<Game[]>(GAMES)
-  const [archived, setArchived] = useState<Game | null>(null)
+  const [games, setGames] = useState<GameSummary[]>(initialGames)
+  const [notice, setNotice] = useState('')
 
-  const duplicate = (g: Game) => setGames((gs) => [{ ...g, id: `${g.id}-copy-${gs.length}`, title: `${g.title} (copy)` }, ...gs])
-  const archive = (g: Game) => {
+  const duplicate = async (g: GameSummary) => {
+    const res = await grcApi<{ game: GameSummary }>(`/games/${g.id}/duplicate`, { method: 'POST' })
+    if (!res.ok) return setNotice(res.error)
+    setGames((gs) => [res.data.game, ...gs])
+    setNotice(`Made a copy: “${res.data.game.title}”.`)
+  }
+  const archive = async (g: GameSummary) => {
+    const res = await grcApi(`/games/${g.id}`, { method: 'DELETE' })
+    if (!res.ok) return setNotice(res.error)
     setGames((gs) => gs.filter((x) => x.id !== g.id))
-    setArchived(g)
+    setNotice(`“${g.title}” archived.`)
   }
 
   return (
@@ -28,9 +36,14 @@ export function TeacherDashboard({ pick, tab: initialTab = 'games' }: { pick?: '
           <h1 className="text-3xl font-black text-slate-900">வணக்கம்! 👋</h1>
           <p className="font-semibold text-slate-600">Pick a game to play, host or assign — or make a new one.</p>
         </div>
-        <ButtonLink href="/gr-classic/teacher/create" size="lg">
-          <FiPlusCircle aria-hidden /> Create Game
-        </ButtonLink>
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href="/gr-classic/teacher/library" tone="plain" size="lg">
+            <FiBookOpen aria-hidden /> Question Library
+          </ButtonLink>
+          <ButtonLink href="/gr-classic/teacher/create" size="lg">
+            <FiPlusCircle aria-hidden /> Create Game
+          </ButtonLink>
+        </div>
       </div>
 
       <div role="tablist" aria-label="Teacher views" className="mt-6 inline-flex rounded-2xl bg-white p-1 ring-1 ring-slate-200">
@@ -55,20 +68,25 @@ export function TeacherDashboard({ pick, tab: initialTab = 'games' }: { pick?: '
               {pick === 'host' ? '📺 Choose a game, then press Host to start a live game.' : '📬 Choose a game, then press Assign to send it to a class.'}
             </p>
           )}
-          {archived && (
-            <div role="status" className="mt-5 flex items-center justify-between gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-white">
-              <span className="font-semibold">“{archived.title}” archived.</span>
-              <Button
-                tone="plain"
-                size="sm"
-                onClick={() => {
-                  setGames((gs) => [archived, ...gs])
-                  setArchived(null)
-                }}
-              >
-                Undo
-              </Button>
-            </div>
+          {notice && (
+            <p role="status" className="mt-5 flex items-center justify-between gap-3 rounded-2xl bg-slate-900 px-4 py-3 font-semibold text-white">
+              {notice}
+              <button type="button" className="text-sm font-bold text-white/80 hover:text-white" onClick={() => setNotice('')}>
+                Dismiss
+              </button>
+            </p>
+          )}
+          {games.length === 0 && (
+            <Card className="mt-5 p-8 text-center">
+              <p className="text-5xl" aria-hidden>
+                🎲
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-slate-900">No games yet</h2>
+              <p className="mt-1 font-semibold text-slate-600">Make your first game in three steps: choose a type, add questions, save.</p>
+              <ButtonLink href="/gr-classic/teacher/create" className="mt-5">
+                <FiPlusCircle aria-hidden /> Create Game
+              </ButtonLink>
+            </Card>
           )}
           <ul className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {games.map((g) => (
@@ -77,7 +95,6 @@ export function TeacherDashboard({ pick, tab: initialTab = 'games' }: { pick?: '
               </li>
             ))}
           </ul>
-          <PrototypeNote>Duplicate and Archive only change this page; nothing is saved yet.</PrototypeNote>
         </>
       )}
 
@@ -86,7 +103,8 @@ export function TeacherDashboard({ pick, tab: initialTab = 'games' }: { pick?: '
   )
 }
 
-function GameCard({ game, pick, onDuplicate, onArchive }: { game: Game; pick?: 'host' | 'assign'; onDuplicate: () => void; onArchive: () => void }) {
+function GameCard({ game, pick, onDuplicate, onArchive }: { game: GameSummary; pick?: 'host' | 'assign'; onDuplicate: () => void; onArchive: () => void }) {
+  const [confirming, setConfirming] = useState(false)
   const m = TYPE_META[game.type]
   const Icon = m.icon
   const glow = (p: 'host' | 'assign') => (pick === p ? 'ring-4 ring-offset-2 ring-amber-300 animate-pulse' : '')
@@ -100,7 +118,8 @@ function GameCard({ game, pick, onDuplicate, onArchive }: { game: Game; pick?: '
       <div className="flex flex-1 flex-col p-5">
         <h3 className="text-xl font-extrabold leading-snug text-slate-900">{game.title}</h3>
         <p className="mt-1 text-sm font-semibold text-slate-500">
-          {game.questions.length} {game.type === 'match' ? 'boards' : 'questions'} · {game.category}
+          {game.questionCount} {game.type === 'match' ? 'boards' : 'questions'}
+          {game.category && ` · ${game.category}`}
         </p>
         <div className="mt-auto grid grid-cols-3 gap-2 pt-5">
           <Link href={`/gr-classic/host/${game.id}`} className={`${buttonClass('indigo', 'sm')} ${glow('host')}`}>
@@ -120,9 +139,20 @@ function GameCard({ game, pick, onDuplicate, onArchive }: { game: Game; pick?: '
           <Button tone="ghost" size="sm" onClick={onDuplicate}>
             <FiCopy aria-hidden /> Duplicate
           </Button>
-          <Button tone="ghost" size="sm" onClick={onArchive}>
-            <FiArchive aria-hidden /> Archive
-          </Button>
+          {confirming ? (
+            <span className="flex items-center gap-1" role="group" aria-label="Confirm archive">
+              <Button tone="primary" size="sm" onClick={onArchive}>
+                Archive
+              </Button>
+              <Button tone="plain" size="sm" onClick={() => setConfirming(false)}>
+                Keep
+              </Button>
+            </span>
+          ) : (
+            <Button tone="ghost" size="sm" onClick={() => setConfirming(true)}>
+              <FiArchive aria-hidden /> Archive
+            </Button>
+          )}
         </div>
       </div>
     </Card>
@@ -131,6 +161,8 @@ function GameCard({ game, pick, onDuplicate, onArchive }: { game: Game; pick?: '
 
 function AssignmentList() {
   return (
+    <>
+    <PrototypeNote>assignments arrive in Phase 4 — these are sample assignments.</PrototypeNote>
     <ul className="mt-5 space-y-3">
       {ASSIGNMENTS.map((a) => {
         const g = gameById(a.gameId)!
@@ -159,5 +191,6 @@ function AssignmentList() {
         )
       })}
     </ul>
+    </>
   )
 }

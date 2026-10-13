@@ -8,6 +8,8 @@ export type Difficulty = 'easy' | 'medium' | 'hard'
 // Multiple choice (Classic Quiz): 2-4 options, one correct.
 export interface ChoiceQuestion {
   id: string
+  categoryId?: string | null
+  difficulty?: Difficulty
   kind: 'choice'
   category: string
   prompt: string
@@ -21,6 +23,8 @@ export interface ChoiceQuestion {
 // Match the Pairs: each left item has exactly one right item.
 export interface MatchQuestion {
   id: string
+  categoryId?: string | null
+  difficulty?: Difficulty
   kind: 'match'
   category: string
   prompt: string
@@ -33,6 +37,8 @@ export interface MatchQuestion {
 // Tamil-aware letter splitting (lib/grClassic/graphemes.ts).
 export interface OrderQuestion {
   id: string
+  categoryId?: string | null
+  difficulty?: Difficulty
   kind: 'order'
   category: string
   prompt: string
@@ -58,10 +64,28 @@ export interface Game {
   title: string
   type: GameType
   category: string
+  categoryId?: string | null
   difficulty: Difficulty
   questions: Question[]
   // Seconds per question in Live play only; practice and assignments are untimed per question.
   liveSeconds: number
+  updatedAt: string
+}
+
+// A topic in the question library. `own` = made by this teacher (starter topics are shared).
+export interface Category {
+  id: string
+  name: string
+  own: boolean
+}
+
+// What My Games lists -- a game without its questions.
+export interface GameSummary {
+  id: string
+  title: string
+  type: GameType
+  category: string
+  questionCount: number
   updatedAt: string
 }
 

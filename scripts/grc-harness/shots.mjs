@@ -37,6 +37,15 @@ const VIEWPORTS = [
 ]
 const only = process.argv.find((a) => a.startsWith('--only='))?.slice(7)
 const report = { overflow: [], errors: [], flows: {} }
+// A teacher's own spreadsheet: 2 good rows (one with a new topic), 1 repeat, 1 broken, 1 already in the library.
+const IMPORT_CSV = [
+  'topic,question,question_english,answer_1,answer_2,answer_3,answer_4,correct_answer,explanation,difficulty',
+  'குறில் / நெடில்,இவற்றில் குறில் எழுத்து எது?,Which is short?,ஒ,ஓ,,,1,குறில்: அ இ உ எ ஒ,easy',
+  'பால்,"""அவள்"" எந்தப் பால்?",,ஆண்பால்,பெண்பால்,பலர்பால்,,2,,medium',
+  'பால்,"""அவள்""  எந்தப் பால்?",,ஆண்பால்,பெண்பால்,பலர்பால்,,2,,medium',
+  'திணை,இது ஒரு கேள்வி,,ஒரே பதில்,,,,1,,',
+  'உயிர் எழுத்துக்கள்,தமிழில் எத்தனை உயிர் எழுத்துக்கள் உள்ளன?,,10,12,18,247,2,,easy',
+].join('\n')
 
 async function open(vp, screen) {
   const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, hasTouch: !!vp.touch, deviceScaleFactor: 1 })
@@ -49,6 +58,7 @@ async function open(vp, screen) {
   return { ctx, page }
 }
 async function shot(page, vp, name) {
+  name = name.replace('&empty=1', '-empty')
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   if (over > 1) report.overflow.push(`${vp.name}/${name}: ${over}px`)
   await page.screenshot({ path: path.join(shots, `${name}--${vp.name}.png`), fullPage: true })
@@ -62,7 +72,7 @@ async function flow(name, vp, fn) {
   }
 }
 
-const STATIC = ['home', 'teacher', 'teacher-pick-host', 'teacher-assignments', 'create', 'edit', 'assign', 'results', 'student', 'student-assignments', 'review', 'quiz', 'match', 'word', 'sentence', 'join']
+const STATIC = ['home', 'teacher', 'teacher&empty=1', 'library', 'teachers-only', 'teacher-pick-host', 'teacher-assignments', 'create', 'edit', 'assign', 'results', 'student', 'student-assignments', 'review', 'quiz', 'match', 'word', 'sentence', 'join']
 for (const vp of VIEWPORTS) {
   if (only && !vp.name.startsWith(only)) continue
   for (const s of STATIC) {
@@ -70,6 +80,60 @@ for (const vp of VIEWPORTS) {
     await shot(page, vp, s)
     await ctx.close()
   }
+
+  await flow('library-add', vp, async () => {
+    const { ctx, page } = await open(vp, 'library')
+    await page.getByRole('button', { name: 'Add question' }).first().click()
+    await page.getByLabel('Question', { exact: true }).fill('இவற்றில் உயிர்மெய் எழுத்து எது?')
+    await page.getByLabel('Answer 1', { exact: true }).fill('க')
+    await page.getByLabel('Answer 2', { exact: true }).fill('கா')
+    await page.getByLabel('Answer 2 is right').check()
+    await shot(page, vp, 'flow-library-add-form')
+    await page.getByRole('button', { name: 'Add question' }).last().click()
+    await page.getByText('Question added to your library.').waitFor()
+    await shot(page, vp, 'flow-library-added')
+    await ctx.close()
+  })
+
+  await flow('library-import', vp, async () => {
+    const { ctx, page } = await open(vp, 'library')
+    await page.getByRole('button', { name: 'Import CSV' }).click()
+    await page.setInputFiles('#grc-csv', { name: 'my-questions.csv', mimeType: 'text/csv', buffer: Buffer.from(IMPORT_CSV, 'utf8') })
+    await page.getByText('ready', { exact: false }).first().waitFor()
+    await shot(page, vp, 'flow-import-preview')
+    await page.getByRole('button', { name: /^Import \d+ question/ }).click()
+    await page.getByText(/Imported \d+ question/).waitFor()
+    await shot(page, vp, 'flow-import-done')
+    await ctx.close()
+  })
+
+  await flow('create-save', vp, async () => {
+    const { ctx, page } = await open(vp, 'create')
+    await page.getByRole('button', { name: /Classic Quiz/ }).click()
+    await page.getByLabel('Game name').fill('உயிர் எழுத்துக்கள் — வாரம் 1')
+    await page.getByRole('checkbox').nth(0).check()
+    await page.getByRole('checkbox').nth(2).check()
+    await page.getByLabel('Question', { exact: true }).fill('"ஆடு" எந்த எழுத்தில் தொடங்குகிறது?')
+    await page.getByLabel('Answer 1', { exact: true }).fill('அ')
+    await page.getByLabel('Answer 2', { exact: true }).fill('ஆ')
+    await page.getByLabel('Answer 2 is right').check()
+    await page.getByRole('button', { name: 'Add question' }).click()
+    await page.waitForTimeout(500)
+    await shot(page, vp, 'flow-create-filled')
+    await page.getByRole('button', { name: 'Save game' }).click()
+    await page.getByText('Game saved!').waitFor()
+    await shot(page, vp, 'flow-create-saved')
+    await ctx.close()
+  })
+
+  await flow('duplicate', vp, async () => {
+    const { ctx, page } = await open(vp, 'teacher')
+    await page.getByRole('button', { name: 'Duplicate' }).first().click()
+    await page.getByText('Made a copy').waitFor()
+    await page.getByRole('button', { name: 'Archive' }).nth(1).click()
+    await shot(page, vp, 'flow-teacher-duplicate')
+    await ctx.close()
+  })
 
   await flow('create', vp, async () => {
     const { ctx, page } = await open(vp, 'create')

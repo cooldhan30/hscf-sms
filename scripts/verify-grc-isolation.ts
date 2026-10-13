@@ -15,7 +15,7 @@ import { join } from 'path'
 
 const ROOT = join(__dirname, '..')
 const BASE = process.argv[2] ?? 'master'
-const GRC_PATHS = ['app/gr-classic/', 'app/api/gr-classic/', 'components/grClassic/', 'lib/grClassic/', 'scripts/verify-grc-', 'scripts/grc-harness/', 'supabase/migrations/']
+const GRC_PATHS = ['app/gr-classic/', 'app/api/gr-classic/', 'components/grClassic/', 'lib/grClassic/', 'scripts/verify-grc-', 'scripts/grc-harness/', 'supabase/migrations/', 'supabase/tests/grc_']
 const EXISTING_GAMEROOM = ['lib/gameRoom/', 'lib/gameRoomV2/', 'lib/gameRoomMode', 'components/gameRoom/', 'components/gameRoomV2/', 'components/gameRoomMode/', 'app/gameroom/', 'app/gameroom-v2/', 'app/api/game-room/', 'app/api/gameroom-v2/', 'app/student/game-room/', 'app/teacher/game-room/']
 let failures = 0
 const sh = (cmd: string) => execSync(cmd, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })

@@ -1,9 +1,9 @@
-import { notFound } from 'next/navigation'
 import { AssignForm } from '@/components/grClassic/teacher/AssignForm'
-import { gameById } from '@/lib/grClassic/sampleData'
+import { TeachersOnly } from '@/components/grClassic/TeachersOnly'
+import { loadTeacherGame } from '@/lib/grClassic/server/teacherGame'
 
-export default function GrClassicAssignPage({ params }: { params: { gameId: string } }) {
-  const game = gameById(params.gameId)
-  if (!game) notFound()
-  return <AssignForm game={game} />
+export default async function GrClassicAssignPage({ params }: { params: { gameId: string } }) {
+  const r = await loadTeacherGame(`/gr-classic/teacher/assign/${params.gameId}`, params.gameId)
+  if (!r.ok) return <TeachersOnly message={r.error} />
+  return <AssignForm game={r.game} />
 }

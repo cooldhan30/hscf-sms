@@ -1,9 +1,9 @@
-import { notFound } from 'next/navigation'
 import { HostLive } from '@/components/grClassic/live/HostLive'
-import { gameById } from '@/lib/grClassic/sampleData'
+import { TeachersOnly } from '@/components/grClassic/TeachersOnly'
+import { loadTeacherGame } from '@/lib/grClassic/server/teacherGame'
 
-export default function GrClassicHostPage({ params }: { params: { gameId: string } }) {
-  const game = gameById(params.gameId)
-  if (!game) notFound()
-  return <HostLive game={game} />
+export default async function GrClassicHostPage({ params }: { params: { gameId: string } }) {
+  const r = await loadTeacherGame(`/gr-classic/host/${params.gameId}`, params.gameId)
+  if (!r.ok) return <TeachersOnly message={r.error} />
+  return <HostLive game={r.game} />
 }

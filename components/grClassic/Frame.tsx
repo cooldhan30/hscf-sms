@@ -12,7 +12,7 @@ export function Frame({ children }: { children: ReactNode }) {
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen bg-[#fff8ee] bg-[radial-gradient(rgba(190,18,60,0.07)_1.5px,transparent_1.5px)] font-tamil text-slate-800 [background-size:22px_22px]">
-        <p className="bg-amber-300 px-4 py-1.5 text-center text-xs font-extrabold text-amber-950">Prototype · sample data · nothing is saved</p>
+        <p className="bg-amber-300 px-4 py-1.5 text-center text-xs font-extrabold text-amber-950">Preview · games &amp; questions are real · everything else is sample data</p>
         {mounted ? children : <div className="min-h-[80vh]" />}
       </div>
     </MotionConfig>
