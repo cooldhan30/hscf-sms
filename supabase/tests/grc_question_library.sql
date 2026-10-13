@@ -62,7 +62,7 @@ BEGIN
   UPDATE sms_grc_questions SET archived_at = now() WHERE id = q_order;
   INSERT INTO sms_grc_questions (owner_id, kind, prompt, payload, content_key) VALUES ('grc_test_t1', 'order', 'Q3', '{"unit":"letters","answer":"அம்மா"}', 'k2');
 
-  -- Can't write as someone else, or create/rename starter topics
+  -- Cannot write as someone else, or create/rename starter topics
   BEGIN
     INSERT INTO sms_grc_questions (owner_id, kind, prompt, payload, content_key) VALUES ('grc_test_t2', 'choice', 'X', '{}', 'k9');
     fails := fails || 'teacher wrote a question as another teacher';
@@ -77,7 +77,7 @@ BEGIN
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n <> 0 THEN fails := fails || format('teacher renamed %s starter topics', n); END IF;
 
-  -- ---- Teacher 2 can't see or touch teacher 1's work ----
+  -- ---- Teacher 2 cannot see or touch the work of teacher 1 ----
   PERFORM set_config('request.jwt.claims', '{"sub":"grc_test_t2","role":"authenticated"}', true);
   SELECT count(*) INTO n FROM sms_grc_questions;
   IF n <> 0 THEN fails := fails || format('teacher 2 sees %s of teacher 1''s questions', n); END IF;
@@ -111,7 +111,7 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN NULL;
   END;
 
-  -- ---- Students see nothing and can't write ----
+  -- ---- Students see nothing and cannot write ----
   PERFORM set_config('request.jwt.claims', '{"sub":"grc_test_s1","role":"authenticated"}', true);
   SELECT (SELECT count(*) FROM sms_grc_questions) + (SELECT count(*) FROM sms_grc_games) + (SELECT count(*) FROM sms_grc_game_questions) + (SELECT count(*) FROM sms_grc_categories) INTO n;
   IF n <> 0 THEN fails := fails || format('student can read %s library rows (answer keys!)', n); END IF;

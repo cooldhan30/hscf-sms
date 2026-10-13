@@ -1,16 +1,18 @@
 -- =====================================================
 -- 094: GAMEROOM CLASSIC -- QUESTION LIBRARY (Phase 2)
 --
--- A teacher's own reusable questions, topics and saved games for
+-- Reusable questions, topics and saved games of each teacher for
 -- GameRoom Classic (/gr-classic). Teachers write a question once and
 -- reuse it in any game of a compatible type.
 --
 -- ISOLATION: purely additive. Creates only new sms_grc_* tables and two
 -- new sms_grc_* functions. No existing table, column, function, policy
--- or row is changed (the legacy GameRoom's sms_game_* and GameRoom V2's
+-- or row is changed (the legacy GameRoom sms_game_* and GameRoom V2
 -- sms_gamev2_* tables are untouched). It only references
 -- sms_profiles(id) and reuses the existing helpers sms_current_role(),
 -- sms_current_user_id() and sms_update_updated_at_column().
+--
+-- Safe to run more than once (e.g. after a partly-failed run).
 --
 -- Rollback (nothing else depends on these tables):
 --   DROP TABLE sms_grc_game_questions, sms_grc_games, sms_grc_questions, sms_grc_categories;
@@ -82,30 +84,38 @@ DROP TRIGGER IF EXISTS trg_sms_grc_games_updated_at ON sms_grc_games;
 CREATE TRIGGER trg_sms_grc_games_updated_at BEFORE UPDATE ON sms_grc_games
   FOR EACH ROW EXECUTE FUNCTION sms_update_updated_at_column();
 
--- A game may only hold its owner's questions, and only of the kind its
+-- A game may only hold its owner questions, and only of the kind its
 -- game type plays (quiz <- choice, match <- match, word-builder <- order).
 -- Runs as the caller, so RLS also applies to the lookups: a question the
--- caller can't see is treated as "not theirs".
+-- caller cannot see is treated as "not theirs".
+-- (Plain IF/ELSIF on purpose: a conditional expression here confused the
+-- Supabase SQL editor, which cut the function body short.)
 CREATE OR REPLACE FUNCTION sms_grc_check_game_question()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = public
-AS $$
+AS $fn$
 DECLARE
   v_game sms_grc_games%ROWTYPE;
   v_question sms_grc_questions%ROWTYPE;
+  v_expected TEXT := 'order';
 BEGIN
   SELECT * INTO v_game FROM sms_grc_games WHERE id = NEW.game_id;
   SELECT * INTO v_question FROM sms_grc_questions WHERE id = NEW.question_id;
   IF v_game.id IS NULL OR v_question.id IS NULL OR v_game.owner_id <> v_question.owner_id THEN
-    RAISE EXCEPTION 'GameRoom Classic: a game can only use its own teacher''s questions';
+    RAISE EXCEPTION 'GameRoom Classic: a game can only use questions from the same teacher';
   END IF;
-  IF v_question.kind <> CASE v_game.game_type WHEN 'quiz' THEN 'choice' WHEN 'match' THEN 'match' ELSE 'order' END THEN
+  IF v_game.game_type = 'quiz' THEN
+    v_expected := 'choice';
+  ELSIF v_game.game_type = 'match' THEN
+    v_expected := 'match';
+  END IF;
+  IF v_question.kind <> v_expected THEN
     RAISE EXCEPTION 'GameRoom Classic: this question type does not fit a % game', v_game.game_type;
   END IF;
   RETURN NEW;
 END;
-$$;
+$fn$;
 
 DROP TRIGGER IF EXISTS trg_sms_grc_game_questions_check ON sms_grc_game_questions;
 CREATE TRIGGER trg_sms_grc_game_questions_check BEFORE INSERT OR UPDATE ON sms_grc_game_questions
@@ -113,8 +123,8 @@ CREATE TRIGGER trg_sms_grc_game_questions_check BEFORE INSERT OR UPDATE ON sms_g
 
 -- Save a game and its ordered questions in one step (all or nothing), so
 -- a failed save can never leave a game with half its questions.
--- SECURITY INVOKER: runs with the caller's own rights, so RLS and the
--- check trigger above still decide what is allowed. A game's type can't
+-- SECURITY INVOKER: runs with the rights of the caller, so RLS and the
+-- check trigger above still decide what is allowed. A game type cannot
 -- change after creation (its questions were chosen for that type).
 CREATE OR REPLACE FUNCTION sms_grc_save_game(
   p_game_id UUID,
@@ -129,7 +139,7 @@ RETURNS UUID
 LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = public
-AS $$
+AS $fn$
 DECLARE
   v_id UUID;
 BEGIN
@@ -161,7 +171,7 @@ BEGIN
 
   RETURN v_id;
 END;
-$$;
+$fn$;
 
 REVOKE ALL ON FUNCTION sms_grc_save_game(UUID, TEXT, TEXT, UUID, TEXT, INT, UUID[]) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION sms_grc_save_game(UUID, TEXT, TEXT, UUID, TEXT, INT, UUID[]) TO authenticated;
@@ -176,24 +186,31 @@ ALTER TABLE sms_grc_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sms_grc_games ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sms_grc_game_questions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "grc_categories: staff read starter and own" ON sms_grc_categories;
 CREATE POLICY "grc_categories: staff read starter and own" ON sms_grc_categories
   FOR SELECT USING (sms_current_role() IN ('teacher', 'admin') AND (owner_id IS NULL OR owner_id = sms_current_user_id()));
+DROP POLICY IF EXISTS "grc_categories: teacher manage own" ON sms_grc_categories;
 CREATE POLICY "grc_categories: teacher manage own" ON sms_grc_categories
   FOR ALL USING (sms_current_role() = 'teacher' AND owner_id = sms_current_user_id())
   WITH CHECK (sms_current_role() = 'teacher' AND owner_id = sms_current_user_id());
 
+DROP POLICY IF EXISTS "grc_questions: teacher manage own" ON sms_grc_questions;
 CREATE POLICY "grc_questions: teacher manage own" ON sms_grc_questions
   FOR ALL USING (sms_current_role() = 'teacher' AND owner_id = sms_current_user_id())
   WITH CHECK (sms_current_role() = 'teacher' AND owner_id = sms_current_user_id());
+DROP POLICY IF EXISTS "grc_questions: admin read" ON sms_grc_questions;
 CREATE POLICY "grc_questions: admin read" ON sms_grc_questions
   FOR SELECT USING (sms_current_role() = 'admin');
 
+DROP POLICY IF EXISTS "grc_games: teacher manage own" ON sms_grc_games;
 CREATE POLICY "grc_games: teacher manage own" ON sms_grc_games
   FOR ALL USING (sms_current_role() = 'teacher' AND owner_id = sms_current_user_id())
   WITH CHECK (sms_current_role() = 'teacher' AND owner_id = sms_current_user_id());
+DROP POLICY IF EXISTS "grc_games: admin read" ON sms_grc_games;
 CREATE POLICY "grc_games: admin read" ON sms_grc_games
   FOR SELECT USING (sms_current_role() = 'admin');
 
+DROP POLICY IF EXISTS "grc_game_questions: teacher manage own games" ON sms_grc_game_questions;
 CREATE POLICY "grc_game_questions: teacher manage own games" ON sms_grc_game_questions
   FOR ALL USING (
     sms_current_role() = 'teacher'
@@ -203,6 +220,7 @@ CREATE POLICY "grc_game_questions: teacher manage own games" ON sms_grc_game_que
     sms_current_role() = 'teacher'
     AND EXISTS (SELECT 1 FROM sms_grc_games g WHERE g.id = sms_grc_game_questions.game_id AND g.owner_id = sms_current_user_id())
   );
+DROP POLICY IF EXISTS "grc_game_questions: admin read" ON sms_grc_game_questions;
 CREATE POLICY "grc_game_questions: admin read" ON sms_grc_game_questions
   FOR SELECT USING (sms_current_role() = 'admin');
 
