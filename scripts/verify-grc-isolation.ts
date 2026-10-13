@@ -25,7 +25,20 @@ console.log(`== 1. Changed files vs. ${BASE} stay inside GameRoom Classic ==`)
 const base = sh(`git merge-base ${BASE} HEAD`).trim()
 const changed = new Set([...lines(sh(`git diff --name-only ${base}`)), ...lines(sh('git ls-files --others --exclude-standard'))])
 changed.delete('.wakatime-project') // editor plugin file, not part of the app
+
+// The one approved change outside the module (Phase 5): adding the
+// qrcode-generator dependency. package.json may only gain that one line,
+// and package-lock.json only that package's entry -- nothing removed.
+function onlyQrDependency(file: string): boolean {
+  const diff = sh(`git diff ${base} -- ${file}`).split('\n')
+  const edits = diff.filter((l) => (l.startsWith('+') || l.startsWith('-')) && !l.startsWith('+++') && !l.startsWith('---'))
+  if (!edits.length || edits.some((l) => l.startsWith('-'))) return false
+  if (file === 'package.json') return edits.length === 1 && edits[0].includes('"qrcode-generator"')
+  return edits.every((l) => /qrcode-generator|"(version|resolved|integrity|license)":|^\+\s*\},?$/.test(l))
+}
+
 for (const file of Array.from(changed).sort()) {
+  if ((file === 'package.json' || file === 'package-lock.json') && onlyQrDependency(file)) continue
   const inside = GRC_PATHS.some((p) => file.startsWith(p))
   // A migration is allowed only if it's a new sms_grc_* file.
   const okMigration = !file.startsWith('supabase/migrations/') || /_grc_/.test(file)

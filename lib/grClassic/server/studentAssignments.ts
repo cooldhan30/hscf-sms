@@ -19,13 +19,13 @@ import { ASSIGNMENT_COLUMNS, ATTEMPT_COLUMNS, questionResults, toAssignment, typ
 // assignments for classes they are actively enrolled in, and attempts
 // they own. Answer keys never leave this file except as right/wrong.
 
-type Student = { ok: true; admin: SupabaseClient; studentId: string; firstName: string }
+type Student = { ok: true; admin: SupabaseClient; studentId: string; profileId: string; firstName: string; lastName: string }
 
 export async function grcStudentApi(): Promise<Student | { ok: false; response: NextResponse }> {
   if (!isGrClassicEnabled()) return { ok: false, response: NextResponse.json({ error: 'Not found' }, { status: 404 }) }
   const guard = await requireStudent()
   if (!guard.ok) return { ok: false, response: NextResponse.json({ error: guard.error }, { status: guard.status }) }
-  return { ok: true, admin: createAdminClient(), studentId: guard.student.id, firstName: guard.student.first_name }
+  return { ok: true, admin: createAdminClient(), studentId: guard.student.id, profileId: guard.profile.id, firstName: guard.student.first_name, lastName: guard.student.last_name }
 }
 
 export async function grcStudentPage(path: string): Promise<Student | { ok: false; error: string }> {
@@ -33,7 +33,7 @@ export async function grcStudentPage(path: string): Promise<Student | { ok: fals
   if (!userId) redirect(`/login?next=${encodeURIComponent(path)}`)
   const guard = await requireStudent()
   if (!guard.ok) return { ok: false, error: guard.error }
-  return { ok: true, admin: createAdminClient(), studentId: guard.student.id, firstName: guard.student.first_name }
+  return { ok: true, admin: createAdminClient(), studentId: guard.student.id, profileId: guard.profile.id, firstName: guard.student.first_name, lastName: guard.student.last_name }
 }
 
 export class GrcError extends Error {

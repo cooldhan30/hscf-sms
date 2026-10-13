@@ -5,7 +5,7 @@ import { FiArrowDown, FiArrowUp, FiCheckCircle, FiTrash2, FiUpload } from 'react
 import { summarize } from '@/lib/grClassic/csv'
 import { QUESTION_KIND_FOR_GAME, type Category, type Difficulty, type Game, type GameType, type Question } from '@/lib/grClassic/types'
 import { GamePlayer } from '../games/GamePlayer'
-import { Advanced, Button, ButtonLink, Card, PrototypeNote, Segmented, Shell, TYPE_META } from '../ui'
+import { Advanced, Button, ButtonLink, Card, Segmented, Shell, TYPE_META } from '../ui'
 import { grcApi } from './api'
 import { ImportPanel } from './ImportPanel'
 import { QuestionEditor, inputClass, labelClass } from './QuestionEditor'
@@ -197,7 +197,7 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
             <ButtonLink tone="primary" href={`/gr-classic/play/${savedId}?mode=preview`}>
               Play it
             </ButtonLink>
-            <ButtonLink tone="indigo" href={`/gr-classic/host/${savedId}`}>
+            <ButtonLink tone="indigo" prefetch={false} href={`/gr-classic/host/${savedId}`}>
               Host live
             </ButtonLink>
             <ButtonLink tone="teal" href={`/gr-classic/teacher/assign/${savedId}`}>
@@ -207,7 +207,6 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
           <ButtonLink tone="ghost" href="/gr-classic/teacher" className="mt-4">
             Back to My Games
           </ButtonLink>
-          <PrototypeNote>Host and Assign still use the Phase 1 sample screens (Phases 4–5).</PrototypeNote>
         </Card>
       )}
     </Shell>

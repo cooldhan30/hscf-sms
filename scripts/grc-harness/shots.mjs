@@ -72,7 +72,7 @@ async function flow(name, vp, fn) {
   }
 }
 
-const STATIC = ['home', 'teacher', 'teacher&empty=1', 'library', 'teachers-only', 'teacher-pick-host', 'teacher-assignments', 'create', 'edit', 'assign', 'results', 'student', 'student-assignments', 'review', 'quiz', 'match', 'word', 'sentence', 'join']
+const STATIC = ['home', 'teacher', 'teacher&empty=1', 'library', 'teachers-only', 'teacher-pick-host', 'teacher-assignments', 'create', 'edit', 'assign', 'results', 'student', 'student-assignments', 'review', 'quiz', 'match', 'word', 'sentence', 'join', 'host-setup']
 for (const vp of VIEWPORTS) {
   if (only && !vp.name.startsWith(only)) continue
   for (const s of STATIC) {
@@ -303,51 +303,79 @@ for (const vp of VIEWPORTS) {
     await ctx.close()
   })
 
-  await flow('join', vp, async () => {
-    const { ctx, page } = await open(vp, 'join')
+  await flow('live-student-quiz', vp, async () => {
+    const { ctx, page } = await open(vp, 'join&auto=1')
     await page.getByLabel('Game PIN').fill('111111')
     await page.getByRole('button', { name: 'Join ▶' }).click()
-    await shot(page, vp, 'flow-join-bad-pin')
+    await page.getByText('couldn’t find a live game').waitFor()
+    await shot(page, vp, 'flow-live-bad-pin')
     await page.getByLabel('Game PIN').fill('482913')
     await page.getByRole('button', { name: 'Join ▶' }).click()
-    await shot(page, vp, 'flow-join-waiting')
-    await page.getByRole('button', { name: /Demo: teacher starts/ }).click()
-    await shot(page, vp, 'flow-join-question')
+    await page.getByText('You’re in, Kavin!').waitFor()
+    await shot(page, vp, 'flow-live-lobby-phone')
+    await page.getByRole('button', { name: 'Answer 2: 12' }).waitFor({ timeout: 15000 })
+    await shot(page, vp, 'flow-live-question-phone')
     await page.getByRole('button', { name: 'Answer 2: 12' }).click()
-    await page.waitForTimeout(1800)
-    await shot(page, vp, 'flow-join-result')
+    await page.getByText('Answer locked in!').waitFor()
+    await shot(page, vp, 'flow-live-locked-phone')
+    await page.getByText('சரி! Correct!').waitFor({ timeout: 15000 })
+    await shot(page, vp, 'flow-live-reveal-phone')
+    await page.getByText('You’re number').waitFor({ timeout: 10000 })
+    await shot(page, vp, 'flow-live-leaderboard-phone')
+    await ctx.close()
+  })
+
+  await flow('live-student-race', vp, async () => {
+    const { ctx, page } = await open(vp, 'join&auto=1&game=g-porul-match&pin=482913')
+    await page.getByText('Tap one card, then its partner.').waitFor({ timeout: 15000 })
+    for (const [l, r] of [['பூனை', 'cat'], ['நாய்', 'dog'], ['பசு', 'cow'], ['யானை', 'elephant']]) {
+      await page.getByRole('button', { name: l, exact: true }).click()
+      await page.getByRole('button', { name: r, exact: true }).click()
+      await page.waitForTimeout(200)
+    }
+    await page.getByText('2 / 2').waitFor({ timeout: 5000 })
+    await shot(page, vp, 'flow-live-race-phone')
     await ctx.close()
   })
 
   if (!vp.name.startsWith('phone')) {
-    await flow('host', vp, async () => {
+    await flow('live-host', vp, async () => {
       const { ctx, page } = await open(vp, 'host')
-      await page.waitForTimeout(6000)
+      await page.waitForTimeout(3500)
       await shot(page, vp, 'flow-host-lobby')
       await page.getByRole('button', { name: 'Start game ▶' }).click()
-      await page.waitForTimeout(4000)
+      await page.getByRole('timer').waitFor()
+      await page.waitForTimeout(2500)
       await shot(page, vp, 'flow-host-question')
+      // Revealed automatically when everyone has answered or time is up.
       await page.getByRole('button', { name: 'Next ▶' }).waitFor({ timeout: 15000 })
-      await page.waitForTimeout(700)
+      await page.waitForTimeout(600)
       await shot(page, vp, 'flow-host-reveal')
       await page.getByRole('button', { name: 'Next ▶' }).click()
-      await page.waitForTimeout(500)
+      await page.getByRole('heading', { name: 'Leaderboard' }).waitFor()
+      await page.waitForTimeout(400)
       await shot(page, vp, 'flow-host-leaderboard')
       for (let i = 1; i < 5; i++) {
         await page.getByRole('button', { name: 'Next question ▶' }).click()
-        await page.getByRole('button', { name: 'Next ▶' }).click({ timeout: 15000 })
+        await page.getByRole('button', { name: /Stop timer/ }).click()
+        await page.getByRole('button', { name: 'Next ▶' }).click()
       }
       await page.getByRole('button', { name: /Show winners/ }).click()
       await page.waitForTimeout(2200)
       await shot(page, vp, 'flow-host-podium')
+      await page.getByRole('button', { name: 'Play again' }).click()
+      await page.getByRole('button', { name: 'Start game ▶' }).waitFor()
       await ctx.close()
     })
-    await flow('host-race', vp, async () => {
-      const { ctx, page } = await open(vp, 'host-race')
-      await page.waitForTimeout(4000)
+    await flow('live-host-race', vp, async () => {
+      const { ctx, page } = await open(vp, 'host&game=g-porul-match')
+      await page.waitForTimeout(3000)
       await page.getByRole('button', { name: 'Start game ▶' }).click()
       await page.waitForTimeout(5000)
       await shot(page, vp, 'flow-host-race')
+      await page.getByRole('button', { name: /End game & show winners/ }).click()
+      await page.waitForTimeout(1500)
+      await shot(page, vp, 'flow-host-race-podium')
       await ctx.close()
     })
   }

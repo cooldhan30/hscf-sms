@@ -21,6 +21,8 @@ import { GamePlayer } from '@/components/grClassic/games/GamePlayer'
 import { LocalAssignmentPlayer } from '@/components/grClassic/games/LocalAssignmentPlayer'
 import { JoinLive } from '@/components/grClassic/live/JoinLive'
 import { HostLive } from '@/components/grClassic/live/HostLive'
+import { HostSetup } from '@/components/grClassic/live/HostSetup'
+import { liveStandIn } from './liveStandIn'
 import { TeachersOnly } from '@/components/grClassic/TeachersOnly'
 import { STARTER_CATEGORIES } from '@/lib/grClassic/categories'
 import { readImport } from '@/lib/grClassic/csv'
@@ -33,6 +35,7 @@ import { validateQuestion, type QuestionInput, type ValidQuestion } from '@/lib/
 import type { AssignmentSummary, Category, GameSummary, Question, QuestionResult } from '@/lib/grClassic/types'
 
 const params = new URLSearchParams(location.search)
+const live = liveStandIn(params)
 const empty = params.get('empty') === '1'
 
 // ---- sample library with topic ids, as the server would send it ----
@@ -79,6 +82,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const body = init?.body ? JSON.parse(String(init.body)) : null
   await new Promise((r) => setTimeout(r, 120))
   const reply = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
+  const lv = live(path, method, body)
+  if (lv) return reply(lv.data, lv.status)
 
   // Saved-game preview: answers checked here, like the real server (?fail=1 = server down)
   const play = path.match(/^\/games\/([^/]+)\/(check|hint)$/)
@@ -180,9 +185,9 @@ export const SCREENS: Record<string, () => ReactNode> = {
   'remote-quiz': () => remote('g-uyir-quiz'),
   'remote-match': () => remote('g-porul-match'),
   'remote-word': () => remote('g-word-builder'),
-  join: () => <JoinLive />,
-  host: () => <HostLive game={g('g-uyir-quiz')} />,
-  'host-race': () => <HostLive game={g('g-porul-match')} />,
+  join: () => <JoinLive name="Kavin" />,
+  host: () => <HostLive sessionId="live-1" />,
+  'host-setup': () => <HostSetup gameId="g-uyir-quiz" title={g('g-uyir-quiz').title} type="quiz" classes={CLASSES} />,
 }
 
 const screen = params.get('screen') ?? 'home'

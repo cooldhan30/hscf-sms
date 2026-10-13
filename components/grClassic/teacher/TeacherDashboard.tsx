@@ -121,7 +121,7 @@ function GameCard({ game, pick, onDuplicate, onArchive }: { game: GameSummary; p
           {game.category && ` · ${game.category}`}
         </p>
         <div className="mt-auto grid grid-cols-3 gap-2 pt-5">
-          <Link href={`/gr-classic/host/${game.id}`} className={`${buttonClass('indigo', 'sm')} ${glow('host')}`}>
+          <Link prefetch={false} href={`/gr-classic/host/${game.id}`} className={`${buttonClass('indigo', 'sm')} ${glow('host')}`}>
             <FiRadio aria-hidden /> Host
           </Link>
           <Link href={`/gr-classic/teacher/assign/${game.id}`} className={`${buttonClass('teal', 'sm')} ${glow('assign')}`}>
