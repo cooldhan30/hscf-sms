@@ -5,7 +5,7 @@ import { FiArrowDown, FiArrowUp, FiCheckCircle, FiTrash2, FiUpload } from 'react
 import { summarize } from '@/lib/grClassic/csv'
 import { QUESTION_KIND_FOR_GAME, type Category, type Difficulty, type Game, type GameType, type Question } from '@/lib/grClassic/types'
 import { GamePlayer } from '../games/GamePlayer'
-import { Advanced, Button, ButtonLink, Card, Segmented, Shell, TYPE_META } from '../ui'
+import { Advanced, Button, ButtonLink, Card, Segmented, Shell, TYPE_META, countLabel } from '../ui'
 import { grcApi } from './api'
 import { ImportPanel } from './ImportPanel'
 import { QuestionEditor, inputClass, labelClass } from './QuestionEditor'
@@ -57,7 +57,7 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
       <ol className="mb-6 flex items-center gap-2 text-sm font-bold" aria-label="Steps">
         {['Game type', 'Questions', 'Save or play'].map((s, i) => (
           <li key={s} aria-current={step === i + 1 ? 'step' : undefined} className={`flex items-center gap-2 ${step === i + 1 ? 'text-slate-900' : 'text-slate-400'}`}>
-            <span className={`grid h-7 w-7 place-items-center rounded-full ${step > i ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-600'}`}>{i + 1}</span>
+            <span className={`grid h-7 w-7 place-items-center rounded-full ${step > i ? 'bg-teal-700 text-white' : 'bg-slate-200 text-slate-600'}`}>{i + 1}</span>
             <span className="hidden sm:inline">{s}</span>
             {i < 2 && <span aria-hidden className="mx-1 h-0.5 w-6 bg-slate-200" />}
           </li>
@@ -83,7 +83,7 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
                   }}
                   className="flex flex-col items-start gap-3 rounded-3xl bg-white p-6 text-left ring-2 ring-slate-200 transition hover:-translate-y-1 hover:shadow-lg hover:ring-slate-400"
                 >
-                  <span className={`grid h-14 w-14 place-items-center rounded-2xl text-white ${m.band}`}>
+                  <span className={`grid h-14 w-14 place-items-center rounded-2xl ${m.band} ${m.bandText}`}>
                     <Icon aria-hidden className="h-7 w-7" />
                   </span>
                   <span className="text-xl font-black text-slate-900">{m.label}</span>
@@ -191,7 +191,7 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
           <FiCheckCircle aria-hidden className="mx-auto h-16 w-16 text-emerald-500" />
           <h1 className="mt-3 text-3xl font-black text-slate-900">Game saved!</h1>
           <p className="mt-1 font-semibold text-slate-600">
-            “{game.title}” · {questions.length} {type === 'match' ? 'boards' : 'questions'}
+            “{game.title}” · {countLabel(questions.length, type)}
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <ButtonLink tone="primary" href={`/gr-classic/play/${savedId}?mode=preview`}>

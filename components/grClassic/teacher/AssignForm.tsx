@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { FiCheck, FiCheckCircle, FiSend } from 'react-icons/fi'
 import { formatDue, inDays } from '@/lib/grClassic/format'
 import { DEFAULT_ASSIGNMENT_SETTINGS, type AssignmentSettings, type GameType, type TeacherClass } from '@/lib/grClassic/types'
-import { Advanced, Button, ButtonLink, Card, Segmented, Shell, Toggle, TypeChip } from '../ui'
+import { Advanced, Button, ButtonLink, Card, Segmented, Shell, Toggle, TypeChip, countLabel } from '../ui'
 import { grcApi } from './api'
 
 export interface AssignableGame {
@@ -87,7 +87,7 @@ export function AssignForm({ game, classes }: { game: AssignableGame; classes: T
         <div className="min-w-0 flex-1">
           <p className="text-xl font-extrabold text-slate-900">{game.title}</p>
           <p className="text-sm font-semibold text-slate-500">
-            {game.questionCount} {game.type === 'match' ? 'boards' : 'questions'}
+            {countLabel(game.questionCount, game.type)}
             {game.category && ` · ${game.category}`}
           </p>
         </div>

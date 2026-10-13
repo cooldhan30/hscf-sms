@@ -6,7 +6,7 @@ import { FiClock } from 'react-icons/fi'
 import { dueLabel, formatDue, isPast } from '@/lib/grClassic/format'
 import { isUuid } from '@/lib/grClassic/validateQuestion'
 import type { StudentAssignment, StudentAssignmentStatus } from '@/lib/grClassic/types'
-import { Card, Pill, Shell, TypeChip, buttonClass } from '../ui'
+import { Card, Pill, Shell, TypeChip, buttonClass, countLabel } from '../ui'
 
 const TABS: { key: StudentAssignmentStatus; label: string }[] = [
   { key: 'todo', label: 'To Do' },
@@ -91,7 +91,7 @@ export function AssignmentCard({ a }: { a: StudentAssignment }) {
             <FiClock aria-hidden /> Due {formatDue(assignment.dueAt)}
           </span>
           <span>
-            {assignment.questionCount} {assignment.type === 'match' ? 'boards' : 'questions'}
+            {countLabel(assignment.questionCount, assignment.type)}
           </span>
           {assignment.settings.timerMinutes && <span>⏱ {assignment.settings.timerMinutes} min</span>}
           <span>{left === null ? 'Unlimited attempts' : `${left} attempt${left === 1 ? '' : 's'} left`}</span>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { joinTiles, tilesFor } from '@/lib/grClassic/graphemes'
+import { joinTiles, tamilLang, tilesFor } from '@/lib/grClassic/graphemes'
 import type { PlayQuestion, PlaySession } from '@/lib/grClassic/play'
 import type { QuestionResult } from '@/lib/grClassic/types'
 import { Button } from '../ui'
@@ -138,6 +138,7 @@ export function WordBuilder({ question, session, reveal, hints, onAnswered }: { 
               onClick={() => place(t)}
               disabled={placed.has(t.id) || finished}
               aria-label={`Tile ${t.text}`}
+              lang={tamilLang(t.text)}
               className={`grid place-items-center rounded-2xl bg-amber-400 font-extrabold text-amber-950 shadow-[0_5px_0_0_#b45309] transition hover:bg-amber-300 active:translate-y-1 active:shadow-none disabled:invisible ${words ? 'h-16 px-4 text-xl sm:text-2xl' : 'h-16 w-16 text-3xl sm:h-20 sm:w-20 sm:text-4xl'}`}
             >
               {t.text}

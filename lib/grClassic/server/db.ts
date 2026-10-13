@@ -89,16 +89,17 @@ interface GameRow {
 export async function listGames(supabase: SupabaseClient, names: Map<string, string>): Promise<GameSummary[]> {
   const { data } = await supabase
     .from('sms_grc_games')
-    .select('id, title, game_type, category_id, updated_at, sms_grc_game_questions(count)')
+    .select('id, title, game_type, category_id, updated_at, practice, sms_grc_game_questions(count)')
     .is('archived_at', null)
     .order('updated_at', { ascending: false })
-  return ((data ?? []) as (GameRow & { sms_grc_game_questions: { count: number }[] })[]).map((g) => ({
+  return ((data ?? []) as (GameRow & { practice: boolean; sms_grc_game_questions: { count: number }[] })[]).map((g) => ({
     id: g.id,
     title: g.title,
     type: g.game_type,
     category: g.category_id ? (names.get(g.category_id) ?? '') : '',
     questionCount: g.sms_grc_game_questions?.[0]?.count ?? 0,
     updatedAt: g.updated_at,
+    practice: g.practice !== false,
   }))
 }
 

@@ -81,6 +81,39 @@ for (const vp of VIEWPORTS) {
     await ctx.close()
   }
 
+  await flow('practice', vp, async () => {
+    const { ctx, page } = await open(vp, 'practice')
+    // Tamil prompts are marked as Tamil for screen readers.
+    const lang = await page.locator('#grc-question').getAttribute('lang')
+    if (lang !== 'ta') throw new Error('question not marked lang=ta')
+    await page.getByRole('button', { name: /Hint: remove one wrong answer/ }).click()
+    await shot(page, vp, 'flow-practice-hint')
+    await page.getByRole('button', { name: 'Answer 2: 12' }).click()
+    await page.getByText('சரி! Correct!').waitFor()
+    await page.getByRole('button', { name: 'Next →' }).click()
+    // Focus moves to the new question.
+    await page.waitForTimeout(200)
+    const focused = await page.evaluate(() => document.activeElement && document.activeElement.id)
+    if (focused !== 'grc-question') throw new Error('focus did not move to the new question: ' + focused)
+    for (let i = 1; i < 5; i++) {
+      await page.getByRole('button', { name: /^Answer 1:/ }).click()
+      await page.getByRole('button', { name: i < 4 ? 'Next →' : 'See my score' }).click()
+    }
+    await page.getByRole('button', { name: 'Play again' }).waitFor()
+    await page.waitForFunction(() => typeof window.__practiceFinished === 'number', null, { timeout: 5000 }).catch(() => {
+      throw new Error('practice progress was not sent')
+    })
+    await shot(page, vp, 'flow-practice-done')
+    await ctx.close()
+  })
+  await flow('practice-switch', vp, async () => {
+    const { ctx, page } = await open(vp, 'teacher')
+    await page.getByRole('button', { name: 'Practice: Off' }).first().click()
+    await page.getByText('can now practise').waitFor()
+    await shot(page, vp, 'flow-practice-switch')
+    await ctx.close()
+  })
+
   await flow('publish', vp, async () => {
     const { ctx, page } = await open(vp, 'assign')
     await page.getByRole('button', { name: /Grade 2 · A/ }).click()
@@ -380,6 +413,25 @@ for (const vp of VIEWPORTS) {
     })
   }
   console.log(`done ${vp.name}`)
+}
+
+// Reduced motion: finishing a game with a top score shows no confetti.
+{
+  const vp = { name: 'reduced-motion' }
+  await flow('reduced-motion', vp, async () => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
+    const page = await ctx.newPage()
+    await page.goto(`${base}?screen=quiz`)
+    const answers = ['Answer 2: 12', 'Answer 3: ஊ', 'Answer 3: உ', 'Answer 1: அ', 'Answer 2: நெடில்']
+    for (let i = 0; i < answers.length; i++) {
+      await page.getByRole('button', { name: answers[i] }).click()
+      await page.getByRole('button', { name: i < 4 ? 'Next →' : 'See my score' }).click()
+    }
+    await page.getByText('100%').waitFor()
+    const pieces = await page.locator('div.pointer-events-none.fixed span').count()
+    if (pieces !== 0) throw new Error(`${pieces} confetti pieces shown with reduced motion`)
+    await ctx.close()
+  })
 }
 
 writeFileSync(path.join(outDir, 'report.json'), JSON.stringify(report, null, 2))

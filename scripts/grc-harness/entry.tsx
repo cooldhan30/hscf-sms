@@ -32,7 +32,8 @@ import { ASSIGNMENTS, CLASSES, GAMES, LIBRARY, assignmentById, className, gameBy
 import { AssignmentRunner } from '@/components/grClassic/student/AssignmentRunner'
 import { totals } from '@/lib/grClassic/scoring'
 import { validateQuestion, type QuestionInput, type ValidQuestion } from '@/lib/grClassic/validateQuestion'
-import type { AssignmentSummary, Category, GameSummary, Question, QuestionResult } from '@/lib/grClassic/types'
+import type { AssignmentSummary, Category, GameSummary, PracticeGame, Question, QuestionResult } from '@/lib/grClassic/types'
+import { PracticeRunner } from '@/components/grClassic/student/PracticeRunner'
 
 const params = new URLSearchParams(location.search)
 const live = liveStandIn(params)
@@ -42,7 +43,8 @@ const empty = params.get('empty') === '1'
 let categories: Category[] = STARTER_CATEGORIES.map((name, i) => ({ id: `cat-${i}`, name, own: false }))
 const catId = (name: string) => categories.find((c) => c.name === name)?.id ?? null
 const library: Question[] = empty ? [] : LIBRARY.map((q) => ({ ...q, categoryId: catId(q.category), difficulty: 'easy' }))
-const summaries: GameSummary[] = empty ? [] : GAMES.map((g) => ({ id: g.id, title: g.title, type: g.type, category: g.category, questionCount: g.questions.length, updatedAt: g.updatedAt }))
+const summaries: GameSummary[] = empty ? [] : GAMES.map((g, i) => ({ id: g.id, title: g.title, type: g.type, category: g.category, questionCount: g.questions.length, updatedAt: g.updatedAt, practice: i !== 1 }))
+const practiceList: PracticeGame[] = empty ? [] : GAMES.map((g, i) => ({ id: g.id, title: g.title, type: g.type, questionCount: g.questions.length, teacher: 'Ms. Vani', bestPercent: i === 0 ? 80 : i === 2 ? 45 : null, plays: i === 0 || i === 2 ? 2 : 0 }))
 
 function toQuestion(v: ValidQuestion, id: string): Question {
   const base = { id, categoryId: v.categoryId, category: categories.find((c) => c.id === v.categoryId)?.name ?? '', prompt: v.prompt, promptEn: v.promptEn ?? undefined, difficulty: v.difficulty }
@@ -85,6 +87,19 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const lv = live(path, method, body)
   if (lv) return reply(lv.data, lv.status)
 
+  // Practice: checked like the real server, with the answer revealed.
+  const prac = path.match(new RegExp('^/practice/([^/]+)/(check|hint|finish)$'))
+  if (prac) {
+    if (prac[2] === 'finish') {
+      ;(window as unknown as { __practiceFinished: number }).__practiceFinished = body.percent
+      return reply({ bestPercent: body.percent, plays: 1 })
+    }
+    const q = gameById(prac[1])?.questions.find((x) => x.id === body.questionId)
+    if (!q) return reply({ error: 'Question not found.' }, 404)
+    return reply(prac[2] === 'check' ? checkResponse(q, body.response, true) : hintFor(q, body.matched))
+  }
+  const pswitch = path.match(new RegExp('^/games/([^/]+)/practice$'))
+  if (pswitch) return reply({ practice: body.practice })
   // Saved-game preview: answers checked here, like the real server (?fail=1 = server down)
   const play = path.match(/^\/games\/([^/]+)\/(check|hint)$/)
   if (play) {
@@ -173,7 +188,8 @@ export const SCREENS: Record<string, () => ReactNode> = {
   edit: () => <CreateGameWizard edit={editGame} library={library} categories={categories} />,
   assign: () => <AssignForm game={{ id: 'g-uyir-quiz', title: g('g-uyir-quiz').title, type: 'quiz', category: g('g-uyir-quiz').category, questionCount: 5 }} classes={empty ? [] : CLASSES} />,
   results: () => <AssignmentResults view={sampleView('a-uyir')} />,
-  student: () => <StudentHome name="Kavin" assignments={empty ? [] : studentAssignments()} />,
+  student: () => <StudentHome name="Kavin" assignments={empty ? [] : studentAssignments()} practice={practiceList} />,
+  practice: () => <PracticeRunner gameId="g-uyir-quiz" title={g('g-uyir-quiz').title} type="quiz" questions={g('g-uyir-quiz').questions.map(toPlayQuestion)} />,
   'student-assignments': () => <AssignmentsBoard items={empty ? [] : studentAssignments()} />,
   runner: () => <AssignmentRunner assignmentId="a-run" />,
   review: () => <AssignmentReview a={studentAssignments().find((a) => a.assignment.id === 'a-inam')!} />,

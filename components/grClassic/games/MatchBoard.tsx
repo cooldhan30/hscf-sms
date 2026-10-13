@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
+import { tamilLang } from '@/lib/grClassic/graphemes'
 import type { PlayQuestion, PlaySession } from '@/lib/grClassic/play'
 import type { QuestionResult } from '@/lib/grClassic/types'
 import { Button } from '../ui'
@@ -119,6 +120,7 @@ export function MatchBoard({ question, session, hints, onAnswered }: { question:
                 animate={wrong?.l === l ? { x: [0, -8, 8, -5, 5, 0] } : { x: 0 }}
                 transition={{ duration: 0.4 }}
                 aria-pressed={left === l}
+                lang={tamilLang(item)}
                 aria-label={matched[l] !== undefined ? `${item}, matched with ${matched[l]}` : item}
                 disabled={matched[l] !== undefined}
                 onClick={() => tapLeft(l)}
@@ -141,6 +143,7 @@ export function MatchBoard({ question, session, hints, onAnswered }: { question:
                   animate={wrong?.r === r ? { x: [0, 8, -8, 5, -5, 0] } : { x: 0 }}
                   transition={{ duration: 0.4 }}
                   aria-pressed={right === r}
+                  lang={tamilLang(r)}
                   aria-label={isMatched ? `${r}, matched` : r}
                   disabled={isMatched}
                   onClick={() => tapRight(r)}

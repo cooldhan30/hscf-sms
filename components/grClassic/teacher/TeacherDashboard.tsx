@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { FiArchive, FiBookOpen, FiCopy, FiEdit2, FiPlay, FiPlusCircle, FiRadio, FiSend } from 'react-icons/fi'
 import { dueLabel, formatDue, isPast } from '@/lib/grClassic/format'
 import type { AssignmentSummary, GameSummary } from '@/lib/grClassic/types'
-import { Button, ButtonLink, Card, Pill, Shell, TYPE_META, buttonClass } from '../ui'
+import { Button, ButtonLink, Card, Pill, Shell, TYPE_META, buttonClass, countLabel } from '../ui'
 import { grcApi } from './api'
 
 type Tab = 'games' | 'assignments'
@@ -20,6 +20,12 @@ export function TeacherDashboard({ games: initialGames, assignments, pick, tab: 
     if (!res.ok) return setNotice(res.error)
     setGames((gs) => [res.data.game, ...gs])
     setNotice(`Made a copy: “${res.data.game.title}”.`)
+  }
+  const togglePractice = async (g: GameSummary) => {
+    const res = await grcApi<{ practice: boolean }>(`/games/${g.id}/practice`, { method: 'PATCH', body: { practice: !g.practice } })
+    if (!res.ok) return setNotice(res.error)
+    setGames((gs) => gs.map((x) => (x.id === g.id ? { ...x, practice: res.data.practice } : x)))
+    setNotice(res.data.practice ? `Your students can now practise “${g.title}”.` : `“${g.title}” is hidden from practice.`)
   }
   const archive = async (g: GameSummary) => {
     const res = await grcApi(`/games/${g.id}`, { method: 'DELETE' })
@@ -90,7 +96,7 @@ export function TeacherDashboard({ games: initialGames, assignments, pick, tab: 
           <ul className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {games.map((g) => (
               <li key={g.id}>
-                <GameCard game={g} pick={pick} onDuplicate={() => duplicate(g)} onArchive={() => archive(g)} />
+                <GameCard game={g} pick={pick} onDuplicate={() => duplicate(g)} onArchive={() => archive(g)} onPractice={() => togglePractice(g)} />
               </li>
             ))}
           </ul>
@@ -102,14 +108,14 @@ export function TeacherDashboard({ games: initialGames, assignments, pick, tab: 
   )
 }
 
-function GameCard({ game, pick, onDuplicate, onArchive }: { game: GameSummary; pick?: 'host' | 'assign'; onDuplicate: () => void; onArchive: () => void }) {
+function GameCard({ game, pick, onDuplicate, onArchive, onPractice }: { game: GameSummary; pick?: 'host' | 'assign'; onDuplicate: () => void; onArchive: () => void; onPractice: () => void }) {
   const [confirming, setConfirming] = useState(false)
   const m = TYPE_META[game.type]
   const Icon = m.icon
   const glow = (p: 'host' | 'assign') => (pick === p ? 'ring-4 ring-offset-2 ring-amber-300 animate-pulse' : '')
   return (
     <Card className="flex h-full flex-col overflow-hidden">
-      <div className={`flex items-center gap-2 px-5 py-3 text-white ${m.band}`}>
+      <div className={`flex items-center gap-2 px-5 py-3 ${m.band} ${m.bandText}`}>
         <Icon aria-hidden className="h-5 w-5" />
         <span className="text-sm font-extrabold">{m.label}</span>
         <span className="ml-auto text-sm font-bold opacity-90">{m.ta}</span>
@@ -117,9 +123,19 @@ function GameCard({ game, pick, onDuplicate, onArchive }: { game: GameSummary; p
       <div className="flex flex-1 flex-col p-5">
         <h3 className="text-xl font-extrabold leading-snug text-slate-900">{game.title}</h3>
         <p className="mt-1 text-sm font-semibold text-slate-500">
-          {game.questionCount} {game.type === 'match' ? 'boards' : 'questions'}
+          {countLabel(game.questionCount, game.type)}
           {game.category && ` · ${game.category}`}
         </p>
+        <button
+          type="button"
+          aria-pressed={game.practice}
+          onClick={onPractice}
+          title={game.practice ? 'Your students can practise this game. Tap to hide it from practice.' : 'Hidden from practice. Tap to let your students practise it.'}
+          className={`mt-2 inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 transition ${game.practice ? 'bg-emerald-50 text-emerald-800 ring-emerald-200 hover:bg-emerald-100' : 'bg-slate-100 text-slate-600 ring-slate-200 hover:bg-slate-200'}`}
+        >
+          <span aria-hidden className={`h-2 w-2 rounded-full ${game.practice ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+          Practice: {game.practice ? 'On' : 'Off'}
+        </button>
         <div className="mt-auto grid grid-cols-3 gap-2 pt-5">
           <Link prefetch={false} href={`/gr-classic/host/${game.id}`} className={`${buttonClass('indigo', 'sm')} ${glow('host')}`}>
             <FiRadio aria-hidden /> Host

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { tamilLang } from '@/lib/grClassic/graphemes'
 import type { CheckResult, PlayQuestion, PlaySession } from '@/lib/grClassic/play'
 import type { QuestionResult } from '@/lib/grClassic/types'
 import { AnswerButton, type AnswerState } from './AnswerButton'
@@ -74,7 +75,10 @@ export function QuizQuestion({ question, session, reveal, hints, onAnswered }: {
 export function QuestionPrompt({ prompt, promptEn }: { prompt: string; promptEn?: string }) {
   return (
     <div className="text-center">
-      <h2 className="text-2xl font-extrabold leading-[1.4] text-slate-900 sm:text-3xl">{prompt}</h2>
+      {/* Focused when a new question appears, so screen readers announce it. */}
+      <h2 id="grc-question" tabIndex={-1} lang={tamilLang(prompt)} className="text-2xl font-extrabold leading-[1.4] text-slate-900 outline-none sm:text-3xl">
+        {prompt}
+      </h2>
       {promptEn && <p className="mt-2 text-base font-medium text-slate-500">{promptEn}</p>}
     </div>
   )

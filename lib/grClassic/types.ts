@@ -87,6 +87,7 @@ export interface GameSummary {
   category: string
   questionCount: number
   updatedAt: string
+  practice: boolean // students of this teacher may practise it
 }
 
 export interface ClassInfo {
@@ -199,4 +200,15 @@ export interface AssignmentSummary {
   status: 'open' | 'closed'
   submitted: number
   students: number
+}
+
+// A game a student may practise (from a teacher of one of their classes).
+export interface PracticeGame {
+  id: string
+  title: string
+  type: GameType
+  questionCount: number
+  teacher: string
+  bestPercent: number | null // practice only -- never a grade
+  plays: number
 }

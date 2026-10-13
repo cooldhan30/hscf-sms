@@ -3,12 +3,12 @@
 import Link from 'next/link'
 import { FiBookOpen, FiEdit3, FiPlayCircle } from 'react-icons/fi'
 import type { IconType } from 'react-icons'
-import { GAMES } from '@/lib/grClassic/sampleData'
-import type { StudentAssignment } from '@/lib/grClassic/types'
+import { starsFor } from '@/lib/grClassic/scoring'
+import type { PracticeGame, StudentAssignment } from '@/lib/grClassic/types'
 import { Card, SectionTitle, Shell, TYPE_META, buttonClass } from '../ui'
 import { AssignmentCard } from './AssignmentsBoard'
 
-export function StudentHome({ name, assignments }: { name: string; assignments: StudentAssignment[] }) {
+export function StudentHome({ name, assignments, practice }: { name: string; assignments: StudentAssignment[]; practice: PracticeGame[] }) {
   const open = assignments.filter((a) => a.status === 'todo' || a.status === 'in-progress')
   return (
     <Shell back={{ href: '/gr-classic', label: 'Home' }}>
@@ -44,23 +44,36 @@ export function StudentHome({ name, assignments }: { name: string; assignments: 
 
       <section id="practice" className="scroll-mt-4">
         <SectionTitle>Practice games</SectionTitle>
-        <p className="-mt-2 mb-3 text-sm font-semibold text-slate-500">Sample games for now — your teachers’ games arrive here soon.</p>
+        <p className="-mt-2 mb-3 text-sm font-semibold text-slate-500">Play any time, as often as you like. Practice scores are just for you.</p>
+        {practice.length === 0 && <p className="rounded-3xl border-2 border-dashed border-slate-300 p-8 text-center font-bold text-slate-500">No practice games yet — your teachers’ games will appear here.</p>}
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {GAMES.map((g) => {
+          {practice.map((g) => {
             const m = TYPE_META[g.type]
             const Icon = m.icon
             return (
               <li key={g.id}>
                 <Card className="flex h-full items-center gap-4 p-4">
-                  <span className={`grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-white ${m.band}`}>
+                  <span className={`grid h-14 w-14 shrink-0 place-items-center rounded-2xl ${m.band} ${m.bandText}`}>
                     <Icon aria-hidden className="h-7 w-7" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="font-extrabold leading-snug text-slate-900">{g.title}</p>
-                    <p className="text-xs font-semibold text-slate-500">{m.label}</p>
+                    <p className="text-xs font-semibold text-slate-500">
+                      {m.label} · {g.teacher}
+                    </p>
+                    {g.bestPercent !== null && (
+                      <p className="mt-0.5 text-sm" aria-label={`Best score ${g.bestPercent} percent, ${starsFor(g.bestPercent)} of 3 stars`}>
+                        {[0, 1, 2].map((i) => (
+                          <span key={i} aria-hidden className={i < starsFor(g.bestPercent!) ? '' : 'opacity-20 grayscale'}>
+                            ⭐
+                          </span>
+                        ))}
+                        <span className="ml-1 font-bold text-slate-600">{g.bestPercent}%</span>
+                      </p>
+                    )}
                   </div>
-                  <Link href={`/gr-classic/play/${g.id}?mode=practice`} className={buttonClass('primary', 'sm')} aria-label={`Play ${g.title}`}>
-                    Play
+                  <Link href={`/gr-classic/practice/${g.id}`} className={buttonClass('primary', 'sm')} aria-label={`${g.plays ? 'Play again' : 'Play'}: ${g.title}`}>
+                    {g.plays ? 'Again' : 'Play'}
                   </Link>
                 </Card>
               </li>

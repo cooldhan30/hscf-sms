@@ -39,3 +39,10 @@ export function tilesFor(q: Pick<OrderQuestion, 'unit' | 'answer'>): string[] {
 export function joinTiles(tiles: string[], unit: OrderQuestion['unit']): string {
   return tiles.join(unit === 'letters' ? '' : ' ')
 }
+
+// "ta" when the text contains Tamil letters, so screen readers read it in
+// Tamil (the portal's pages are declared English). Undefined otherwise.
+const TAMIL_LETTERS = new RegExp(`[${String.fromCharCode(0x0b80)}-${String.fromCharCode(0x0bff)}]`)
+export function tamilLang(text: string): 'ta' | undefined {
+  return TAMIL_LETTERS.test(text) ? 'ta' : undefined
+}

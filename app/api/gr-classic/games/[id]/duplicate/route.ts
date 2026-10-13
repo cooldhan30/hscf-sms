@@ -25,6 +25,6 @@ export async function POST(_request: Request, { params }: { params: { id: string
     p_question_ids: game.questions.map((q) => q.id),
   })
   if (error) return dbErrorResponse(error, 'duplicate game')
-  const copy: GameSummary = { id: data as string, title, type: game.type, category: game.category, questionCount: game.questions.length, updatedAt: new Date().toISOString() }
+  const copy: GameSummary = { id: data as string, title, type: game.type, category: game.category, questionCount: game.questions.length, updatedAt: new Date().toISOString(), practice: true }
   return NextResponse.json({ game: copy }, { status: 201 })
 }

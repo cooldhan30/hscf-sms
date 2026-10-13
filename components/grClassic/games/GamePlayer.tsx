@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import { FiCheckCircle, FiX, FiXCircle } from 'react-icons/fi'
@@ -49,15 +49,15 @@ export interface GameInfo {
 // Runs one game from first question to results, the same way for every
 // game type. Practice and preview give feedback after each question;
 // an assignment only says "saved" and ends with Finish & Submit.
-export function GamePlayer({ game, play, mode, assignment, exit }: { game: GameInfo; play: PlaySource; mode: PlayMode; assignment?: AssignmentContext; exit: Exit }) {
+export function GamePlayer({ game, play, mode, assignment, exit, onFinished }: { game: GameInfo; play: PlaySource; mode: PlayMode; assignment?: AssignmentContext; exit: Exit; onFinished?: (results: QuestionResult[]) => void }) {
   // Shuffling happens only in the browser (no server/client mismatch).
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   if (!mounted) return <div className="min-h-[60vh]" />
-  return <Player game={game} play={play} mode={mode} assignment={assignment} exit={exit} />
+  return <Player game={game} play={play} mode={mode} assignment={assignment} exit={exit} onFinished={onFinished} />
 }
 
-function Player({ game, play, mode, assignment, exit }: { game: GameInfo; play: PlaySource; mode: PlayMode; assignment?: AssignmentContext; exit: Exit }) {
+function Player({ game, play, mode, assignment, exit, onFinished }: { game: GameInfo; play: PlaySource; mode: PlayMode; assignment?: AssignmentContext; exit: Exit; onFinished?: (results: QuestionResult[]) => void }) {
   const graded = mode === 'assignment'
   const { session, ordered } = useMemo((): { session: PlaySession; ordered: PlayQuestion[] } => {
     const list = play.source === 'local' ? play.questions.map(toPlayQuestion) : play.questions
@@ -83,12 +83,28 @@ function Player({ game, play, mode, assignment, exit }: { game: GameInfo; play: 
   const last = index === questions.length - 1
   const left = useCountdown(graded ? assignment?.deadlineAt : null)
 
+  // A new question: move focus to it, so screen readers read it out and
+  // keyboard users start from the top (not on the first one -- the page
+  // has only just opened).
+  const shown = useRef(false)
+  useEffect(() => {
+    if (!shown.current) {
+      shown.current = true
+      return
+    }
+    document.getElementById('grc-question')?.focus()
+  }, [index, round])
+
   const next = () => {
     if (!pending) return
-    setResults((r) => [...r, pending])
+    const all = [...results, pending]
+    setResults(all)
     setPending(null)
     if (!last) setIndex((i) => i + 1)
-    else setPhase(graded ? 'confirm' : 'done')
+    else {
+      setPhase(graded ? 'confirm' : 'done')
+      if (!graded) onFinished?.(all)
+    }
   }
 
   // Never says "submitted" until the server has stored the attempt.
@@ -195,7 +211,7 @@ function QuestionView({ question, session, reveal, hints, onAnswered }: { questi
 
 function Feedback({ result, graded, explanation, onNext, last }: { result: QuestionResult; graded: boolean; explanation?: string; onNext: () => void; last: boolean }) {
   const all = result.correctUnits === result.totalUnits
-  const tone = graded ? 'bg-slate-900 text-white' : all ? 'bg-emerald-600 text-white' : 'bg-rose-700 text-white'
+  const tone = graded ? 'bg-slate-900 text-white' : all ? 'bg-emerald-700 text-white' : 'bg-rose-700 text-white'
   return (
     <div role="status" aria-live="polite" className={`flex flex-col gap-3 rounded-3xl p-4 shadow-xl sm:flex-row sm:items-center sm:p-5 ${tone}`}>
       <div className="flex min-w-0 flex-1 items-start gap-3">

@@ -10,10 +10,11 @@ import type { GameType } from '@/lib/grClassic/types'
 // texture, chunky "pressable" buttons -- built from Tailwind's default
 // palette only, so nothing here touches the shared tailwind config.
 
-export const TYPE_META: Record<GameType, { label: string; ta: string; blurb: string; icon: IconType; band: string; soft: string; ring: string }> = {
-  quiz: { label: 'Classic Quiz', ta: 'வினாடி வினா', blurb: 'Pick the right answer', icon: FiHelpCircle, band: 'bg-indigo-600', soft: 'bg-indigo-50 text-indigo-700', ring: 'ring-indigo-300' },
-  match: { label: 'Match the Pairs', ta: 'பொருத்துக', blurb: 'Join each item to its partner', icon: FiLink2, band: 'bg-rose-600', soft: 'bg-rose-50 text-rose-700', ring: 'ring-rose-300' },
-  'word-builder': { label: 'Word Builder', ta: 'சொல் அமை', blurb: 'Put letters or words in order', icon: FiGrid, band: 'bg-amber-500', soft: 'bg-amber-50 text-amber-800', ring: 'ring-amber-300' },
+// band + bandText meet WCAG AA contrast (scripts/verify-grc-contrast.ts).
+export const TYPE_META: Record<GameType, { label: string; ta: string; blurb: string; icon: IconType; band: string; bandText: string; soft: string; ring: string }> = {
+  quiz: { label: 'Classic Quiz', ta: 'வினாடி வினா', blurb: 'Pick the right answer', icon: FiHelpCircle, band: 'bg-indigo-600', bandText: 'text-white', soft: 'bg-indigo-50 text-indigo-700', ring: 'ring-indigo-300' },
+  match: { label: 'Match the Pairs', ta: 'பொருத்துக', blurb: 'Join each item to its partner', icon: FiLink2, band: 'bg-rose-600', bandText: 'text-white', soft: 'bg-rose-50 text-rose-700', ring: 'ring-rose-300' },
+  'word-builder': { label: 'Word Builder', ta: 'சொல் அமை', blurb: 'Put letters or words in order', icon: FiGrid, band: 'bg-amber-400', bandText: 'text-amber-950', soft: 'bg-amber-50 text-amber-800', ring: 'ring-amber-300' },
 }
 
 export function Logo({ size = 'md' }: { size?: 'md' | 'lg' }) {
@@ -54,7 +55,7 @@ type Tone = 'primary' | 'teal' | 'indigo' | 'amber' | 'plain' | 'ghost'
 
 const TONE: Record<Tone, string> = {
   primary: 'bg-rose-600 text-white shadow-[0_4px_0_0_#9f1239] hover:bg-rose-500',
-  teal: 'bg-teal-600 text-white shadow-[0_4px_0_0_#115e59] hover:bg-teal-500',
+  teal: 'bg-teal-700 text-white shadow-[0_4px_0_0_#134e4a] hover:bg-teal-600',
   indigo: 'bg-indigo-600 text-white shadow-[0_4px_0_0_#3730a3] hover:bg-indigo-500',
   amber: 'bg-amber-400 text-amber-950 shadow-[0_4px_0_0_#b45309] hover:bg-amber-300',
   plain: 'bg-white text-slate-800 ring-2 ring-slate-200 shadow-[0_4px_0_0_#e2e8f0] hover:bg-slate-50',
@@ -161,6 +162,9 @@ export function Toggle({ label, hint, checked, onChange }: { label: string; hint
   )
 }
 
-export function PrototypeNote({ children }: { children: ReactNode }) {
-  return <p className="mt-2 rounded-xl bg-amber-100/70 px-3 py-2 text-xs font-semibold text-amber-900">Prototype: {children}</p>
+// "1 question", "5 questions", "1 board", "2 boards" (a Matching game's
+// questions are boards of pairs).
+export function countLabel(n: number, type: GameType): string {
+  const word = type === 'match' ? 'board' : 'question'
+  return `${n} ${word}${n === 1 ? '' : 's'}`
 }

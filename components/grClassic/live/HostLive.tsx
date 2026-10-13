@@ -9,7 +9,7 @@ import type { ChoiceQuestion } from '@/lib/grClassic/types'
 import { ANSWER_STYLES } from '../games/AnswerButton'
 import { Confetti } from '../games/Confetti'
 import { grcApi } from '../teacher/api'
-import { Button, Logo, TYPE_META } from '../ui'
+import { Button, Logo, TYPE_META, countLabel } from '../ui'
 import { QrCode } from './QrCode'
 import { usePoll, useServerCountdown } from './usePoll'
 
@@ -181,7 +181,7 @@ export function HostLive({ sessionId }: { sessionId: string }) {
         <section className="flex flex-1 flex-col py-6">
           <h2 className="text-center text-3xl font-black sm:text-4xl">Everyone is playing {m.label}!</h2>
           <p className="text-center font-bold text-white/70">
-            {s.race.filter((p) => p.finished).length} of {s.race.length} finished · {s.count} {s.type === 'match' ? 'boards' : 'questions'} each
+            {s.race.filter((p) => p.finished).length} of {s.race.length} finished · {countLabel(s.count, s.type)} each
           </p>
           <ol className="mx-auto mt-8 w-full max-w-3xl space-y-2.5">
             {s.race.map((p) => (
