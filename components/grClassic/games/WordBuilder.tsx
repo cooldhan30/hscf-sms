@@ -1,35 +1,46 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { tilesFor } from '@/lib/grClassic/graphemes'
-import { gradeOrder, isOrderCorrect } from '@/lib/grClassic/scoring'
-import { shuffleAwayFrom } from '@/lib/grClassic/shuffle'
-import type { OrderQuestion, QuestionResult } from '@/lib/grClassic/types'
+import { joinTiles, tilesFor } from '@/lib/grClassic/graphemes'
+import type { PlayQuestion, PlaySession } from '@/lib/grClassic/play'
+import type { QuestionResult } from '@/lib/grClassic/types'
 import { Button } from '../ui'
 import { QuestionPrompt } from './QuizQuestion'
 
+type OrderPlay = Extract<PlayQuestion, { kind: 'order' }>
 type Tile = { id: number; text: string }
 
 // Word Builder: tap tiles to fill the slots in order; tap a placed tile to
-// send it back. Tiles are whole Tamil letters (lib/grClassic/graphemes.ts),
-// never broken vowel signs. Graded on the first Check. In practice a wrong
-// try can be retried (or the answer shown); in an assignment the first
-// Check is final and the answer is not revealed.
-export function WordBuilder({ question, reveal, hints, onAnswered }: { question: OrderQuestion; reveal: boolean; hints: boolean; onAnswered: (r: QuestionResult) => void }) {
-  const answerTiles = useMemo(() => tilesFor(question), [question])
-  const tiles = useMemo<Tile[]>(() => shuffleAwayFrom(answerTiles.map((text, id) => ({ id, text }))), [answerTiles])
-  const [slots, setSlots] = useState<(Tile | null)[]>(() => answerTiles.map(() => null))
-  const [firstTry, setFirstTry] = useState<string[] | null>(null)
-  const [status, setStatus] = useState<'building' | 'wrong' | 'right' | 'locked' | 'shown'>('building')
-  const [showHint, setShowHint] = useState(false)
+// send it back. Tiles arrive already shuffled, as whole Tamil letters (or
+// words). The device doesn't know the order: each Check goes to
+// `session.check`. Graded on the first Check. In practice a wrong try can
+// be retried (or the answer shown); in an assignment the first Check is
+// final and the answer is not revealed.
+export function WordBuilder({ question, session, reveal, hints, onAnswered }: { question: OrderPlay; session: PlaySession; reveal: boolean; hints: boolean; onAnswered: (r: QuestionResult) => void }) {
+  const tiles: Tile[] = question.tiles.map((text, id) => ({ id, text }))
+  const [slots, setSlots] = useState<(Tile | null)[]>(() => question.tiles.map(() => null))
+  const [first, setFirst] = useState<{ tiles: string[]; correct: boolean } | null>(null)
+  const [expected, setExpected] = useState('')
+  const [status, setStatus] = useState<'building' | 'checking' | 'wrong' | 'right' | 'locked' | 'shown'>('building')
+  const [hintText, setHintText] = useState('')
+  const [error, setError] = useState('')
   const placed = new Set(slots.filter(Boolean).map((t) => t!.id))
   const full = slots.every(Boolean)
   const finished = status === 'right' || status === 'locked' || status === 'shown'
   const words = question.unit === 'words'
 
+  const result = (firstTry: { tiles: string[]; correct: boolean }, exp: string): QuestionResult => ({
+    questionId: question.id,
+    prompt: question.prompt,
+    correctUnits: firstTry.correct ? 1 : 0,
+    totalUnits: 1,
+    given: joinTiles(firstTry.tiles, question.unit),
+    expected: exp,
+  })
+
   const place = (t: Tile) => {
-    if (finished) return
+    if (finished || status === 'checking') return
     setStatus('building')
     setSlots((s) => {
       const i = s.findIndex((x) => x === null)
@@ -40,30 +51,55 @@ export function WordBuilder({ question, reveal, hints, onAnswered }: { question:
     })
   }
   const unplace = (i: number) => {
-    if (finished) return
+    if (finished || status === 'checking') return
     setStatus('building')
     setSlots((s) => s.map((x, k) => (k === i ? null : x)))
   }
 
-  const check = () => {
+  const check = async () => {
     const attempt = slots.map((t) => t!.text)
-    const first = firstTry ?? attempt
-    if (!firstTry) setFirstTry(attempt)
-    if (isOrderCorrect(question, attempt)) {
-      setStatus('right')
-      onAnswered(gradeOrder(question, first))
-    } else if (!reveal) {
-      setStatus('locked')
-      onAnswered(gradeOrder(question, first))
-    } else {
-      setStatus('wrong')
+    setStatus('checking')
+    setError('')
+    try {
+      const res = await session.check(question.id, { kind: 'order', tiles: attempt })
+      const firstTry = first ?? { tiles: attempt, correct: res.correct }
+      if (!first) setFirst(firstTry)
+      if (res.expected) setExpected(res.expected)
+      if (res.correct) {
+        setStatus('right')
+        onAnswered(result(firstTry, res.expected ?? joinTiles(attempt, question.unit)))
+      } else if (!reveal) {
+        setStatus('locked')
+        onAnswered(result(firstTry, ''))
+      } else {
+        setStatus('wrong')
+      }
+    } catch {
+      setStatus('building')
+      setError("Couldn't check your answer. Check the internet and try again.")
     }
   }
 
+  // Practice only: fill the slots with the right answer (known from the
+  // last check, which revealed it).
   const showAnswer = () => {
-    setSlots(answerTiles.map((_, i) => tiles.find((t) => t.id === i)!))
+    const pool = tiles.slice()
+    const answer = tilesFor({ unit: question.unit, answer: expected })
+    setSlots(answer.map((text) => {
+      const k = pool.findIndex((t) => t.text === text)
+      return k === -1 ? null : pool.splice(k, 1)[0]
+    }))
     setStatus('shown')
-    onAnswered(gradeOrder(question, firstTry ?? []))
+    onAnswered(result(first ?? { tiles: [], correct: false }, expected))
+  }
+
+  const getHint = async () => {
+    try {
+      const h = await session.hint(question.id)
+      if ('firstTile' in h) setHintText(`${words ? 'First word' : 'First letter'}: ${h.firstTile}${h.text ? ` · ${h.text}` : ''}`)
+    } catch {
+      setError("Couldn't get a hint right now.")
+    }
   }
 
   const slotLook = status === 'right' || status === 'shown' ? 'bg-emerald-100 ring-emerald-500 text-emerald-900' : status === 'wrong' ? 'bg-rose-50 ring-rose-400 text-rose-900' : 'bg-white ring-slate-300 text-slate-900'
@@ -112,34 +148,32 @@ export function WordBuilder({ question, reveal, hints, onAnswered }: { question:
 
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         {!finished && (
-          <Button tone="teal" size="lg" disabled={!full} onClick={check}>
-            Check ✓
+          <Button tone="teal" size="lg" disabled={!full || status === 'checking'} onClick={check}>
+            {status === 'checking' ? 'Checking…' : 'Check ✓'}
           </Button>
         )}
         {status === 'wrong' && (
           <>
-            <Button tone="plain" onClick={() => setSlots(answerTiles.map(() => null))}>
+            <Button tone="plain" onClick={() => setSlots(question.tiles.map(() => null))}>
               Clear
             </Button>
-            <Button tone="ghost" onClick={showAnswer}>
-              Show answer
-            </Button>
+            {expected && (
+              <Button tone="ghost" onClick={showAnswer}>
+                Show answer
+              </Button>
+            )}
           </>
         )}
-        {hints && !finished && !showHint && (
-          <Button tone="ghost" size="sm" onClick={() => setShowHint(true)}>
+        {hints && !finished && !hintText && (
+          <Button tone="ghost" size="sm" onClick={getHint}>
             💡 Hint
           </Button>
         )}
       </div>
       <p role="status" aria-live="polite" className="mt-3 text-center font-bold">
         {status === 'wrong' && <span className="text-rose-700">Not quite — move the tiles and try again.</span>}
-        {showHint && !finished && (
-          <span className="text-amber-800">
-            {words ? 'First word' : 'First letter'}: {answerTiles[0]}
-            {question.hint ? ` · ${question.hint}` : ''}
-          </span>
-        )}
+        {hintText && !finished && <span className="block text-amber-800">{hintText}</span>}
+        {error && <span className="block text-rose-700">{error}</span>}
       </p>
     </div>
   )

@@ -1,33 +1,49 @@
 'use client'
 
 import { useState } from 'react'
-import { gradeChoice } from '@/lib/grClassic/scoring'
-import type { ChoiceQuestion, QuestionResult } from '@/lib/grClassic/types'
+import type { CheckResult, PlayQuestion, PlaySession } from '@/lib/grClassic/play'
+import type { QuestionResult } from '@/lib/grClassic/types'
 import { AnswerButton, type AnswerState } from './AnswerButton'
 import { Button } from '../ui'
 
-// Classic Quiz, one question. `reveal` shows right/wrong on the buttons
-// (practice and preview); assignments only mark the chosen answer.
-export function QuizQuestion({ question, reveal, hints, onAnswered }: { question: ChoiceQuestion; reveal: boolean; hints: boolean; onAnswered: (r: QuestionResult) => void }) {
-  const [chosen, setChosen] = useState<number | null>(null)
-  const [hidden, setHidden] = useState<number | null>(null)
+type ChoicePlay = Extract<PlayQuestion, { kind: 'choice' }>
 
-  const choose = (i: number) => {
+// Classic Quiz, one question. The device never knows the answer: the
+// choice goes to `session.check`, which says right/wrong and -- only when
+// the mode allows it -- which option was right.
+export function QuizQuestion({ question, session, reveal, hints, onAnswered }: { question: ChoicePlay; session: PlaySession; reveal: boolean; hints: boolean; onAnswered: (r: QuestionResult) => void }) {
+  const [chosen, setChosen] = useState<number | null>(null)
+  const [result, setResult] = useState<CheckResult | null>(null)
+  const [hidden, setHidden] = useState<number | null>(null)
+  const [error, setError] = useState('')
+
+  const choose = async (i: number) => {
     if (chosen !== null) return
     setChosen(i)
-    onAnswered(gradeChoice(question, i))
+    setError('')
+    try {
+      const res = await session.check(question.id, { kind: 'choice', choice: i })
+      setResult(res)
+      onAnswered({ questionId: question.id, prompt: question.prompt, correctUnits: res.correct ? 1 : 0, totalUnits: 1, given: question.options[i], expected: res.expected ?? '', explanation: res.explanation })
+    } catch {
+      setChosen(null)
+      setError("Couldn't send your answer. Check the internet and tap again.")
+    }
   }
 
-  // Hint: take away one wrong answer.
-  const useHint = () => {
-    const wrong = question.options.map((_, i) => i).filter((i) => i !== question.answerIndex)
-    setHidden(wrong[Math.floor(Math.random() * wrong.length)])
+  const useHint = async () => {
+    try {
+      const h = await session.hint(question.id)
+      if ('removeOption' in h) setHidden(h.removeOption)
+    } catch {
+      setError("Couldn't get a hint right now.")
+    }
   }
 
   const stateOf = (i: number): AnswerState => {
     if (chosen === null) return hidden === i ? 'dim' : 'idle'
-    if (!reveal) return i === chosen ? 'chosen' : 'dim'
-    if (i === question.answerIndex) return 'correct'
+    if (!result || !reveal || result.correctIndex === undefined) return i === chosen ? 'chosen' : 'dim'
+    if (i === result.correctIndex) return 'correct'
     return i === chosen ? 'wrong' : 'dim'
   }
 
@@ -39,6 +55,11 @@ export function QuizQuestion({ question, reveal, hints, onAnswered }: { question
           <AnswerButton key={i} index={i} text={opt} state={stateOf(i)} disabled={chosen !== null || hidden === i} onClick={() => choose(i)} />
         ))}
       </div>
+      {error && (
+        <p role="alert" className="mt-4 text-center font-bold text-rose-700">
+          {error}
+        </p>
+      )}
       {hints && chosen === null && hidden === null && question.options.length > 2 && (
         <div className="mt-4 text-center">
           <Button tone="ghost" size="sm" onClick={useHint}>

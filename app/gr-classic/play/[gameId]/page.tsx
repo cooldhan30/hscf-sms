@@ -3,6 +3,7 @@ import { GamePlayer, type PlayMode } from '@/components/grClassic/games/GamePlay
 import { TeachersOnly } from '@/components/grClassic/TeachersOnly'
 import { assignmentById, gameById, studentAssignments } from '@/lib/grClassic/sampleData'
 import { loadTeacherGame } from '@/lib/grClassic/server/teacherGame'
+import { toPlayQuestion } from '@/lib/grClassic/play'
 import { isUuid } from '@/lib/grClassic/validateQuestion'
 
 // One player for every mode: ?mode=practice | preview | assignment&a=<assignment id>
@@ -15,7 +16,8 @@ export default async function GrClassicPlayPage({ params, searchParams }: { para
     if (mode !== 'preview') notFound()
     const r = await loadTeacherGame(`/gr-classic/play/${params.gameId}?mode=preview`, params.gameId)
     if (!r.ok) return <TeachersOnly message={r.error} />
-    return <GamePlayer game={r.game} mode="preview" exit={{ href: '/gr-classic/teacher' }} />
+    // Answer-free questions; answers are checked by /api/gr-classic/games/<id>/check.
+    return <GamePlayer game={{ title: r.game.title, type: r.game.type }} play={{ source: 'remote', base: `/games/${r.game.id}`, questions: r.game.questions.map(toPlayQuestion) }} mode="preview" exit={{ href: '/gr-classic/teacher' }} />
   }
 
   const game = gameById(params.gameId)
@@ -28,11 +30,12 @@ export default async function GrClassicPlayPage({ params, searchParams }: { para
     return (
       <GamePlayer
         game={game}
+        play={{ source: 'local', questions: game.questions }}
         mode="assignment"
         assignment={{ attemptsLeftAfter: max === null ? null : Math.max(0, max - used - 1), showScore: true, randomize: assignment.settings.randomize, dueAt: assignment.dueAt }}
         exit={{ href: '/gr-classic/student/assignments' }}
       />
     )
   }
-  return <GamePlayer game={game} mode={mode} exit={{ href: mode === 'preview' ? '/gr-classic/teacher' : '/gr-classic/student#practice' }} />
+  return <GamePlayer game={game} play={{ source: 'local', questions: game.questions }} mode={mode} exit={{ href: mode === 'preview' ? '/gr-classic/teacher' : '/gr-classic/student#practice' }} />
 }

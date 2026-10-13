@@ -50,7 +50,7 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
     setStep(3)
   }
 
-  if (previewing) return <GamePlayer game={game} mode="preview" exit={{ onClick: () => setPreviewing(false) }} />
+  if (previewing) return <GamePlayer game={game} play={{ source: 'local', questions }} mode="preview" exit={{ onClick: () => setPreviewing(false) }} />
 
   return (
     <Shell back={{ href: '/gr-classic/teacher', label: 'My Games' }} width="max-w-4xl">

@@ -24,6 +24,7 @@ import { TeachersOnly } from '@/components/grClassic/TeachersOnly'
 import { STARTER_CATEGORIES } from '@/lib/grClassic/categories'
 import { readImport } from '@/lib/grClassic/csv'
 import { planImport } from '@/lib/grClassic/importPlan'
+import { checkResponse, hintFor, toPlayQuestion } from '@/lib/grClassic/play'
 import { GAMES, LIBRARY, assignmentById, gameById, studentAssignments } from '@/lib/grClassic/sampleData'
 import { validateQuestion, type QuestionInput, type ValidQuestion } from '@/lib/grClassic/validateQuestion'
 import type { Category, GameSummary, Question } from '@/lib/grClassic/types'
@@ -61,6 +62,14 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   await new Promise((r) => setTimeout(r, 120))
   const reply = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
 
+  // Saved-game preview: answers checked here, like the real server (?fail=1 = server down)
+  const play = path.match(/^\/games\/([^/]+)\/(check|hint)$/)
+  if (play) {
+    if (params.get('fail') === '1') return reply({ error: 'Service unavailable' }, 503)
+    const q = gameById(play[1])?.questions.find((x) => x.id === body.questionId)
+    if (!q) return reply({ error: 'Question not found.' }, 404)
+    return reply(play[2] === 'check' ? checkResponse(q, body.response, true) : hintFor(q, body.matched))
+  }
   if (path === '/categories' && method === 'POST') {
     const c = { id: `cat-new-${seq++}`, name: String(body.name).trim(), own: true }
     categories = [...categories, c]
@@ -104,7 +113,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 }
 
 const g = (id: string) => gameById(id)!
-const practice = (id: string) => <GamePlayer game={g(id)} mode="practice" exit={{ href: '#' }} />
+const remote = (id: string) => <GamePlayer game={g(id)} play={{ source: 'remote', base: `/games/${id}`, questions: g(id).questions.map(toPlayQuestion) }} mode="preview" exit={{ href: '#' }} />
+const practice = (id: string) => <GamePlayer game={g(id)} play={{ source: 'local', questions: g(id).questions }} mode="practice" exit={{ href: '#' }} />
 const editGame = { ...g('g-word-builder'), categoryId: catId(g('g-word-builder').category), questions: library.filter((q) => g('g-word-builder').questions.some((x) => x.id === q.id)) }
 
 export const SCREENS: Record<string, () => ReactNode> = {
@@ -125,7 +135,10 @@ export const SCREENS: Record<string, () => ReactNode> = {
   match: () => practice('g-porul-match'),
   word: () => practice('g-word-builder'),
   sentence: () => practice('g-sentence-builder'),
-  'assignment-quiz': () => <GamePlayer game={g('g-uyir-quiz')} mode="assignment" assignment={{ attemptsLeftAfter: 1, showScore: true, randomize: false, dueAt: assignmentById('a-uyir')!.dueAt }} exit={{ href: '#' }} />,
+  'assignment-quiz': () => <GamePlayer game={g('g-uyir-quiz')} play={{ source: 'local', questions: g('g-uyir-quiz').questions }} mode="assignment" assignment={{ attemptsLeftAfter: 1, showScore: true, randomize: false, dueAt: assignmentById('a-uyir')!.dueAt }} exit={{ href: '#' }} />,
+  'remote-quiz': () => remote('g-uyir-quiz'),
+  'remote-match': () => remote('g-porul-match'),
+  'remote-word': () => remote('g-word-builder'),
   join: () => <JoinLive />,
   host: () => <HostLive game={g('g-uyir-quiz')} />,
   'host-race': () => <HostLive game={g('g-porul-match')} />,

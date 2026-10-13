@@ -7,7 +7,9 @@ import { FiCheckCircle, FiX, FiXCircle } from 'react-icons/fi'
 import { formatDate } from '@/lib/grClassic/format'
 import { encouragement, starsFor, totals } from '@/lib/grClassic/scoring'
 import { shuffle } from '@/lib/grClassic/shuffle'
-import type { Game, Question, QuestionResult } from '@/lib/grClassic/types'
+import { localSession, toPlayQuestion, type PlayQuestion, type PlaySession } from '@/lib/grClassic/play'
+import type { GameType, Question, QuestionResult } from '@/lib/grClassic/types'
+import { remoteSession } from './remoteSession'
 import { Button, ButtonLink, Card, Pill, ProgressBar, TypeChip } from '../ui'
 import { Confetti } from './Confetti'
 import { MatchBoard } from './MatchBoard'
@@ -25,26 +27,43 @@ export interface AssignmentContext {
 
 type Exit = { href: string } | { onClick: () => void }
 
+// Where answers are checked:
+//   local  -- the full questions are already in this browser (a teacher
+//             previewing an unsaved draft, or the Phase 1 sample games)
+//   remote -- the browser only has answer-free PlayQuestions; every check
+//             and hint goes to the server at `base` (e.g. /games/<id>)
+export type PlaySource = { source: 'local'; questions: Question[] } | { source: 'remote'; base: string; questions: PlayQuestion[] }
+
+export interface GameInfo {
+  title: string
+  type: GameType
+}
+
 // Runs one game from first question to results, the same way for every
 // game type. Practice and preview give feedback after each question;
 // an assignment only says "saved" and ends with Finish & Submit.
-export function GamePlayer({ game, mode, assignment, exit }: { game: Game; mode: PlayMode; assignment?: AssignmentContext; exit: Exit }) {
+export function GamePlayer({ game, play, mode, assignment, exit }: { game: GameInfo; play: PlaySource; mode: PlayMode; assignment?: AssignmentContext; exit: Exit }) {
   // Shuffling happens only in the browser (no server/client mismatch).
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   if (!mounted) return <div className="min-h-[60vh]" />
-  return <Player game={game} mode={mode} assignment={assignment} exit={exit} />
+  return <Player game={game} play={play} mode={mode} assignment={assignment} exit={exit} />
 }
 
-function Player({ game, mode, assignment, exit }: { game: Game; mode: PlayMode; assignment?: AssignmentContext; exit: Exit }) {
-  const questions = useMemo(() => (assignment?.randomize ? shuffle(game.questions) : game.questions), [game, assignment])
+function Player({ game, play, mode, assignment, exit }: { game: GameInfo; play: PlaySource; mode: PlayMode; assignment?: AssignmentContext; exit: Exit }) {
+  const graded = mode === 'assignment'
+  const { session, ordered } = useMemo((): { session: PlaySession; ordered: PlayQuestion[] } => {
+    const list = play.source === 'local' ? play.questions.map(toPlayQuestion) : play.questions
+    const session = play.source === 'local' ? localSession(play.questions, !graded) : remoteSession(play.base)
+    return { session, ordered: assignment?.randomize ? shuffle(list) : list }
+  }, [play, assignment, graded])
+  const questions = ordered
   const [index, setIndex] = useState(0)
   const [results, setResults] = useState<QuestionResult[]>([])
   const [pending, setPending] = useState<QuestionResult | null>(null)
   const [phase, setPhase] = useState<'play' | 'confirm' | 'submitting' | 'done'>('play')
   const [submittedAt, setSubmittedAt] = useState<string | null>(null)
   const [round, setRound] = useState(0)
-  const graded = mode === 'assignment'
   const q = questions[index]
   const last = index === questions.length - 1
 
@@ -96,12 +115,12 @@ function Player({ game, mode, assignment, exit }: { game: Game; mode: PlayMode; 
         <>
           <ProgressBar value={index + (pending ? 1 : 0)} max={questions.length} label="Progress" />
           <Card className="mt-5 p-5 sm:p-8">
-            <QuestionView key={`${round}-${q.id}`} question={q} reveal={!graded} hints={mode === 'practice'} onAnswered={setPending} />
+            <QuestionView key={`${round}-${q.id}`} question={q} session={session} reveal={!graded} hints={mode === 'practice'} onAnswered={setPending} />
           </Card>
           <AnimatePresence>
             {pending && (
               <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="sticky bottom-3 z-30 mt-5">
-                <Feedback result={pending} graded={graded} explanation={q.kind === 'choice' ? q.explanation : undefined} onNext={next} last={last} />
+                <Feedback result={pending} graded={graded} explanation={pending.explanation} onNext={next} last={last} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -127,10 +146,10 @@ function Player({ game, mode, assignment, exit }: { game: Game; mode: PlayMode; 
   )
 }
 
-function QuestionView({ question, reveal, hints, onAnswered }: { question: Question; reveal: boolean; hints: boolean; onAnswered: (r: QuestionResult) => void }) {
-  if (question.kind === 'choice') return <QuizQuestion question={question} reveal={reveal} hints={hints} onAnswered={onAnswered} />
-  if (question.kind === 'match') return <MatchBoard question={question} hints={hints} onAnswered={onAnswered} />
-  return <WordBuilder question={question} reveal={reveal} hints={hints} onAnswered={onAnswered} />
+function QuestionView({ question, session, reveal, hints, onAnswered }: { question: PlayQuestion; session: PlaySession; reveal: boolean; hints: boolean; onAnswered: (r: QuestionResult) => void }) {
+  if (question.kind === 'choice') return <QuizQuestion question={question} session={session} reveal={reveal} hints={hints} onAnswered={onAnswered} />
+  if (question.kind === 'match') return <MatchBoard question={question} session={session} hints={hints} onAnswered={onAnswered} />
+  return <WordBuilder question={question} session={session} reveal={reveal} hints={hints} onAnswered={onAnswered} />
 }
 
 function Feedback({ result, graded, explanation, onNext, last }: { result: QuestionResult; graded: boolean; explanation?: string; onNext: () => void; last: boolean }) {
@@ -146,7 +165,7 @@ function Feedback({ result, graded, explanation, onNext, last }: { result: Quest
           ) : (
             <>
               <p className="text-lg font-extrabold">{all ? 'சரி! Correct!' : result.totalUnits > 1 ? `${result.correctUnits} of ${result.totalUnits} right first time` : 'Not this time'}</p>
-              {!all && result.totalUnits === 1 && <p className="font-semibold">Answer: {result.expected}</p>}
+              {!all && result.totalUnits === 1 && result.expected && <p className="font-semibold">Answer: {result.expected}</p>}
               {explanation && <p className="mt-0.5 text-sm opacity-90">{explanation}</p>}
             </>
           )}
@@ -258,7 +277,7 @@ export function ReviewList({ results, showAnswers }: { results: QuestionResult[]
                   {r.totalUnits > 1 && `${r.correctUnits}/${r.totalUnits} pairs · `}
                   Your answer: <span className="font-semibold">{r.given || '—'}</span>
                 </p>
-                {showAnswers && !ok && <p className="text-sm text-emerald-700">Right answer: {r.expected}</p>}
+                {showAnswers && !ok && r.expected && <p className="text-sm text-emerald-700">Right answer: {r.expected}</p>}
               </div>
             </li>
           )

@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { gradeMatch } from '@/lib/grClassic/scoring'
-import { shuffleAwayFrom } from '@/lib/grClassic/shuffle'
-import type { MatchQuestion, QuestionResult } from '@/lib/grClassic/types'
+import type { PlayQuestion, PlaySession } from '@/lib/grClassic/play'
+import type { QuestionResult } from '@/lib/grClassic/types'
 import { Button } from '../ui'
 import { QuestionPrompt } from './QuizQuestion'
+
+type MatchPlay = Extract<PlayQuestion, { kind: 'match' }>
 
 const PAIR_COLORS = [
   'bg-teal-100 ring-teal-500 text-teal-900',
@@ -19,49 +20,77 @@ const PAIR_COLORS = [
 
 // Match the Pairs: tap an item on one side, then its partner on the other
 // (either side first). Plain buttons, so it works with a keyboard and a
-// screen reader -- no dragging needed. A pair counts towards the grade
-// only if it was matched right on the first try.
-export function MatchBoard({ question, hints, onAnswered }: { question: MatchQuestion; hints: boolean; onAnswered: (r: QuestionResult) => void }) {
-  const rights = useMemo(() => shuffleAwayFrom(question.pairs.map((p) => p.right)), [question])
+// screen reader -- no dragging needed. The device doesn't know the pairs:
+// each pairing is checked by `session.check`. A pair counts towards the
+// grade only if it was matched right on the first try.
+export function MatchBoard({ question, session, hints, onAnswered }: { question: MatchPlay; session: PlaySession; hints: boolean; onAnswered: (r: QuestionResult) => void }) {
   const [left, setLeft] = useState<number | null>(null)
   const [right, setRight] = useState<string | null>(null)
   const [matched, setMatched] = useState<Record<number, string>>({})
   const [firstPicks, setFirstPicks] = useState<Record<number, string>>({})
   const [wrong, setWrong] = useState<{ l: number; r: string } | null>(null)
-  const [hint, setHint] = useState<number | null>(null)
+  const [hint, setHint] = useState<{ left: number; right: string } | null>(null)
+  const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
-  const done = Object.keys(matched).length === question.pairs.length
+  const total = question.lefts.length
+  const done = Object.keys(matched).length === total
 
   useEffect(() => {
-    if (done) onAnswered(gradeMatch(question, firstPicks))
+    if (!done) return
+    const firstRight = question.lefts.filter((_, i) => firstPicks[i] === matched[i]).length
+    const misses = question.lefts.flatMap((l, i) => (firstPicks[i] === matched[i] ? [] : [`${l} → ${firstPicks[i]}`]))
+    onAnswered({
+      questionId: question.id,
+      prompt: question.prompt,
+      correctUnits: firstRight,
+      totalUnits: total,
+      given: misses.length ? misses.join(', ') : 'All pairs right',
+      expected: question.lefts.map((l, i) => `${l} → ${matched[i]}`).join(', '),
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [done])
 
-  const attempt = (l: number, r: string) => {
-    const picks = firstPicks[l] === undefined ? { ...firstPicks, [l]: r } : firstPicks
-    setFirstPicks(picks)
+  const attempt = async (l: number, r: string) => {
+    setBusy(true)
     setLeft(null)
     setRight(null)
     setHint(null)
-    if (question.pairs[l].right === r) {
-      setMatched((m) => ({ ...m, [l]: r }))
-      setMessage(`${question.pairs[l].left} and ${r} matched`)
-    } else {
-      setWrong({ l, r })
-      setMessage(`${question.pairs[l].left} and ${r} don't go together. Try again.`)
-      setTimeout(() => setWrong(null), 700)
+    if (firstPicks[l] === undefined) setFirstPicks((f) => ({ ...f, [l]: r }))
+    try {
+      const res = await session.check(question.id, { kind: 'match', left: l, right: r })
+      if (res.correct) {
+        setMatched((m) => ({ ...m, [l]: r }))
+        setMessage(`${question.lefts[l]} and ${r} matched`)
+      } else {
+        setWrong({ l, r })
+        setMessage(`${question.lefts[l]} and ${r} don't go together. Try again.`)
+        setTimeout(() => setWrong(null), 700)
+      }
+    } catch {
+      setMessage("Couldn't check that pair. Check the internet and try again.")
+    } finally {
+      setBusy(false)
     }
   }
 
   const tapLeft = (l: number) => {
-    if (matched[l] !== undefined) return
+    if (busy || matched[l] !== undefined) return
     if (right !== null) attempt(l, right)
     else setLeft(left === l ? null : l)
   }
   const tapRight = (r: string) => {
-    if (Object.values(matched).includes(r)) return
+    if (busy || Object.values(matched).includes(r)) return
     if (left !== null) attempt(left, r)
     else setRight(right === r ? null : r)
+  }
+
+  const getHint = async () => {
+    try {
+      const h = await session.hint(question.id, Object.keys(matched).map(Number))
+      if ('pair' in h) setHint(h.pair)
+    } catch {
+      setMessage("Couldn't get a hint right now.")
+    }
   }
 
   const leftOf = (r: string) => Number(Object.keys(matched).find((k) => matched[Number(k)] === r))
@@ -79,28 +108,28 @@ export function MatchBoard({ question, hints, onAnswered }: { question: MatchQue
     <div>
       <QuestionPrompt prompt={question.prompt} promptEn={question.promptEn} />
       <p className="mt-2 text-center text-sm font-semibold text-slate-500">Tap one card, then its partner.</p>
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5" aria-busy={busy}>
         <ul className="space-y-3" aria-label="Items">
-          {question.pairs.map((p, l) => (
-            <li key={p.left}>
+          {question.lefts.map((item, l) => (
+            <li key={item}>
               <motion.button
                 type="button"
                 animate={wrong?.l === l ? { x: [0, -8, 8, -5, 5, 0] } : { x: 0 }}
                 transition={{ duration: 0.4 }}
                 aria-pressed={left === l}
-                aria-label={matched[l] !== undefined ? `${p.left}, matched with ${matched[l]}` : p.left}
+                aria-label={matched[l] !== undefined ? `${item}, matched with ${matched[l]}` : item}
                 disabled={matched[l] !== undefined}
                 onClick={() => tapLeft(l)}
-                className={`${cardBase} ${look(matched[l] !== undefined, l, left === l, wrong?.l === l, hint === l)}`}
+                className={`${cardBase} ${look(matched[l] !== undefined, l, left === l, wrong?.l === l, hint?.left === l)}`}
               >
                 {matched[l] !== undefined && <PairBadge n={l + 1} />}
-                {p.left}
+                {item}
               </motion.button>
             </li>
           ))}
         </ul>
         <ul className="space-y-3" aria-label="Partners">
-          {rights.map((r) => {
+          {question.rights.map((r) => {
             const isMatched = Object.values(matched).includes(r)
             const pairIndex = isMatched ? leftOf(r) : 0
             return (
@@ -113,7 +142,7 @@ export function MatchBoard({ question, hints, onAnswered }: { question: MatchQue
                   aria-label={isMatched ? `${r}, matched` : r}
                   disabled={isMatched}
                   onClick={() => tapRight(r)}
-                  className={`${cardBase} ${look(isMatched, pairIndex, right === r, wrong?.r === r, hint !== null && question.pairs[hint].right === r)}`}
+                  className={`${cardBase} ${look(isMatched, pairIndex, right === r, wrong?.r === r, hint?.right === r)}`}
                 >
                   {isMatched && <PairBadge n={pairIndex + 1} />}
                   {r}
@@ -128,7 +157,7 @@ export function MatchBoard({ question, hints, onAnswered }: { question: MatchQue
       </p>
       {hints && !done && hint === null && (
         <div className="mt-4 text-center">
-          <Button tone="ghost" size="sm" onClick={() => setHint(question.pairs.findIndex((_, i) => matched[i] === undefined))}>
+          <Button tone="ghost" size="sm" onClick={getHint}>
             💡 Hint: show me one pair
           </Button>
         </div>

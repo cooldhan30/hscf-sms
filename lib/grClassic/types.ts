@@ -134,7 +134,8 @@ export interface QuestionResult {
   correctUnits: number
   totalUnits: number
   given: string
-  expected: string
+  expected: string // '' when the answer may not be shown yet
+  explanation?: string
 }
 
 export interface StudentResult {

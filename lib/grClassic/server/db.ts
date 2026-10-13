@@ -127,3 +127,16 @@ export async function getGame(supabase: SupabaseClient, id: string, names: Map<s
     updatedAt: g.updated_at,
   }
 }
+
+// One question, only if it belongs to the given game (and RLS lets the
+// caller see that game).
+export async function getGameQuestion(supabase: SupabaseClient, gameId: string, questionId: string): Promise<Question | null> {
+  const { data } = await supabase
+    .from('sms_grc_game_questions')
+    .select(`question:sms_grc_questions(${QUESTION_COLUMNS})`)
+    .eq('game_id', gameId)
+    .eq('question_id', questionId)
+    .maybeSingle()
+  const row = (data as unknown as { question: QuestionRow | null } | null)?.question
+  return row ? rowToQuestion(row, new Map()) : null
+}

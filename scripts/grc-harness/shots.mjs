@@ -58,7 +58,7 @@ async function open(vp, screen) {
   return { ctx, page }
 }
 async function shot(page, vp, name) {
-  name = name.replace('&empty=1', '-empty')
+  name = name.replace('&empty=1', '-empty').replace('&fail=1', '-fail')
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   if (over > 1) report.overflow.push(`${vp.name}/${name}: ${over}px`)
   await page.screenshot({ path: path.join(shots, `${name}--${vp.name}.png`), fullPage: true })
@@ -80,6 +80,41 @@ for (const vp of VIEWPORTS) {
     await shot(page, vp, s)
     await ctx.close()
   }
+
+  await flow('remote-quiz', vp, async () => {
+    const { ctx, page } = await open(vp, 'remote-quiz')
+    await page.getByRole('button', { name: 'Answer 1: 10' }).click()
+    await page.getByText('Answer: 12').waitFor()
+    await shot(page, vp, 'flow-remote-quiz-wrong')
+    await ctx.close()
+  })
+  await flow('remote-match', vp, async () => {
+    const { ctx, page } = await open(vp, 'remote-match')
+    for (const [l, r] of [['பூனை', 'dog'], ['பூனை', 'cat'], ['நாய்', 'dog'], ['பசு', 'cow'], ['யானை', 'elephant']]) {
+      await page.getByRole('button', { name: l, exact: true }).click()
+      await page.getByRole('button', { name: r, exact: true }).click()
+      await page.waitForTimeout(250)
+    }
+    await page.getByText('3 of 4 right first time').waitFor()
+    await shot(page, vp, 'flow-remote-match-done')
+    await ctx.close()
+  })
+  await flow('remote-word', vp, async () => {
+    const { ctx, page } = await open(vp, 'remote-word')
+    for (const t of ['ம்', 'அ', 'மா']) await page.getByRole('button', { name: `Tile ${t}`, exact: true }).click()
+    await page.getByRole('button', { name: 'Check ✓' }).click()
+    await page.getByRole('button', { name: 'Show answer' }).click()
+    await page.getByText('Answer: அம்மா').waitFor()
+    await shot(page, vp, 'flow-remote-word-shown')
+    await ctx.close()
+  })
+  await flow('remote-offline', vp, async () => {
+    const { ctx, page } = await open(vp, 'remote-quiz&fail=1')
+    await page.getByRole('button', { name: 'Answer 2: 12' }).click()
+    await page.getByText("Couldn't send your answer").waitFor()
+    await shot(page, vp, 'flow-remote-offline')
+    await ctx.close()
+  })
 
   await flow('library-add', vp, async () => {
     const { ctx, page } = await open(vp, 'library')
