@@ -13,7 +13,7 @@ const TEACHER: Action[] = [
   { href: '/gr-classic/teacher?pick=host', label: 'Host Live Game', icon: FiRadio },
   { href: '/gr-classic/teacher?pick=assign', label: 'Assign Game', icon: FiSend },
   { href: '/gr-classic/teacher?tab=assignments', label: 'My Assignments', icon: FiClipboard },
-  { href: '/gr-classic/teacher/assignments/a-uyir', label: 'Results', icon: FiBarChart2 },
+  { href: '/gr-classic/teacher?tab=assignments', label: 'Results', icon: FiBarChart2 },
 ]
 
 const STUDENT: Action[] = [

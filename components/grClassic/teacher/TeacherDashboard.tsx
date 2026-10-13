@@ -4,14 +4,13 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { FiArchive, FiBookOpen, FiCopy, FiEdit2, FiPlay, FiPlusCircle, FiRadio, FiSend } from 'react-icons/fi'
 import { dueLabel, formatDue, isPast } from '@/lib/grClassic/format'
-import { ASSIGNMENTS, className, gameById, resultsFor } from '@/lib/grClassic/sampleData'
-import type { GameSummary } from '@/lib/grClassic/types'
-import { Button, ButtonLink, Card, Pill, PrototypeNote, Shell, TYPE_META, buttonClass } from '../ui'
+import type { AssignmentSummary, GameSummary } from '@/lib/grClassic/types'
+import { Button, ButtonLink, Card, Pill, Shell, TYPE_META, buttonClass } from '../ui'
 import { grcApi } from './api'
 
 type Tab = 'games' | 'assignments'
 
-export function TeacherDashboard({ games: initialGames, pick, tab: initialTab = 'games' }: { games: GameSummary[]; pick?: 'host' | 'assign'; tab?: Tab }) {
+export function TeacherDashboard({ games: initialGames, assignments, pick, tab: initialTab = 'games' }: { games: GameSummary[]; assignments: AssignmentSummary[]; pick?: 'host' | 'assign'; tab?: Tab }) {
   const [tab, setTab] = useState<Tab>(initialTab)
   const [games, setGames] = useState<GameSummary[]>(initialGames)
   const [notice, setNotice] = useState('')
@@ -56,7 +55,7 @@ export function TeacherDashboard({ games: initialGames, pick, tab: initialTab = 
             onClick={() => setTab(t)}
             className={`rounded-xl px-4 py-2 text-sm font-extrabold transition sm:text-base ${tab === t ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
           >
-            {t === 'games' ? `My Games (${games.length})` : `Assignments (${ASSIGNMENTS.length})`}
+            {t === 'games' ? `My Games (${games.length})` : `Assignments (${assignments.length})`}
           </button>
         ))}
       </div>
@@ -98,7 +97,7 @@ export function TeacherDashboard({ games: initialGames, pick, tab: initialTab = 
         </>
       )}
 
-      {tab === 'assignments' && <AssignmentList />}
+      {tab === 'assignments' && <AssignmentList assignments={assignments} />}
     </Shell>
   )
 }
@@ -159,30 +158,36 @@ function GameCard({ game, pick, onDuplicate, onArchive }: { game: GameSummary; p
   )
 }
 
-function AssignmentList() {
+function AssignmentList({ assignments }: { assignments: AssignmentSummary[] }) {
+  if (!assignments.length) {
+    return (
+      <Card className="mt-5 p-8 text-center">
+        <p className="text-5xl" aria-hidden>
+          📬
+        </p>
+        <h2 className="mt-2 text-2xl font-black text-slate-900">No assignments yet</h2>
+        <p className="mt-1 font-semibold text-slate-600">Press Assign on any game to send it to a class as homework.</p>
+      </Card>
+    )
+  }
   return (
-    <>
-    <PrototypeNote>assignments arrive in Phase 4 — these are sample assignments.</PrototypeNote>
     <ul className="mt-5 space-y-3">
-      {ASSIGNMENTS.map((a) => {
-        const g = gameById(a.gameId)!
-        const rs = resultsFor(a)
-        const submitted = rs.filter((r) => r.status === 'submitted').length
+      {assignments.map((a) => {
         const past = isPast(a.dueAt)
         return (
           <li key={a.id}>
             <Link href={`/gr-classic/teacher/assignments/${a.id}`} className="block rounded-3xl">
               <Card className="flex flex-col gap-3 p-5 transition hover:-translate-y-0.5 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">
-                  <p className="text-lg font-extrabold text-slate-900">{g.title}</p>
+                  <p className="text-lg font-extrabold text-slate-900">{a.title}</p>
                   <p className="text-sm font-semibold text-slate-500">
-                    {a.classIds.map(className).join(', ')} · Due {formatDue(a.dueAt)}
+                    {a.classNames.join(', ')} · Due {formatDue(a.dueAt)}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {a.status === 'closed' ? <Pill>Closed</Pill> : past ? <Pill tone="red">{dueLabel(a.dueAt)}</Pill> : <Pill tone="green">Open · {dueLabel(a.dueAt)}</Pill>}
                   <span className="rounded-xl bg-slate-100 px-3 py-1.5 text-sm font-extrabold text-slate-800">
-                    {submitted}/{rs.length} submitted
+                    {a.submitted}/{a.students} submitted
                   </span>
                 </div>
               </Card>
@@ -191,6 +196,5 @@ function AssignmentList() {
         )
       })}
     </ul>
-    </>
   )
 }

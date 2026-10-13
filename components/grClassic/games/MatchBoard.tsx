@@ -32,6 +32,7 @@ export function MatchBoard({ question, session, hints, onAnswered }: { question:
   const [hint, setHint] = useState<{ left: number; right: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
   const total = question.lefts.length
   const done = Object.keys(matched).length === total
 
@@ -52,6 +53,7 @@ export function MatchBoard({ question, session, hints, onAnswered }: { question:
 
   const attempt = async (l: number, r: string) => {
     setBusy(true)
+    setError('')
     setLeft(null)
     setRight(null)
     setHint(null)
@@ -66,8 +68,8 @@ export function MatchBoard({ question, session, hints, onAnswered }: { question:
         setMessage(`${question.lefts[l]} and ${r} don't go together. Try again.`)
         setTimeout(() => setWrong(null), 700)
       }
-    } catch {
-      setMessage("Couldn't check that pair. Check the internet and try again.")
+    } catch (e) {
+      setError(e instanceof Error && e.message && !e.message.startsWith('HTTP') && !e.message.startsWith('Failed') ? e.message : "Couldn't check that pair. Check the internet and try again.")
     } finally {
       setBusy(false)
     }
@@ -89,7 +91,7 @@ export function MatchBoard({ question, session, hints, onAnswered }: { question:
       const h = await session.hint(question.id, Object.keys(matched).map(Number))
       if ('pair' in h) setHint(h.pair)
     } catch {
-      setMessage("Couldn't get a hint right now.")
+      setError("Couldn't get a hint right now.")
     }
   }
 
@@ -155,6 +157,11 @@ export function MatchBoard({ question, session, hints, onAnswered }: { question:
       <p role="status" aria-live="polite" className="sr-only">
         {message}
       </p>
+      {error && (
+        <p role="alert" className="mt-4 text-center font-bold text-rose-700">
+          {error}
+        </p>
+      )}
       {hints && !done && hint === null && (
         <div className="mt-4 text-center">
           <Button tone="ghost" size="sm" onClick={getHint}>

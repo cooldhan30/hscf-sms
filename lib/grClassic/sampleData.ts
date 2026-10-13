@@ -82,12 +82,17 @@ const ROSTER: { id: string; name: string; classId: string }[] = [
 
 export const LIVE_ROSTER = ROSTER.filter((s) => s.classId === 'c-2a' || s.classId === 'c-3a').map((s) => s.name)
 
+const assignment = (id: string, gameId: string, classIds: string[], dueAt: string, status: Assignment['status'], settings: Assignment['settings']): Assignment => {
+  const g = gameById(gameId)!
+  return { id, gameId, title: g.title, type: g.type, classIds, dueAt, status, settings, questionCount: g.questions.length }
+}
+
 export const ASSIGNMENTS: Assignment[] = [
-  { id: 'a-uyir', gameId: 'g-uyir-quiz', classIds: ['c-2a', 'c-3a'], dueAt: inDays(3), status: 'open', settings: { ...DEFAULT_ASSIGNMENT_SETTINGS } },
-  { id: 'a-words', gameId: 'g-word-builder', classIds: ['c-2a'], dueAt: inDays(-1), status: 'open', settings: { ...DEFAULT_ASSIGNMENT_SETTINGS } },
-  { id: 'a-porul', gameId: 'g-porul-match', classIds: ['c-3a', 'c-4b'], dueAt: inDays(7), status: 'open', settings: { ...DEFAULT_ASSIGNMENT_SETTINGS, allowLate: true } },
-  { id: 'a-inam', gameId: 'g-inam-quiz', classIds: ['c-2a'], dueAt: inDays(-4), status: 'closed', settings: { ...DEFAULT_ASSIGNMENT_SETTINGS, showAnswers: 'after-submit' } },
-  { id: 'a-sent', gameId: 'g-sentence-builder', classIds: ['c-2a'], dueAt: inDays(5), status: 'open', settings: { ...DEFAULT_ASSIGNMENT_SETTINGS, maxAttempts: 3 } },
+  assignment('a-uyir', 'g-uyir-quiz', ['c-2a', 'c-3a'], inDays(3), 'open', { ...DEFAULT_ASSIGNMENT_SETTINGS }),
+  assignment('a-words', 'g-word-builder', ['c-2a'], inDays(-1), 'open', { ...DEFAULT_ASSIGNMENT_SETTINGS }),
+  assignment('a-porul', 'g-porul-match', ['c-3a', 'c-4b'], inDays(7), 'open', { ...DEFAULT_ASSIGNMENT_SETTINGS, allowLate: true }),
+  assignment('a-inam', 'g-inam-quiz', ['c-2a'], inDays(-4), 'closed', { ...DEFAULT_ASSIGNMENT_SETTINGS, showAnswers: 'after-submit' }),
+  assignment('a-sent', 'g-sentence-builder', ['c-2a'], inDays(5), 'open', { ...DEFAULT_ASSIGNMENT_SETTINGS, maxAttempts: 3 }),
 ]
 
 export function assignmentById(id: string): Assignment | undefined {
@@ -117,7 +122,7 @@ function fakeResults(game: Game, seed: number): QuestionResult[] {
 const percentOf = (rs: QuestionResult[]) => Math.round((100 * rs.reduce((n, r) => n + r.correctUnits, 0)) / rs.reduce((n, r) => n + r.totalUnits, 0))
 
 export function resultsFor(assignment: Assignment): StudentResult[] {
-  const game = gameById(assignment.gameId)!
+  const game = gameById(assignment.gameId ?? '')!
   return ROSTER.filter((s) => assignment.classIds.includes(s.classId)).map((s, i) => {
     const n = Number(s.id.slice(2))
     const bucket = (n * 7 + assignment.id.length) % 6
@@ -131,7 +136,9 @@ export function resultsFor(assignment: Assignment): StudentResult[] {
       percent: status === 'submitted' ? percentOf(questions) : null,
       attemptsUsed: status === 'submitted' ? 1 + (n % 2) : status === 'in-progress' ? 1 : 0,
       extraAttempts: 0,
+      attemptLimit: assignment.settings.maxAttempts,
       submittedAt: status === 'submitted' ? inDays(-1 - (i % 3), 18) : null,
+      late: false,
       questions,
     }
   })
@@ -142,18 +149,19 @@ export const SAMPLE_STUDENT = { name: 'Kavin', classId: 'c-2a' }
 
 export function studentAssignments(): StudentAssignment[] {
   const row = (id: string, status: StudentAssignment['status'], attemptsUsed: number, seed: number | null): StudentAssignment => {
-    const assignment = assignmentById(id)!
-    const game = gameById(assignment.gameId)!
+    const a = assignmentById(id)!
+    const game = gameById(a.gameId ?? '')!
     const questions = seed === null ? [] : fakeResults(game, seed)
     return {
-      assignment,
-      game,
+      assignment: a,
       className: className(SAMPLE_STUDENT.classId),
       status,
       attemptsUsed,
+      attemptLimit: a.settings.maxAttempts,
       bestPercent: seed === null ? null : percentOf(questions),
       submittedAt: seed === null ? null : inDays(-5, 17),
       questions,
+      answersVisible: seed !== null && (a.settings.showAnswers === 'after-submit' || (a.settings.showAnswers === 'after-due' && new Date(a.dueAt).getTime() < Date.now())),
     }
   }
   return [row('a-sent', 'todo', 0, null), row('a-uyir', 'in-progress', 1, null), row('a-inam', 'submitted', 1, 1), row('a-words', 'overdue', 0, null)]

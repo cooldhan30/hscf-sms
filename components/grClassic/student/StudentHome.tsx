@@ -3,16 +3,16 @@
 import Link from 'next/link'
 import { FiBookOpen, FiEdit3, FiPlayCircle } from 'react-icons/fi'
 import type { IconType } from 'react-icons'
-import { GAMES, SAMPLE_STUDENT, studentAssignments } from '@/lib/grClassic/sampleData'
+import { GAMES } from '@/lib/grClassic/sampleData'
+import type { StudentAssignment } from '@/lib/grClassic/types'
 import { Card, SectionTitle, Shell, TYPE_META, buttonClass } from '../ui'
 import { AssignmentCard } from './AssignmentsBoard'
 
-export function StudentHome() {
-  const all = studentAssignments()
-  const open = all.filter((a) => a.status === 'todo' || a.status === 'in-progress')
+export function StudentHome({ name, assignments }: { name: string; assignments: StudentAssignment[] }) {
+  const open = assignments.filter((a) => a.status === 'todo' || a.status === 'in-progress')
   return (
     <Shell back={{ href: '/gr-classic', label: 'Home' }}>
-      <h1 className="text-3xl font-black text-slate-900">வணக்கம், {SAMPLE_STUDENT.name}! 👋</h1>
+      <h1 className="text-3xl font-black text-slate-900">வணக்கம், {name}! 👋</h1>
       <p className="font-semibold text-slate-600">What do you want to do?</p>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-3">
@@ -44,6 +44,7 @@ export function StudentHome() {
 
       <section id="practice" className="scroll-mt-4">
         <SectionTitle>Practice games</SectionTitle>
+        <p className="-mt-2 mb-3 text-sm font-semibold text-slate-500">Sample games for now — your teachers’ games arrive here soon.</p>
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {GAMES.map((g) => {
             const m = TYPE_META[g.type]

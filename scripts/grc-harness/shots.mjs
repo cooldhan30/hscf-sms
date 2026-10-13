@@ -58,7 +58,7 @@ async function open(vp, screen) {
   return { ctx, page }
 }
 async function shot(page, vp, name) {
-  name = name.replace('&empty=1', '-empty').replace('&fail=1', '-fail')
+  name = name.replace('&empty=1', '-empty').replace('&fail=1', '-fail').replace(/&/g, '-').replace(/=/g, '')
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   if (over > 1) report.overflow.push(`${vp.name}/${name}: ${over}px`)
   await page.screenshot({ path: path.join(shots, `${name}--${vp.name}.png`), fullPage: true })
@@ -80,6 +80,68 @@ for (const vp of VIEWPORTS) {
     await shot(page, vp, s)
     await ctx.close()
   }
+
+  await flow('publish', vp, async () => {
+    const { ctx, page } = await open(vp, 'assign')
+    await page.getByRole('button', { name: /Grade 2 · A/ }).click()
+    await page.getByRole('button', { name: 'In 1 week' }).click()
+    await page.getByRole('button', { name: /Publish Assignment/ }).click()
+    await page.getByText('Assignment published!').waitFor()
+    await shot(page, vp, 'flow-assign-published')
+    await ctx.close()
+  })
+  await flow('results-actions', vp, async () => {
+    const { ctx, page } = await open(vp, 'results')
+    await page.getByRole('button', { name: /Attempt/ }).first().click()
+    await page.getByText('can now have one more attempt').waitFor()
+    await page.getByRole('button', { name: 'Close' }).click()
+    await page.getByText('Assignment closed').waitFor()
+    await shot(page, vp, 'flow-results-actions')
+    await ctx.close()
+  })
+  await flow('runner', vp, async () => {
+    const { ctx, page } = await open(vp, 'runner')
+    await page.getByRole('button', { name: /^Answer 1:/ }).waitFor()
+    await shot(page, vp, 'flow-runner-start')
+    for (let i = 0; i < 5; i++) {
+      await page.getByRole('button', { name: i === 0 ? 'Answer 2: 12' : /^Answer 1:/ }).click()
+      await page.getByRole('button', { name: i < 4 ? 'Next →' : 'Finish' }).click()
+    }
+    await page.getByRole('button', { name: 'Finish & Submit' }).click()
+    await page.getByText('Assignment Submitted Successfully!').waitFor()
+    await page.waitForTimeout(1500)
+    await shot(page, vp, 'flow-runner-submitted')
+    await ctx.close()
+  })
+  await flow('runner-resume', vp, async () => {
+    const { ctx, page } = await open(vp, 'runner&resume=2')
+    await page.getByText('3 / 5').waitFor()
+    await shot(page, vp, 'flow-runner-resume')
+    await ctx.close()
+  })
+  await flow('runner-timer', vp, async () => {
+    const { ctx, page } = await open(vp, 'runner&timer=1')
+    await page.getByRole('timer').waitFor()
+    await shot(page, vp, 'flow-runner-timer')
+    await page.getByText('Assignment Submitted Successfully!').waitFor({ timeout: 15000 })
+    await ctx.close()
+  })
+  await flow('runner-closed', vp, async () => {
+    const { ctx, page } = await open(vp, 'runner&closed=1')
+    await page.getByText('Your teacher has closed this assignment.').waitFor()
+    await shot(page, vp, 'flow-runner-closed')
+    await ctx.close()
+  })
+  await flow('runner-submit-retry', vp, async () => {
+    const { ctx, page } = await open(vp, 'runner&resume=5&failsubmit=1')
+    await page.getByRole('button', { name: 'Finish & Submit' }).click()
+    await page.getByRole('alert').waitFor()
+    await shot(page, vp, 'flow-runner-submit-failed')
+    if ((await page.getByText('Assignment Submitted Successfully!').count()) > 0) throw new Error('showed success after a failed submit')
+    await page.getByRole('button', { name: 'Finish & Submit' }).click()
+    await page.getByText('Assignment Submitted Successfully!').waitFor()
+    await ctx.close()
+  })
 
   await flow('remote-quiz', vp, async () => {
     const { ctx, page } = await open(vp, 'remote-quiz')

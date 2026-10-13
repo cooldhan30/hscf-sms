@@ -3,9 +3,17 @@
 import { useEffect, useState } from 'react'
 import { FiCheck, FiCheckCircle, FiSend } from 'react-icons/fi'
 import { formatDue, inDays } from '@/lib/grClassic/format'
-import { CLASSES } from '@/lib/grClassic/sampleData'
-import { DEFAULT_ASSIGNMENT_SETTINGS, type AssignmentSettings, type Game } from '@/lib/grClassic/types'
-import { Advanced, Button, ButtonLink, Card, PrototypeNote, Segmented, Shell, Toggle, TypeChip } from '../ui'
+import { DEFAULT_ASSIGNMENT_SETTINGS, type AssignmentSettings, type GameType, type TeacherClass } from '@/lib/grClassic/types'
+import { Advanced, Button, ButtonLink, Card, Segmented, Shell, Toggle, TypeChip } from '../ui'
+import { grcApi } from './api'
+
+export interface AssignableGame {
+  id: string
+  title: string
+  type: GameType
+  category: string
+  questionCount: number
+}
 
 // Local "YYYY-MM-DDTHH:mm" for <input type="datetime-local">.
 function toLocalInput(iso: string): string {
@@ -25,23 +33,28 @@ export function settingsSummary(s: AssignmentSettings): string {
 
 // Assign: pick classes, pick a due date, publish. Three decisions; the
 // rest are sensible defaults under "Advanced options".
-export function AssignForm({ game }: { game: Game }) {
+export function AssignForm({ game, classes }: { game: AssignableGame; classes: TeacherClass[] }) {
   const [classIds, setClassIds] = useState<string[]>([])
   // Set in the browser so the default uses the teacher's own time zone.
   const [due, setDue] = useState('')
   useEffect(() => setDue(toLocalInput(inDays(7))), [])
   const [settings, setSettings] = useState<AssignmentSettings>(DEFAULT_ASSIGNMENT_SETTINGS)
   const [error, setError] = useState('')
-  const [published, setPublished] = useState(false)
+  const [published, setPublished] = useState<string | null>(null)
+  const [publishing, setPublishing] = useState(false)
   const set = <K extends keyof AssignmentSettings>(k: K, v: AssignmentSettings[K]) => setSettings((s) => ({ ...s, [k]: v }))
-  const chosen = CLASSES.filter((c) => classIds.includes(c.id))
+  const chosen = classes.filter((c) => classIds.includes(c.id))
   const students = chosen.reduce((n, c) => n + c.studentCount, 0)
 
-  const publish = () => {
+  const publish = async () => {
     if (classIds.length === 0) return setError('Pick at least one class.')
     if (!due || new Date(due).getTime() <= Date.now()) return setError('Pick a due date in the future.')
     setError('')
-    setPublished(true)
+    setPublishing(true)
+    const res = await grcApi<{ id: string }>('/assignments', { method: 'POST', body: { gameId: game.id, classIds, dueAt: new Date(due).toISOString(), settings } })
+    setPublishing(false)
+    if (!res.ok) return setError(res.error)
+    setPublished(res.data.id)
   }
 
   if (published) {
@@ -55,14 +68,13 @@ export function AssignForm({ game }: { game: Game }) {
           </p>
           <p className="font-bold text-slate-800">Due {formatDue(new Date(due).toISOString())}</p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <ButtonLink href="/gr-classic/teacher/assignments/a-uyir" tone="teal">
+            <ButtonLink href={`/gr-classic/teacher/assignments/${published}`} tone="teal">
               View results
             </ButtonLink>
             <ButtonLink href="/gr-classic/teacher" tone="plain">
               Back to My Games
             </ButtonLink>
           </div>
-          <PrototypeNote>nothing was published; “View results” opens a sample assignment.</PrototypeNote>
         </Card>
       </Shell>
     )
@@ -75,7 +87,8 @@ export function AssignForm({ game }: { game: Game }) {
         <div className="min-w-0 flex-1">
           <p className="text-xl font-extrabold text-slate-900">{game.title}</p>
           <p className="text-sm font-semibold text-slate-500">
-            {game.questions.length} {game.type === 'match' ? 'boards' : 'questions'} · {game.category}
+            {game.questionCount} {game.type === 'match' ? 'boards' : 'questions'}
+            {game.category && ` · ${game.category}`}
           </p>
         </div>
         <TypeChip type={game.type} />
@@ -85,7 +98,8 @@ export function AssignForm({ game }: { game: Game }) {
         <fieldset>
           <legend className="mb-2 text-lg font-extrabold text-slate-900">1. Which classes?</legend>
           <div className="grid gap-2 sm:grid-cols-3">
-            {CLASSES.map((c) => {
+            {classes.length === 0 && <p className="font-semibold text-slate-600 sm:col-span-3">You don’t have any classes yet. Ask the school admin to add you to a class first.</p>}
+            {classes.map((c) => {
               const on = classIds.includes(c.id)
               return (
                 <button
@@ -139,8 +153,8 @@ export function AssignForm({ game }: { game: Game }) {
             {error}
           </p>
         )}
-        <Button tone="teal" size="lg" className="w-full" onClick={publish}>
-          <FiSend aria-hidden /> Publish Assignment
+        <Button tone="teal" size="lg" className="w-full" onClick={publish} disabled={publishing || classes.length === 0}>
+          <FiSend aria-hidden /> {publishing ? 'Publishing…' : 'Publish Assignment'}
         </Button>
       </Card>
     </Shell>

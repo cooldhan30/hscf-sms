@@ -25,9 +25,9 @@ export function QuizQuestion({ question, session, reveal, hints, onAnswered }: {
       const res = await session.check(question.id, { kind: 'choice', choice: i })
       setResult(res)
       onAnswered({ questionId: question.id, prompt: question.prompt, correctUnits: res.correct ? 1 : 0, totalUnits: 1, given: question.options[i], expected: res.expected ?? '', explanation: res.explanation })
-    } catch {
+    } catch (e) {
       setChosen(null)
-      setError("Couldn't send your answer. Check the internet and tap again.")
+      setError(e instanceof Error && e.message && !e.message.startsWith('HTTP') && !e.message.startsWith('Failed') ? e.message : "Couldn't send your answer. Check the internet and tap again.")
     }
   }
 

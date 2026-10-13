@@ -8,7 +8,7 @@ import { formatDate } from '@/lib/grClassic/format'
 import { encouragement, starsFor, totals } from '@/lib/grClassic/scoring'
 import { shuffle } from '@/lib/grClassic/shuffle'
 import { localSession, toPlayQuestion, type PlayQuestion, type PlaySession } from '@/lib/grClassic/play'
-import type { GameType, Question, QuestionResult } from '@/lib/grClassic/types'
+import type { GameType, Question, QuestionResult, SubmitSummary } from '@/lib/grClassic/types'
 import { remoteSession } from './remoteSession'
 import { Button, ButtonLink, Card, Pill, ProgressBar, TypeChip } from '../ui'
 import { Confetti } from './Confetti'
@@ -19,10 +19,17 @@ import { WordBuilder } from './WordBuilder'
 export type PlayMode = 'practice' | 'assignment' | 'preview'
 
 export interface AssignmentContext {
-  attemptsLeftAfter: number | null // null = unlimited
-  showScore: boolean
-  randomize: boolean
-  dueAt: string
+  // Shuffle the questions in the browser (sample games only; real
+  // assignments arrive already in the order the server chose).
+  randomize?: boolean
+  // Resuming: questions already answered in this attempt are skipped.
+  answeredIds?: string[]
+  // The teacher set a timer: the attempt is handed in automatically then.
+  deadlineAt?: string | null
+  // Hands the attempt in. Must only resolve once the server has stored it.
+  submit: (results: QuestionResult[]) => Promise<SubmitSummary>
+  // Start another attempt (shown when attempts are left).
+  onRetry?: () => void
 }
 
 type Exit = { href: string } | { onClick: () => void }
@@ -58,14 +65,23 @@ function Player({ game, play, mode, assignment, exit }: { game: GameInfo; play: 
     return { session, ordered: assignment?.randomize ? shuffle(list) : list }
   }, [play, assignment, graded])
   const questions = ordered
-  const [index, setIndex] = useState(0)
+  // Resume at the first question not yet answered in this attempt.
+  const firstOpen = (() => {
+    const done = new Set(assignment?.answeredIds ?? [])
+    const i = questions.findIndex((x) => !done.has(x.id))
+    return i === -1 ? questions.length : i
+  })()
+  const [index, setIndex] = useState(Math.min(firstOpen, questions.length - 1))
   const [results, setResults] = useState<QuestionResult[]>([])
   const [pending, setPending] = useState<QuestionResult | null>(null)
-  const [phase, setPhase] = useState<'play' | 'confirm' | 'submitting' | 'done'>('play')
-  const [submittedAt, setSubmittedAt] = useState<string | null>(null)
+  const [phase, setPhase] = useState<'play' | 'confirm' | 'submitting' | 'done'>(firstOpen >= questions.length && graded ? 'confirm' : 'play')
+  const [summary, setSummary] = useState<SubmitSummary | null>(null)
+  const [submitError, setSubmitError] = useState('')
+  const [timeUp, setTimeUp] = useState(false)
   const [round, setRound] = useState(0)
   const q = questions[index]
   const last = index === questions.length - 1
+  const left = useCountdown(graded ? assignment?.deadlineAt : null)
 
   const next = () => {
     if (!pending) return
@@ -75,20 +91,35 @@ function Player({ game, play, mode, assignment, exit }: { game: GameInfo; play: 
     else setPhase(graded ? 'confirm' : 'done')
   }
 
-  const submit = () => {
-    // Prototype: stands in for the server call. The real version shows
-    // success only after the server confirms the submission is stored.
+  // Never says "submitted" until the server has stored the attempt.
+  const submit = async () => {
+    if (!assignment || phase === 'submitting' || phase === 'done') return
     setPhase('submitting')
-    setTimeout(() => {
-      setSubmittedAt(new Date().toISOString())
+    setSubmitError('')
+    try {
+      setSummary(await assignment.submit(results))
       setPhase('done')
-    }, 700)
+    } catch (e) {
+      setSubmitError(e instanceof Error && e.message && !e.message.startsWith('HTTP') ? e.message : "Couldn't hand it in. Your answers are saved — check the internet and press Finish & Submit again.")
+      setPhase('confirm')
+    }
   }
 
+  // Timer ran out: hand in whatever was answered.
+  useEffect(() => {
+    if (left !== null && left <= 0 && !timeUp && phase !== 'done' && phase !== 'submitting') {
+      setTimeUp(true)
+      submit()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [left])
+
   const restart = () => {
+    if (graded && assignment?.onRetry) return assignment.onRetry()
     setIndex(0)
     setResults([])
     setPending(null)
+    setSummary(null)
     setPhase('play')
     setRound((n) => n + 1)
   }
@@ -104,6 +135,11 @@ function Player({ game, play, mode, assignment, exit }: { game: GameInfo; play: 
             <Pill tone={graded ? 'blue' : mode === 'preview' ? 'amber' : 'green'}>{graded ? 'Assignment' : mode === 'preview' ? 'Teacher preview' : 'Practice'}</Pill>
           </div>
         </div>
+        {left !== null && phase !== 'done' && (
+          <span role="timer" aria-label={`${Math.max(0, Math.ceil(left / 60))} minutes left`} className={`shrink-0 rounded-xl px-3 py-1.5 text-sm font-extrabold tabular-nums ring-1 ${left < 60 ? 'bg-rose-600 text-white ring-rose-600' : 'bg-white text-slate-700 ring-slate-200'}`}>
+            ⏱ {formatClock(left)}
+          </span>
+        )}
         {phase === 'play' && (
           <span className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-sm font-extrabold text-slate-700 ring-1 ring-slate-200">
             {index + 1} / {questions.length}
@@ -132,15 +168,20 @@ function Player({ game, play, mode, assignment, exit }: { game: GameInfo; play: 
           <p className="text-5xl" aria-hidden>
             📝
           </p>
-          <h2 className="mt-3 text-2xl font-extrabold text-slate-900">You answered all {questions.length} questions!</h2>
-          <p className="mt-2 text-slate-600">Ready to hand it in? After you submit, this attempt can&apos;t be changed.</p>
+          <h2 className="mt-3 text-2xl font-extrabold text-slate-900">{timeUp ? 'Time is up!' : `You answered all ${questions.length} questions!`}</h2>
+          <p className="mt-2 text-slate-600">{timeUp ? 'Handing in the answers you gave…' : 'Ready to hand it in? After you submit, this attempt can’t be changed.'}</p>
+          {submitError && (
+            <p role="alert" className="mt-4 rounded-xl bg-rose-50 px-4 py-3 font-bold text-rose-800 ring-1 ring-rose-200">
+              {submitError}
+            </p>
+          )}
           <Button tone="teal" size="lg" className="mt-6 w-full" onClick={submit} disabled={phase === 'submitting'}>
             {phase === 'submitting' ? 'Submitting…' : 'Finish & Submit'}
           </Button>
         </Card>
       )}
 
-      {phase === 'done' && graded && submittedAt && assignment && <Submitted results={results} assignment={assignment} submittedAt={submittedAt} exit={exit} onRetry={restart} />}
+      {phase === 'done' && graded && summary && <Submitted summary={summary} exit={exit} onRetry={restart} />}
       {phase === 'done' && !graded && <Results results={results} onAgain={restart} exit={exit} />}
     </div>
   )
@@ -216,10 +257,11 @@ function Results({ results, onAgain, exit }: { results: QuestionResult[]; onAgai
   )
 }
 
-function Submitted({ results, assignment, submittedAt, exit, onRetry }: { results: QuestionResult[]; assignment: AssignmentContext; submittedAt: string; exit: Exit; onRetry: () => void }) {
-  const t = totals(results)
-  const msg = encouragement(t.percent)
-  const left = assignment.attemptsLeftAfter
+// Shown only after the server has confirmed the submission (summary comes
+// from the server's reply, not from this browser).
+function Submitted({ summary, exit, onRetry }: { summary: SubmitSummary; exit: Exit; onRetry: () => void }) {
+  const msg = encouragement(summary.percent)
+  const left = summary.attemptsLeft
   return (
     <div className="mt-6">
       <Confetti />
@@ -227,14 +269,10 @@ function Submitted({ results, assignment, submittedAt, exit, onRetry }: { result
         <FiCheckCircle aria-hidden className="mx-auto h-16 w-16 text-emerald-500" />
         <h2 className="mt-3 text-2xl font-extrabold text-slate-900 sm:text-3xl">Assignment Submitted Successfully!</h2>
         <p className="font-semibold text-slate-600">வேலை வெற்றிகரமாகச் சமர்ப்பிக்கப்பட்டது</p>
-        {assignment.showScore && (
-          <>
-            <p className="mt-5 text-6xl font-black text-teal-600">{t.percent}%</p>
-            <p className="font-bold text-slate-700">
-              {t.correct} of {t.total} right · {msg.en}
-            </p>
-          </>
-        )}
+        <p className="mt-5 text-6xl font-black text-teal-600">{summary.percent}%</p>
+        <p className="font-bold text-slate-700">
+          {summary.correct} of {summary.total} right · {msg.en}
+        </p>
         <dl className="mt-6 grid grid-cols-2 gap-3 text-left">
           <div className="rounded-2xl bg-slate-50 p-3">
             <dt className="text-xs font-bold uppercase text-slate-500">Attempts left</dt>
@@ -242,9 +280,10 @@ function Submitted({ results, assignment, submittedAt, exit, onRetry }: { result
           </div>
           <div className="rounded-2xl bg-slate-50 p-3">
             <dt className="text-xs font-bold uppercase text-slate-500">Submitted</dt>
-            <dd className="text-lg font-extrabold text-slate-900">{formatDate(submittedAt)}</dd>
+            <dd className="text-lg font-extrabold text-slate-900">{formatDate(summary.submittedAt)}</dd>
           </div>
         </dl>
+        {summary.late && <p className="mt-3 font-bold text-amber-800">Handed in after the due date.</p>}
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <ExitButton exit={exit} label="My Assignments" big />
           {(left === null || left > 0) && (
@@ -253,10 +292,28 @@ function Submitted({ results, assignment, submittedAt, exit, onRetry }: { result
             </Button>
           )}
         </div>
-        <p className="mt-4 text-sm text-slate-500">Your best score counts. Correct answers appear after the due date.</p>
+        <p className="mt-4 text-sm text-slate-500">{summary.answersNote}</p>
       </Card>
     </div>
   )
+}
+
+// Seconds left until `deadline`, ticking every second (null = no timer).
+function useCountdown(deadline: string | null | undefined): number | null {
+  const calc = () => (deadline ? Math.ceil((new Date(deadline).getTime() - Date.now()) / 1000) : null)
+  const [left, setLeft] = useState(calc)
+  useEffect(() => {
+    if (!deadline) return
+    const t = setInterval(() => setLeft(calc()), 1000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deadline])
+  return left
+}
+
+function formatClock(seconds: number): string {
+  const s = Math.max(0, seconds)
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
 export function ReviewList({ results, showAnswers }: { results: QuestionResult[]; showAnswers: boolean }) {

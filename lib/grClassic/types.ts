@@ -115,13 +115,18 @@ export const DEFAULT_ASSIGNMENT_SETTINGS: AssignmentSettings = {
   scorePolicy: 'best',
 }
 
+// A published assignment. Title, type and questions are frozen when it is
+// published, so later edits to the game never change it.
 export interface Assignment {
   id: string
-  gameId: string
+  gameId: string | null
+  title: string
+  type: GameType
   classIds: string[]
   dueAt: string
   status: 'open' | 'closed'
   settings: AssignmentSettings
+  questionCount: number
 }
 
 export type AttemptStatus = 'not-started' | 'in-progress' | 'submitted'
@@ -146,7 +151,9 @@ export interface StudentResult {
   percent: number | null
   attemptsUsed: number
   extraAttempts: number
+  attemptLimit: number | null // null = unlimited (includes extra attempts)
   submittedAt: string | null
+  late: boolean
   questions: QuestionResult[]
 }
 
@@ -154,11 +161,42 @@ export type StudentAssignmentStatus = 'todo' | 'in-progress' | 'submitted' | 'ov
 
 export interface StudentAssignment {
   assignment: Assignment
-  game: Game
   className: string
   status: StudentAssignmentStatus
   attemptsUsed: number
-  bestPercent: number | null
+  attemptLimit: number | null // null = unlimited
+  bestPercent: number | null // the score that counts (best or latest, per the teacher)
   submittedAt: string | null
   questions: QuestionResult[]
+  answersVisible: boolean
+}
+
+// What the server confirms after Finish & Submit.
+export interface SubmitSummary {
+  submittedAt: string
+  percent: number
+  correct: number
+  total: number
+  attemptsLeft: number | null // null = unlimited
+  late: boolean
+  answersNote: string
+}
+
+// A teacher's view of one of their classes when assigning.
+export interface TeacherClass {
+  id: string
+  name: string
+  studentCount: number
+}
+
+// One row of the teacher's assignment list.
+export interface AssignmentSummary {
+  id: string
+  title: string
+  type: GameType
+  classNames: string[]
+  dueAt: string
+  status: 'open' | 'closed'
+  submitted: number
+  students: number
 }

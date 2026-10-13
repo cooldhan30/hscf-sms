@@ -1,9 +1,15 @@
 import { notFound } from 'next/navigation'
 import { AssignmentResults } from '@/components/grClassic/teacher/AssignmentResults'
-import { assignmentById, gameById } from '@/lib/grClassic/sampleData'
+import { TeachersOnly } from '@/components/grClassic/TeachersOnly'
+import { grcTeacherPage } from '@/lib/grClassic/server/auth'
+import { assignmentResults } from '@/lib/grClassic/server/teacherAssignments'
+import { isUuid } from '@/lib/grClassic/validateQuestion'
 
-export default function GrClassicResultsPage({ params }: { params: { id: string } }) {
-  const assignment = assignmentById(params.id)
-  if (!assignment) notFound()
-  return <AssignmentResults assignment={assignment} game={gameById(assignment.gameId)!} />
+export default async function GrClassicResultsPage({ params }: { params: { id: string } }) {
+  if (!isUuid(params.id)) notFound()
+  const t = await grcTeacherPage(`/gr-classic/teacher/assignments/${params.id}`)
+  if (!t.ok) return <TeachersOnly message={t.error} />
+  const view = await assignmentResults(t.supabase, params.id)
+  if (!view) notFound()
+  return <AssignmentResults view={view} />
 }

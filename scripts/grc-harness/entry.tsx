@@ -18,6 +18,7 @@ import { StudentHome } from '@/components/grClassic/student/StudentHome'
 import { AssignmentsBoard } from '@/components/grClassic/student/AssignmentsBoard'
 import { AssignmentReview } from '@/components/grClassic/student/AssignmentReview'
 import { GamePlayer } from '@/components/grClassic/games/GamePlayer'
+import { LocalAssignmentPlayer } from '@/components/grClassic/games/LocalAssignmentPlayer'
 import { JoinLive } from '@/components/grClassic/live/JoinLive'
 import { HostLive } from '@/components/grClassic/live/HostLive'
 import { TeachersOnly } from '@/components/grClassic/TeachersOnly'
@@ -25,9 +26,11 @@ import { STARTER_CATEGORIES } from '@/lib/grClassic/categories'
 import { readImport } from '@/lib/grClassic/csv'
 import { planImport } from '@/lib/grClassic/importPlan'
 import { checkResponse, hintFor, toPlayQuestion } from '@/lib/grClassic/play'
-import { GAMES, LIBRARY, assignmentById, gameById, studentAssignments } from '@/lib/grClassic/sampleData'
+import { ASSIGNMENTS, CLASSES, GAMES, LIBRARY, assignmentById, className, gameById, resultsFor, studentAssignments } from '@/lib/grClassic/sampleData'
+import { AssignmentRunner } from '@/components/grClassic/student/AssignmentRunner'
+import { totals } from '@/lib/grClassic/scoring'
 import { validateQuestion, type QuestionInput, type ValidQuestion } from '@/lib/grClassic/validateQuestion'
-import type { Category, GameSummary, Question } from '@/lib/grClassic/types'
+import type { AssignmentSummary, Category, GameSummary, Question, QuestionResult } from '@/lib/grClassic/types'
 
 const params = new URLSearchParams(location.search)
 const empty = params.get('empty') === '1'
@@ -50,6 +53,21 @@ const keyOf = (q: Question) => {
   return v.ok ? v.value.contentKey : q.id
 }
 
+// ---- sample assignments, as the server would send them ----
+const assignmentSummaries: AssignmentSummary[] = empty ? [] : ASSIGNMENTS.map((a) => {
+  const rs = resultsFor(a)
+  return { id: a.id, title: a.title, type: a.type, classNames: a.classIds.map(className), dueAt: a.dueAt, status: a.status, submitted: rs.filter((r) => r.status === 'submitted').length, students: rs.length }
+})
+const sampleView = (id: string) => {
+  const a = assignmentById(id)!
+  return { assignment: a, classes: a.classIds.map((c) => ({ id: c, name: className(c) })), results: resultsFor(a) }
+}
+
+// ---- a stand-in attempt for the real AssignmentRunner (?resume=2, ?timer=1, ?closed=1, ?failsubmit=1) ----
+const runGame = gameById('g-uyir-quiz')!
+const answers = new Map<string, QuestionResult>()
+let submitFailures = params.get('failsubmit') === '1' ? 1 : 0
+
 // ---- stand-in for /api/gr-classic ----
 let seq = 1
 const realFetch = window.fetch.bind(window)
@@ -69,6 +87,28 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const q = gameById(play[1])?.questions.find((x) => x.id === body.questionId)
     if (!q) return reply({ error: 'Question not found.' }, 404)
     return reply(play[2] === 'check' ? checkResponse(q, body.response, true) : hintFor(q, body.matched))
+  }
+  if (path === '/assignments' && method === 'POST') return reply({ id: 'a-uyir' }, 201)
+  const asg = path.match(/^\/assignments\/([^/]+)(\/grant|\/start)?$/)
+  if (asg && asg[2] === '/grant') return reply({ extra: 1 })
+  if (asg && asg[2] === '/start') {
+    if (params.get('closed') === '1') return reply({ error: 'Your teacher has closed this assignment.' }, 409)
+    const resume = Number(params.get('resume') ?? 0)
+    runGame.questions.slice(0, resume).forEach((q) => answers.set(q.id, { questionId: q.id, prompt: q.prompt, correctUnits: 1, totalUnits: 1, given: '', expected: '' }))
+    return reply({ attemptId: 'att-1', title: runGame.title, type: runGame.type, questions: runGame.questions.map(toPlayQuestion), answeredIds: Array.from(answers.keys()), deadlineAt: params.get('timer') === '1' ? new Date(Date.now() + 8000).toISOString() : null, attemptNo: 1, attemptsLeftAfter: 1 })
+  }
+  if (asg && method === 'PATCH') return reply({ dueAt: body.dueAt ?? assignmentById(asg[1])!.dueAt, status: body.status ?? 'open' })
+  const att = path.match(/^\/attempts\/([^/]+)\/(check|submit)$/)
+  if (att && att[2] === 'check') {
+    const q = runGame.questions.find((x) => x.id === body.questionId)!
+    const res = checkResponse(q, body.response, false)
+    if (!answers.has(q.id)) answers.set(q.id, { questionId: q.id, prompt: q.prompt, correctUnits: res.correct ? 1 : 0, totalUnits: 1, given: '', expected: '' })
+    return reply(res)
+  }
+  if (att && att[2] === 'submit') {
+    if (submitFailures-- > 0) return reply({ error: 'Something went wrong. Your answers so far are saved — please try again.' }, 500)
+    const t = totals(runGame.questions.map((q) => answers.get(q.id) ?? { questionId: q.id, prompt: '', correctUnits: 0, totalUnits: 1, given: '', expected: '' }))
+    return reply({ submittedAt: new Date().toISOString(), percent: t.percent, correct: t.correct, total: t.total, attemptsLeft: 1, late: false, answersNote: 'The right answers appear after the due date.' })
   }
   if (path === '/categories' && method === 'POST') {
     const c = { id: `cat-new-${seq++}`, name: String(body.name).trim(), own: true }
@@ -119,23 +159,24 @@ const editGame = { ...g('g-word-builder'), categoryId: catId(g('g-word-builder')
 
 export const SCREENS: Record<string, () => ReactNode> = {
   home: () => <Home />,
-  teacher: () => <TeacherDashboard games={summaries} />,
-  'teacher-pick-host': () => <TeacherDashboard games={summaries} pick="host" />,
-  'teacher-assignments': () => <TeacherDashboard games={summaries} tab="assignments" />,
+  teacher: () => <TeacherDashboard games={summaries} assignments={assignmentSummaries} />,
+  'teacher-pick-host': () => <TeacherDashboard games={summaries} assignments={assignmentSummaries} pick="host" />,
+  'teacher-assignments': () => <TeacherDashboard games={summaries} assignments={assignmentSummaries} tab="assignments" />,
   'teachers-only': () => <TeachersOnly message="Teacher access required" />,
   library: () => <QuestionLibrary questions={library} categories={categories} />,
   create: () => <CreateGameWizard library={library} categories={categories} />,
   edit: () => <CreateGameWizard edit={editGame} library={library} categories={categories} />,
-  assign: () => <AssignForm game={g('g-uyir-quiz')} />,
-  results: () => <AssignmentResults assignment={assignmentById('a-uyir')!} game={g('g-uyir-quiz')} />,
-  student: () => <StudentHome />,
-  'student-assignments': () => <AssignmentsBoard />,
+  assign: () => <AssignForm game={{ id: 'g-uyir-quiz', title: g('g-uyir-quiz').title, type: 'quiz', category: g('g-uyir-quiz').category, questionCount: 5 }} classes={empty ? [] : CLASSES} />,
+  results: () => <AssignmentResults view={sampleView('a-uyir')} />,
+  student: () => <StudentHome name="Kavin" assignments={empty ? [] : studentAssignments()} />,
+  'student-assignments': () => <AssignmentsBoard items={empty ? [] : studentAssignments()} />,
+  runner: () => <AssignmentRunner assignmentId="a-run" />,
   review: () => <AssignmentReview a={studentAssignments().find((a) => a.assignment.id === 'a-inam')!} />,
   quiz: () => practice('g-uyir-quiz'),
   match: () => practice('g-porul-match'),
   word: () => practice('g-word-builder'),
   sentence: () => practice('g-sentence-builder'),
-  'assignment-quiz': () => <GamePlayer game={g('g-uyir-quiz')} play={{ source: 'local', questions: g('g-uyir-quiz').questions }} mode="assignment" assignment={{ attemptsLeftAfter: 1, showScore: true, randomize: false, dueAt: assignmentById('a-uyir')!.dueAt }} exit={{ href: '#' }} />,
+  'assignment-quiz': () => <LocalAssignmentPlayer game={g('g-uyir-quiz')} attemptsLeftAfter={1} randomize={false} exitHref="#" />,
   'remote-quiz': () => remote('g-uyir-quiz'),
   'remote-match': () => remote('g-porul-match'),
   'remote-word': () => remote('g-word-builder'),

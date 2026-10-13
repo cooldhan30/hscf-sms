@@ -74,9 +74,9 @@ export function WordBuilder({ question, session, reveal, hints, onAnswered }: { 
       } else {
         setStatus('wrong')
       }
-    } catch {
+    } catch (e) {
       setStatus('building')
-      setError("Couldn't check your answer. Check the internet and try again.")
+      setError(e instanceof Error && e.message && !e.message.startsWith('HTTP') && !e.message.startsWith('Failed') ? e.message : "Couldn't check your answer. Check the internet and try again.")
     }
   }
 
