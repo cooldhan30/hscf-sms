@@ -44,7 +44,7 @@ const empty = params.get('empty') === '1'
 // ---- sample library with topic ids, as the server would send it ----
 let categories: Category[] = STARTER_CATEGORIES.map((name, i) => ({ id: `cat-${i}`, name, own: false }))
 const catId = (name: string) => categories.find((c) => c.name === name)?.id ?? null
-const library: Question[] = empty ? [] : LIBRARY.map((q) => ({ ...q, categoryId: catId(q.category), difficulty: 'easy' }))
+const library: Question[] = empty ? [] : LIBRARY.filter((q) => params.get('onlyquiz') !== '1' || q.kind === 'choice').map((q) => ({ ...q, categoryId: catId(q.category), difficulty: 'easy' }))
 const summaries: GameSummary[] = empty ? [] : GAMES.map((g, i) => ({ id: g.id, title: g.title, type: g.type, category: g.category, questionCount: g.questions.length, updatedAt: g.updatedAt, practice: i !== 1 }))
 const practiceList: PracticeGame[] = empty ? [] : GAMES.map((g, i) => ({ id: g.id, title: g.title, type: g.type, questionCount: g.questions.length, teacher: 'Ms. Vani', bestPercent: i === 0 ? 80 : i === 2 ? 45 : null, plays: i === 0 || i === 2 ? 2 : 0 }))
 
@@ -190,7 +190,7 @@ export const SCREENS: Record<string, () => ReactNode> = {
   'teacher-assignments': () => <TeacherDashboard games={summaries} assignments={assignmentSummaries} tab="assignments" />,
   'teachers-only': () => <TeachersOnly message="Teacher access required" />,
   library: () => <QuestionLibrary questions={library} categories={categories} />,
-  create: () => <CreateGameWizard library={library} categories={categories} />,
+  create: () => <CreateGameWizard library={library} categories={categories} startType={(params.get('type') as 'quiz' | 'match' | 'word-builder' | null) ?? undefined} />,
   edit: () => <CreateGameWizard edit={editGame} library={library} categories={categories} />,
   assign: () => <AssignForm game={{ id: 'g-uyir-quiz', title: g('g-uyir-quiz').title, type: 'quiz', category: g('g-uyir-quiz').category, questionCount: 5 }} classes={empty ? [] : CLASSES} />,
   results: () => <AssignmentResults view={sampleView('a-uyir')} />,

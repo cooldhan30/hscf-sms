@@ -6,7 +6,9 @@ import { categoryNames, getGame, listCategories, listQuestions } from '@/lib/grC
 import { isUuid } from '@/lib/grClassic/validateQuestion'
 
 // Create a game, or edit one with ?edit=<game id>.
-export default async function GrClassicCreatePage({ searchParams }: { searchParams: { edit?: string } }) {
+// ?type=quiz|match|word-builder opens straight on the Questions step (used
+// by the Question Library's "Make a game with these questions").
+export default async function GrClassicCreatePage({ searchParams }: { searchParams: { edit?: string; type?: string } }) {
   const t = await grcTeacherPage('/gr-classic/teacher/create')
   if (!t.ok) return <TeachersOnly message={t.error} />
   const categories = await listCategories(t.supabase, t.userId)
@@ -16,5 +18,6 @@ export default async function GrClassicCreatePage({ searchParams }: { searchPara
     searchParams.edit ? (isUuid(searchParams.edit) ? getGame(t.supabase, searchParams.edit, names) : Promise.resolve(null)) : Promise.resolve(undefined),
   ])
   if (edit === null) notFound()
-  return <CreateGameWizard edit={edit} library={library} categories={categories} />
+  const startType = searchParams.type === 'quiz' || searchParams.type === 'match' || searchParams.type === 'word-builder' ? searchParams.type : undefined
+  return <CreateGameWizard edit={edit} library={library} categories={categories} startType={startType} />
 }

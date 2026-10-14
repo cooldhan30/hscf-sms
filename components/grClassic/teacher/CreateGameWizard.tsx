@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FiArrowDown, FiArrowUp, FiCheckCircle, FiTrash2, FiUpload } from 'react-icons/fi'
 import { summarize } from '@/lib/grClassic/csv'
 import { QUESTION_KIND_FOR_GAME, type Category, type Difficulty, type Game, type GameType, type Question } from '@/lib/grClassic/types'
@@ -9,19 +9,34 @@ import { Advanced, Button, ButtonLink, Card, Segmented, Shell, TYPE_META, countL
 import { grcApi } from './api'
 import { ImportPanel } from './ImportPanel'
 import { QuestionEditor, inputClass, labelClass } from './QuestionEditor'
+import { GAME_FOR_KIND, clearPick, peekPick } from './pick'
 
 // Create Game: 1. choose game type -> 2. choose questions -> 3. save or play.
 // Questions come from the teacher's library; new ones written here are
 // saved to the library too. Everything beyond a name and questions has a
 // default and sits under "Advanced options".
-export function CreateGameWizard({ edit, library: initialLibrary, categories: initialCategories }: { edit?: Game; library: Question[]; categories: Category[] }) {
-  const [step, setStep] = useState<1 | 2 | 3>(edit ? 2 : 1)
-  const [type, setType] = useState<GameType>(edit?.type ?? 'quiz')
-  const [title, setTitle] = useState(edit?.title ?? '')
+export function CreateGameWizard({ edit, library: initialLibrary, categories: initialCategories, startType }: { edit?: Game; library: Question[]; categories: Category[]; startType?: GameType }) {
+  // Opened from the Question Library ("Make a game with these questions"):
+  // start on the Questions step with that type and those questions ticked.
+  const [start] = useState(() => {
+    if (edit) return null
+    const pick = peekPick()
+    const type = pick?.type ?? startType
+    if (!type) return null
+    const ids = pick?.type === type ? pick.ids : []
+    const chosen = ids.map((id) => initialLibrary.find((q) => q.id === id)).filter((q): q is Question => !!q && q.kind === QUESTION_KIND_FOR_GAME[type])
+    const topics = Array.from(new Set(chosen.map((q) => q.categoryId ?? '')))
+    const topicId = topics.length === 1 ? topics[0] : ''
+    return { type, chosen, topicId, title: topicId ? (initialCategories.find((c) => c.id === topicId)?.name ?? '') : '' }
+  })
+  useEffect(() => clearPick(), [])
+  const [step, setStep] = useState<1 | 2 | 3>(edit || start ? 2 : 1)
+  const [type, setType] = useState<GameType>(edit?.type ?? start?.type ?? 'quiz')
+  const [title, setTitle] = useState(edit?.title ?? start?.title ?? '')
   const [categories, setCategories] = useState(initialCategories)
-  const [categoryId, setCategoryId] = useState<string>(edit?.categoryId ?? '')
+  const [categoryId, setCategoryId] = useState<string>(edit?.categoryId ?? start?.topicId ?? '')
   const [library, setLibrary] = useState(initialLibrary)
-  const [questions, setQuestions] = useState<Question[]>(edit?.questions ?? [])
+  const [questions, setQuestions] = useState<Question[]>(edit?.questions ?? start?.chosen ?? [])
   const [difficulty, setDifficulty] = useState<Difficulty>(edit?.difficulty ?? 'easy')
   const [liveSeconds, setLiveSeconds] = useState(edit?.liveSeconds ?? 20)
   const [error, setError] = useState('')
@@ -131,7 +146,14 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
           <SelectedList questions={questions} onChange={setQuestions} />
 
           <div className="mt-6 grid gap-5 lg:grid-cols-2">
-            <LibraryPicker library={library.filter((q) => q.kind === kind)} selected={questions} onToggle={(q) => setQuestions((qs) => (qs.some((x) => x.id === q.id) ? qs.filter((x) => x.id !== q.id) : [...qs, q]))} onImport={() => setImporting((v) => !v)} />
+            <LibraryPicker
+              library={library.filter((q) => q.kind === kind)}
+              others={(Object.keys(TYPE_META) as GameType[]).filter((t) => t !== type).map((t) => ({ type: t, count: library.filter((q) => GAME_FOR_KIND[q.kind] === t).length })).filter((o) => o.count > 0)}
+              onSwitchType={edit ? undefined : (t) => {
+                setType(t)
+                setQuestions([])
+              }}
+              selected={questions} onToggle={(q) => setQuestions((qs) => (qs.some((x) => x.id === q.id) ? qs.filter((x) => x.id !== q.id) : [...qs, q]))} onImport={() => setImporting((v) => !v)} />
             <Card className="p-5">
               <h3 className="text-lg font-extrabold text-slate-900">Write a new question</h3>
               <p className="mb-3 text-sm text-slate-500">It&apos;s saved to your library too, so you can reuse it.</p>
@@ -295,7 +317,7 @@ function SelectedList({ questions, onChange }: { questions: Question[]; onChange
   )
 }
 
-function LibraryPicker({ library, selected, onToggle, onImport }: { library: Question[]; selected: Question[]; onToggle: (q: Question) => void; onImport: () => void }) {
+function LibraryPicker({ library, others, onSwitchType, selected, onToggle, onImport }: { library: Question[]; others: { type: GameType; count: number }[]; onSwitchType?: (t: GameType) => void; selected: Question[]; onToggle: (q: Question) => void; onImport: () => void }) {
   const [search, setSearch] = useState('')
   const items = useMemo(() => library.filter((q) => (questionLabel(q) + q.category).toLowerCase().includes(search.toLowerCase())), [library, search])
   const groups = useMemo(() => Array.from(new Set(items.map((q) => q.category))), [items])
@@ -309,7 +331,23 @@ function LibraryPicker({ library, selected, onToggle, onImport }: { library: Que
       </div>
       <input className={`${inputClass} mt-3`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search questions or topics" aria-label="Search the library" />
       <div className="mt-3 max-h-80 space-y-4 overflow-y-auto pr-1">
-        {library.length === 0 && <p className="text-sm font-semibold text-slate-500">Your library has no questions of this type yet. Write one, or import a spreadsheet.</p>}
+        {library.length === 0 && (
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-slate-500">Your library has no questions for this game type yet. Write one, or import a spreadsheet.</p>
+            {others.length > 0 && onSwitchType && (
+              <div className="rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200">
+                <p className="text-sm font-bold text-amber-900">Each game type uses its own kind of question. You have:</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {others.map((o) => (
+                    <Button key={o.type} tone="plain" size="sm" onClick={() => onSwitchType(o.type)}>
+                      {o.count} for {TYPE_META[o.type].label} — switch
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {library.length > 0 && groups.length === 0 && <p className="text-sm font-semibold text-slate-500">Nothing matches.</p>}
         {groups.map((g) => (
           <fieldset key={g || 'none'}>

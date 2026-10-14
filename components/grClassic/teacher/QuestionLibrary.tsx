@@ -8,6 +8,7 @@ import { Button, ButtonLink, Card, Pill, Shell } from '../ui'
 import { grcApi } from './api'
 import { ImportPanel } from './ImportPanel'
 import { KIND_LABEL, QuestionEditor, inputClass } from './QuestionEditor'
+import { GAME_FOR_KIND, savePick } from './pick'
 
 const KINDS: QuestionKind[] = ['choice', 'match', 'order']
 const TAB_LABEL: Record<QuestionKind, string> = { choice: 'Quiz', match: 'Matching', order: 'Word Builder' }
@@ -24,6 +25,7 @@ export function QuestionLibrary({ questions: initial, categories: initialCategor
   const [editing, setEditing] = useState<string | null>(null)
   const [confirmArchive, setConfirmArchive] = useState<string | null>(null)
   const [notice, setNotice] = useState('')
+  const [justImported, setJustImported] = useState<Question[]>([])
 
   const shown = useMemo(() => {
     const s = search.trim().toLocaleLowerCase()
@@ -77,10 +79,20 @@ export function QuestionLibrary({ questions: initial, categories: initialCategor
             onImported={(qs, cats) => {
               setQuestions((all) => [...qs, ...all])
               setCategories(cats)
+              setJustImported(qs)
               if (qs[0]) setKind(qs[0].kind)
             }}
           />
         </div>
+      )}
+
+      {justImported.length > 0 && (
+        <Card className="mt-5 flex flex-wrap items-center justify-between gap-3 p-4">
+          <p className="font-bold text-slate-800">
+            Imported {justImported.length} {TAB_LABEL[justImported[0].kind].toLowerCase()} question{justImported.length === 1 ? '' : 's'}. Ready to play them?
+          </p>
+          <MakeGameLink kind={justImported[0].kind} questions={justImported.filter((q) => q.kind === justImported[0].kind)} label={`Make a game with ${justImported.length === 1 ? 'it' : `these ${justImported.length}`}`} />
+        </Card>
       )}
 
       <div role="tablist" aria-label="Question types" className="mt-6 flex flex-wrap gap-2">
@@ -179,11 +191,22 @@ export function QuestionLibrary({ questions: initial, categories: initialCategor
         ))}
       </ul>
 
-      <div className="mt-8 text-center">
-        <ButtonLink href="/gr-classic/teacher/create" tone="primary">
-          Make a game with these questions
-        </ButtonLink>
-      </div>
+      {shown.length > 0 && (
+        <div className="mt-8 text-center">
+          <MakeGameLink kind={kind} questions={shown} label={`Make a ${TAB_LABEL[kind]} game with ${shown.length === 1 ? 'this question' : `these ${shown.length} questions`}`} />
+          <p className="mt-2 text-sm font-semibold text-slate-500">You can add or remove questions on the next screen.</p>
+        </div>
+      )}
     </Shell>
+  )
+}
+
+// Opens Create Game on the right game type with these questions ticked.
+function MakeGameLink({ kind, questions, label }: { kind: QuestionKind; questions: Question[]; label: string }) {
+  const type = GAME_FOR_KIND[kind]
+  return (
+    <ButtonLink href={`/gr-classic/teacher/create?type=${type}`} tone="primary" onClick={() => savePick({ type, ids: questions.map((q) => q.id) })}>
+      {label}
+    </ButtonLink>
   )
 }
