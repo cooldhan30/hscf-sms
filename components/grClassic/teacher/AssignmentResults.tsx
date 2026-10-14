@@ -1,10 +1,10 @@
 'use client'
 
 import { Fragment, useMemo, useState } from 'react'
-import { FiCalendar, FiDownload, FiLock, FiPlus, FiUnlock } from 'react-icons/fi'
+import { FiCalendar, FiDownload, FiLock, FiPlus, FiSettings, FiUnlock } from 'react-icons/fi'
 import { downloadText, dueLabel, formatDate, formatDue, isPast, toCsv } from '@/lib/grClassic/format'
-import type { Assignment, StudentResult } from '@/lib/grClassic/types'
-import { Button, Card, Pill, Shell, TypeChip } from '../ui'
+import type { Assignment, AssignmentSettings, StudentResult } from '@/lib/grClassic/types'
+import { Button, Card, Pill, Segmented, Shell, Toggle, TypeChip } from '../ui'
 import { grcApi } from './api'
 import { settingsSummary } from './AssignForm'
 
@@ -12,6 +12,8 @@ type Row = StudentResult & { overdue: boolean }
 
 export interface ResultsView {
   assignment: Assignment
+  canManage: boolean
+  ownerName: string
   classes: { id: string; name: string }[]
   results: StudentResult[]
 }
@@ -20,7 +22,9 @@ export interface ResultsView {
 // questions the class found hardest. Only the teacher who made the
 // assignment sees this (enforced by the database, migration 095).
 export function AssignmentResults({ view }: { view: ResultsView }) {
-  const { assignment, classes } = view
+  const { assignment, classes, canManage } = view
+  const [settings, setSettings] = useState<AssignmentSettings>(assignment.settings)
+  const [editing, setEditing] = useState(false)
   const [status, setStatus] = useState(assignment.status)
   const [dueAt, setDueAt] = useState(assignment.dueAt)
   const [extending, setExtending] = useState(false)
@@ -31,12 +35,12 @@ export function AssignmentResults({ view }: { view: ResultsView }) {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
   const className = (id: string) => classes.find((c) => c.id === id)?.name ?? 'Class'
-  const max = assignment.settings.maxAttempts
+  const max = settings.maxAttempts
 
   const rows: Row[] = results.filter((r) => classFilter === 'all' || r.classId === classFilter).map((r) => ({ ...r, overdue: r.status !== 'submitted' && isPast(dueAt) }))
   const submitted = rows.filter((r) => r.status === 'submitted')
   const avg = submitted.length ? Math.round(submitted.reduce((n, r) => n + (r.percent ?? 0), 0) / submitted.length) : null
-  const passing = assignment.settings.passingPercent
+  const passing = settings.passingPercent
 
   const missed = useMemo(() => {
     const byQ = new Map<string, { prompt: string; missed: number; seen: number }>()
@@ -47,19 +51,26 @@ export function AssignmentResults({ view }: { view: ResultsView }) {
         if (q.correctUnits < q.totalUnits) e.missed++
         byQ.set(q.questionId, e)
       }
-    return Array.from(byQ.values())
+    return Array.from(byQ.entries())
+      .map(([id, e]) => ({ id, ...e }))
       .filter((e) => e.missed > 0)
       .sort((a, b) => b.missed / b.seen - a.missed / a.seen)
       .slice(0, 3)
   }, [submitted])
 
-  const update = async (body: { dueAt?: string; status?: 'open' | 'closed' }) => {
+  const update = async (body: { dueAt?: string; status?: 'open' | 'closed'; settings?: AssignmentSettings }) => {
     setBusy(true)
-    const res = await grcApi<{ dueAt: string; status: 'open' | 'closed' }>(`/assignments/${assignment.id}`, { method: 'PATCH', body })
+    const res = await grcApi<{ dueAt: string; status: 'open' | 'closed'; settings: AssignmentSettings }>(`/assignments/${assignment.id}`, { method: 'PATCH', body })
     setBusy(false)
     if (!res.ok) return setNotice(res.error)
     setDueAt(res.data.dueAt)
     setStatus(res.data.status)
+    setSettings(res.data.settings)
+    if (body.settings) {
+      setEditing(false)
+      setResults((rs) => rs.map((r) => ({ ...r, attemptLimit: res.data.settings.maxAttempts === null ? null : res.data.settings.maxAttempts + r.extraAttempts })))
+      return setNotice('Settings saved. Timer and shuffle changes apply to attempts started from now on.')
+    }
     setNotice(body.dueAt ? `New due date: ${formatDue(res.data.dueAt)}.` : res.data.status === 'closed' ? 'Assignment closed. Students can no longer start it.' : 'Assignment reopened.')
   }
 
@@ -90,9 +101,15 @@ export function AssignmentResults({ view }: { view: ResultsView }) {
           <p className="font-semibold text-slate-600">
             {classes.map((c) => c.name).join(', ')} · Due {formatDue(dueAt)} ({dueLabel(dueAt)})
           </p>
-          <p className="text-sm text-slate-500">{settingsSummary(assignment.settings)}</p>
+          <p className="text-sm text-slate-500">{settingsSummary(settings)}</p>
+          {!canManage && <p className="mt-2 rounded-xl bg-sky-50 px-3 py-2 text-sm font-bold text-sky-900 ring-1 ring-sky-200">Made by {view.ownerName}. You can see the results; only {view.ownerName} can change this assignment.</p>}
         </div>
         <div className="flex flex-wrap gap-2">
+          {canManage && (
+          <>
+          <Button tone="plain" size="sm" onClick={() => setEditing((v) => !v)} aria-expanded={editing}>
+            <FiSettings aria-hidden /> Edit settings
+          </Button>
           <Button tone="plain" size="sm" onClick={() => setExtending((v) => !v)} aria-expanded={extending}>
             <FiCalendar aria-hidden /> Extend deadline
           </Button>
@@ -107,6 +124,8 @@ export function AssignmentResults({ view }: { view: ResultsView }) {
               </>
             )}
           </Button>
+          </>
+          )}
           <Button tone="teal" size="sm" onClick={exportCsv} disabled={rows.length === 0}>
             <FiDownload aria-hidden /> Export CSV
           </Button>
@@ -141,6 +160,8 @@ export function AssignmentResults({ view }: { view: ResultsView }) {
           </Button>
         </Card>
       )}
+
+      {editing && canManage && <SettingsEditor initial={settings} busy={busy} onSave={(next) => update({ settings: next })} onCancel={() => setEditing(false)} />}
 
       <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Stat label="Assigned" value={rows.length} />
@@ -212,7 +233,7 @@ export function AssignmentResults({ view }: { view: ResultsView }) {
                               {open === r.studentId ? 'Hide' : 'View'}
                             </Button>
                           )}
-                          {max !== null && (
+                          {max !== null && canManage && (
                             <Button tone="ghost" size="sm" onClick={() => grant(r)} title={`Give ${r.name} one more attempt`}>
                               <FiPlus aria-hidden /> Attempt
                             </Button>
@@ -267,7 +288,7 @@ export function AssignmentResults({ view }: { view: ResultsView }) {
           ) : (
             <ol className="mt-3 space-y-3">
               {missed.map((m) => (
-                <li key={m.prompt}>
+                <li key={m.id}>
                   <p className="font-bold text-slate-800">{m.prompt}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
@@ -303,6 +324,32 @@ function Stat({ label, value, tone = 'text-slate-900' }: { label: string; value:
     <Card className="p-4">
       <dt className="text-xs font-extrabold uppercase tracking-wide text-slate-500">{label}</dt>
       <dd className={`mt-1 text-3xl font-black ${tone}`}>{value}</dd>
+    </Card>
+  )
+}
+
+// Change settings after publishing. Same choices as when assigning.
+function SettingsEditor({ initial, busy, onSave, onCancel }: { initial: AssignmentSettings; busy: boolean; onSave: (s: AssignmentSettings) => void; onCancel: () => void }) {
+  const [s, setS] = useState(initial)
+  const set = <K extends keyof AssignmentSettings>(k: K, v: AssignmentSettings[K]) => setS((x) => ({ ...x, [k]: v }))
+  return (
+    <Card className="mt-4 space-y-4 p-5">
+      <h2 className="text-lg font-extrabold text-slate-900">Assignment settings</h2>
+      <Segmented label="Attempts" value={s.maxAttempts} onChange={(v) => set('maxAttempts', v)} options={[{ value: 1, label: '1' }, { value: 2, label: '2' }, { value: 3, label: '3' }, { value: null, label: 'Unlimited' }]} />
+      <Segmented label="Timer (new attempts)" value={s.timerMinutes} onChange={(v) => set('timerMinutes', v)} options={[{ value: null, label: 'No timer' }, { value: 10, label: '10 min' }, { value: 20, label: '20 min' }, { value: 30, label: '30 min' }]} />
+      <Segmented label="Passing score" value={s.passingPercent} onChange={(v) => set('passingPercent', v)} options={[{ value: null, label: 'None' }, { value: 50, label: '50%' }, { value: 70, label: '70%' }, { value: 80, label: '80%' }]} />
+      <Segmented label="Which score counts" value={s.scorePolicy} onChange={(v) => set('scorePolicy', v)} options={[{ value: 'best', label: 'Best attempt' }, { value: 'latest', label: 'Latest attempt' }]} />
+      <Segmented label="Show correct answers" value={s.showAnswers} onChange={(v) => set('showAnswers', v)} options={[{ value: 'after-due', label: 'After due date' }, { value: 'after-submit', label: 'Right after submitting' }, { value: 'never', label: 'Never' }]} />
+      <Toggle label="Shuffle question order" hint="For attempts started from now on" checked={s.randomize} onChange={(v) => set('randomize', v)} />
+      <Toggle label="Allow late submissions" checked={s.allowLate} onChange={(v) => set('allowLate', v)} />
+      <div className="flex justify-end gap-2">
+        <Button tone="plain" size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button tone="teal" size="sm" disabled={busy} onClick={() => onSave(s)}>
+          Save settings
+        </Button>
+      </div>
     </Card>
   )
 }

@@ -134,3 +134,27 @@ export function validateAssignment(body: Record<string, unknown>, now = Date.now
   if (errors.length) return { ok: false, errors }
   return { ok: true, value: { gameId: body.gameId as string, classIds: classIds as string[], dueAt: due!.toISOString(), settings } }
 }
+
+// Settings a teacher changes after publishing. Only the fields sent are
+// changed. Timer and shuffle changes apply to attempts started from now on.
+const SETTING_COLUMNS = {
+  maxAttempts: ['max_attempts', ATTEMPT_CHOICES],
+  timerMinutes: ['timer_minutes', TIMER_CHOICES],
+  passingPercent: ['passing_percent', PASSING_CHOICES],
+  randomize: ['randomize', [true, false]],
+  allowLate: ['allow_late', [true, false]],
+  showAnswers: ['show_answers', ['after-due', 'after-submit', 'never']],
+  scorePolicy: ['score_policy', ['best', 'latest']],
+} as const
+
+export function validateSettingsPatch(s: Record<string, unknown>): { ok: true; columns: Record<string, unknown> } | { ok: false; errors: string[] } {
+  const columns: Record<string, unknown> = {}
+  const errors: string[] = []
+  for (const [key, [column, allowed]] of Object.entries(SETTING_COLUMNS)) {
+    if (s[key] === undefined) continue
+    if ((allowed as readonly unknown[]).includes(s[key])) columns[column] = s[key]
+    else errors.push(`${key} is not a valid choice.`)
+  }
+  if (errors.length) return { ok: false, errors }
+  return { ok: true, columns }
+}

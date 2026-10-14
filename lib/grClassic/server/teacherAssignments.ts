@@ -5,8 +5,9 @@ import type { Assignment, AssignmentSummary, Game, Question, StudentResult, Teac
 import { ASSIGNMENT_COLUMNS, ATTEMPT_COLUMNS, questionResults, toAssignment, type AssignmentRow, type AttemptRow, type ResponseRow } from './assignmentRows'
 
 // Teacher-side reads and writes for assignments. All through the
-// teacher's own RLS-scoped client: they only ever see their own
-// assignments, and only classes and students they teach.
+// teacher's own RLS-scoped client: they see assignments they made, plus
+// (migration 098) read-only ones a co-teacher gave to a class they teach,
+// and only classes and students they teach.
 
 export async function teacherClasses(supabase: SupabaseClient): Promise<TeacherClass[]> {
   const { data } = await supabase.from('sms_classes').select('id, name, enrollments:sms_class_enrollments(count)').eq('enrollments.status', 'active').order('name')
@@ -57,7 +58,13 @@ async function rosterFor(supabase: SupabaseClient, classIds: string[]): Promise<
   return { classNames: new Map(((classes ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name])), studentClass, byClass }
 }
 
-export async function listTeacherAssignments(supabase: SupabaseClient): Promise<AssignmentSummary[]> {
+async function teacherNames(supabase: SupabaseClient, ids: string[]): Promise<Map<string, string>> {
+  if (!ids.length) return new Map()
+  const { data } = await supabase.from('sms_profiles').select('id, first_name, last_name').in('id', ids)
+  return new Map(((data ?? []) as { id: string; first_name: string; last_name: string }[]).map((p) => [p.id, `${p.first_name} ${p.last_name}`.trim()]))
+}
+
+export async function listTeacherAssignments(supabase: SupabaseClient, userId: string): Promise<AssignmentSummary[]> {
   const { data: rows } = await supabase.from('sms_grc_assignments').select(ASSIGNMENT_COLUMNS).order('due_at', { ascending: false }).limit(200)
   const assignments = (rows ?? []) as AssignmentRow[]
   if (!assignments.length) return []
@@ -67,7 +74,7 @@ export async function listTeacherAssignments(supabase: SupabaseClient): Promise<
     supabase.from('sms_grc_attempts').select('assignment_id, student_id').in('assignment_id', ids).eq('status', 'submitted'),
   ])
   const linkRows = (links ?? []) as { assignment_id: string; class_id: string }[]
-  const roster = await rosterFor(supabase, Array.from(new Set(linkRows.map((l) => l.class_id))))
+  const [roster, owners] = await Promise.all([rosterFor(supabase, Array.from(new Set(linkRows.map((l) => l.class_id)))), teacherNames(supabase, Array.from(new Set(assignments.map((a) => a.owner_id))))])
   const submitted = new Map<string, Set<string>>()
   for (const t of (attempts ?? []) as { assignment_id: string; student_id: string }[]) {
     if (!submitted.has(t.assignment_id)) submitted.set(t.assignment_id, new Set())
@@ -78,17 +85,19 @@ export async function listTeacherAssignments(supabase: SupabaseClient): Promise<
     const classIds = linkRows.filter((l) => l.assignment_id === a.id).map((l) => l.class_id)
     const students = new Set(classIds.flatMap((c) => Array.from(byClass.get(c) ?? [])))
     const done = Array.from(submitted.get(a.id) ?? []).filter((s) => students.has(s)).length
-    return { id: a.id, title: a.title, type: a.game_type, classNames: classIds.map((c) => roster.classNames.get(c) ?? 'Class'), dueAt: a.due_at, status: a.status, submitted: done, students: students.size }
+    return { id: a.id, mine: a.owner_id === userId, ownerName: owners.get(a.owner_id) ?? 'Another teacher', title: a.title, type: a.game_type, classNames: classIds.map((c) => roster.classNames.get(c) ?? 'Class'), dueAt: a.due_at, status: a.status, submitted: done, students: students.size }
   })
 }
 
 export interface AssignmentResultsView {
   assignment: Assignment
+  canManage: boolean // made by this teacher (co-teachers only view)
+  ownerName: string
   classes: { id: string; name: string }[]
   results: StudentResult[]
 }
 
-export async function assignmentResults(supabase: SupabaseClient, id: string): Promise<AssignmentResultsView | null> {
+export async function assignmentResults(supabase: SupabaseClient, id: string, userId: string): Promise<AssignmentResultsView | null> {
   const { data: row } = await supabase.from('sms_grc_assignments').select(ASSIGNMENT_COLUMNS).eq('id', id).maybeSingle()
   if (!row) return null
   const a = row as AssignmentRow
@@ -138,5 +147,6 @@ export async function assignmentResults(supabase: SupabaseClient, id: string): P
     })
     .sort((x, y) => x.name.localeCompare(y.name))
 
-  return { assignment: toAssignment(a, classIds), classes: classIds.map((c) => ({ id: c, name: roster.classNames.get(c) ?? 'Class' })), results }
+  const owner = a.owner_id === userId ? '' : ((await teacherNames(supabase, [a.owner_id])).get(a.owner_id) ?? 'Another teacher')
+  return { assignment: toAssignment(a, classIds), canManage: a.owner_id === userId, ownerName: owner, classes: classIds.map((c) => ({ id: c, name: roster.classNames.get(c) ?? 'Class' })), results }
 }

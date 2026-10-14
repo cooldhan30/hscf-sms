@@ -72,7 +72,7 @@ async function flow(name, vp, fn) {
   }
 }
 
-const STATIC = ['home', 'teacher', 'teacher&empty=1', 'library', 'teachers-only', 'teacher-pick-host', 'teacher-assignments', 'create', 'edit', 'assign', 'results', 'student', 'student-assignments', 'review', 'quiz', 'match', 'word', 'sentence', 'join', 'host-setup']
+const STATIC = ['home', 'teacher', 'teacher&empty=1', 'library', 'teachers-only', 'teacher-pick-host', 'teacher-assignments', 'create', 'edit', 'assign', 'results', 'student', 'student-assignments', 'review', 'quiz', 'match', 'word', 'sentence', 'join', 'host-setup', 'results-coteacher', 'practice-stats', 'portal-student', 'portal-teacher']
 for (const vp of VIEWPORTS) {
   if (only && !vp.name.startsWith(only)) continue
   for (const s of STATIC) {
@@ -111,6 +111,23 @@ for (const vp of VIEWPORTS) {
     await page.getByRole('button', { name: 'Practice: Off' }).first().click()
     await page.getByText('can now practise').waitFor()
     await shot(page, vp, 'flow-practice-switch')
+    await ctx.close()
+  })
+
+  await flow('edit-settings', vp, async () => {
+    const { ctx, page } = await open(vp, 'results')
+    await page.getByRole('button', { name: /Edit settings/ }).click()
+    await page.getByRole('group', { name: 'Attempts', exact: true }).getByRole('button', { name: '3', exact: true }).click()
+    await page.getByRole('button', { name: 'Save settings' }).click()
+    await page.getByText('Settings saved').waitFor()
+    await shot(page, vp, 'flow-edit-settings')
+    await ctx.close()
+  })
+  await flow('coteacher-view-only', vp, async () => {
+    const { ctx, page } = await open(vp, 'results-coteacher')
+    await page.getByText('Made by Ms. Priya').waitFor()
+    for (const name of ['Close', /Edit settings/, /Extend deadline/]) if ((await page.getByRole('button', { name }).count()) > 0) throw new Error('co-teacher sees an owner-only button')
+    if ((await page.getByRole('button', { name: /Export CSV/ }).count()) !== 1) throw new Error('co-teacher cannot export')
     await ctx.close()
   })
 

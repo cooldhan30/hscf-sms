@@ -1,6 +1,6 @@
 // GameRoom Classic Phase 4: assignment rules (lib/grClassic/assignments.ts).
 // Run with: npx tsx scripts/verify-grc-assignments.ts
-import { answersNote, answersVisible, attemptLimit, attemptsLeft, canAnswer, canStart, countedAttempt, percentOf, studentStatus, unitsOf, validateAssignment, type AssignmentLike, type AttemptLike } from '../lib/grClassic/assignments'
+import { answersNote, answersVisible, attemptLimit, attemptsLeft, canAnswer, canStart, countedAttempt, percentOf, studentStatus, unitsOf, validateAssignment, validateSettingsPatch, type AssignmentLike, type AttemptLike } from '../lib/grClassic/assignments'
 import { LIBRARY } from '../lib/grClassic/sampleData'
 
 let failures = 0
@@ -78,6 +78,12 @@ const bad = validateAssignment({ gameId: 'x', classIds: [], dueAt: iso(-1), sett
 eq('rejects bad input', bad.ok ? [] : bad.errors, ['Choose a game to assign.', 'Pick at least one class.', 'Pick a due date in the future.', 'Attempts is not a valid choice.', 'Show answers is not a valid choice.'])
 eq('due date too far', validateAssignment({ gameId: gid, classIds: [cid], dueAt: iso(24 * 400) }, NOW).ok, false)
 eq('all settings accepted', validateAssignment({ gameId: gid, classIds: [cid], dueAt: iso(24), settings: { maxAttempts: null, timerMinutes: 20, passingPercent: 70, randomize: false, allowLate: true, showAnswers: 'never', scorePolicy: 'latest' } }, NOW).ok, true)
+
+// --- Changing settings after publishing ---
+eq('settings patch maps to columns', validateSettingsPatch({ maxAttempts: null, timerMinutes: 20, scorePolicy: 'latest', allowLate: true }), { ok: true, columns: { max_attempts: null, timer_minutes: 20, allow_late: true, score_policy: 'latest' } })
+eq('settings patch only sent fields', validateSettingsPatch({ showAnswers: 'never' }), { ok: true, columns: { show_answers: 'never' } })
+eq('settings patch rejects bad values', validateSettingsPatch({ maxAttempts: 7, timerMinutes: 15, randomize: 'yes' }).ok, false)
+eq('settings patch ignores unknown keys', validateSettingsPatch({ owner_id: 'x', status: 'open' }), { ok: true, columns: {} })
 
 console.log(failures ? `\n${failures} FAILURE(S), ${passes} passed` : `\nPASS: ${passes} checks.`)
 process.exit(failures ? 1 : 0)

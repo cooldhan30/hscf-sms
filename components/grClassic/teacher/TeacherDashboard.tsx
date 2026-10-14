@@ -126,16 +126,21 @@ function GameCard({ game, pick, onDuplicate, onArchive, onPractice }: { game: Ga
           {countLabel(game.questionCount, game.type)}
           {game.category && ` · ${game.category}`}
         </p>
+        <div className="mt-2 flex flex-wrap items-center">
         <button
           type="button"
           aria-pressed={game.practice}
           onClick={onPractice}
           title={game.practice ? 'Your students can practise this game. Tap to hide it from practice.' : 'Hidden from practice. Tap to let your students practise it.'}
-          className={`mt-2 inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 transition ${game.practice ? 'bg-emerald-50 text-emerald-800 ring-emerald-200 hover:bg-emerald-100' : 'bg-slate-100 text-slate-600 ring-slate-200 hover:bg-slate-200'}`}
+          className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 transition ${game.practice ? 'bg-emerald-50 text-emerald-800 ring-emerald-200 hover:bg-emerald-100' : 'bg-slate-100 text-slate-600 ring-slate-200 hover:bg-slate-200'}`}
         >
           <span aria-hidden className={`h-2 w-2 rounded-full ${game.practice ? 'bg-emerald-500' : 'bg-slate-400'}`} />
           Practice: {game.practice ? 'On' : 'Off'}
         </button>
+        <Link href={`/gr-classic/teacher/practice/${game.id}`} className="ml-2 text-xs font-bold text-teal-800 underline-offset-2 hover:underline">
+          Practice stats
+        </Link>
+        </div>
         <div className="mt-auto grid grid-cols-3 gap-2 pt-5">
           <Link prefetch={false} href={`/gr-classic/host/${game.id}`} className={`${buttonClass('indigo', 'sm')} ${glow('host')}`}>
             <FiRadio aria-hidden /> Host
@@ -196,6 +201,7 @@ function AssignmentList({ assignments }: { assignments: AssignmentSummary[] }) {
               <Card className="flex flex-col gap-3 p-5 transition hover:-translate-y-0.5 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">
                   <p className="text-lg font-extrabold text-slate-900">{a.title}</p>
+                  {!a.mine && <p className="text-xs font-bold text-sky-800">From {a.ownerName} · view only</p>}
                   <p className="text-sm font-semibold text-slate-500">
                     {a.classNames.join(', ')} · Due {formatDue(a.dueAt)}
                   </p>

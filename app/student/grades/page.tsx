@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
 import { GradesClient } from './GradesClient'
+import { StudentGameScores } from '@/components/grClassic/portal/PortalGames'
+import { portalStudentGames } from '@/lib/grClassic/server/portal'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +15,7 @@ export default async function StudentGradesPage() {
 
   // RLS ("grades: student read own") already scopes this to the
   // signed-in student's own grade rows only.
+  const gamesPromise = portalStudentGames(student?.id)
   const { data: grades } = await supabase
     .from('sms_grades')
     .select('*, assignment:sms_assignments!inner(id, title, max_score, class:sms_classes!inner(id, name))')
@@ -28,6 +31,9 @@ export default async function StudentGradesPage() {
       </div>
 
       <GradesClient grades={grades ?? []} />
+
+      {/* GameRoom Classic scores (empty when switched off). */}
+      <StudentGameScores items={await gamesPromise} />
     </div>
   )
 }

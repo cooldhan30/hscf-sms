@@ -37,8 +37,16 @@ function onlyQrDependency(file: string): boolean {
   return edits.every((l) => /qrcode-generator|"(version|resolved|integrity|license)":|^\+\s*\},?$/.test(l))
 }
 
+// Approved integration points in the portal (follow-ups, 2026-10-14): the
+// sidebar link, and GameRoom Classic sections on the student Assignments
+// and Grades pages and the teacher Assignments and Gradebook pages.
+const PORTAL_INTEGRATION = ['components/dashboard/roleNav.tsx', 'app/student/assignments/page.tsx', 'app/student/grades/page.tsx', 'app/teacher/assignments/page.tsx', 'app/teacher/gradebook/page.tsx']
+// ...and the only GameRoom Classic modules those pages may import.
+const PORTAL_ENTRY_POINTS = ['@/components/grClassic/portal/', '@/lib/grClassic/server/portal', '@/lib/grClassic/release']
+
 for (const file of Array.from(changed).sort()) {
   if ((file === 'package.json' || file === 'package-lock.json') && onlyQrDependency(file)) continue
+  if (PORTAL_INTEGRATION.includes(file)) continue
   const inside = GRC_PATHS.some((p) => file.startsWith(p))
   // A migration is allowed only if it's a new sms_grc_* file.
   const okMigration = !file.startsWith('supabase/migrations/') || /_grc_/.test(file)
@@ -63,7 +71,9 @@ for (const file of tracked) {
     .filter((l) => /^\s*import\b/.test(l) || /from\s+['"]/.test(l))
   const isGrc = GRC_PATHS.some((p) => file.startsWith(p))
   for (const l of importLines) {
-    const bad = isGrc ? EXISTING_GAMEROOM.some((p) => l.includes(`@/${p}`) || l.includes(`@/${p.replace(/\/$/, '')}'`)) : /@\/(lib|components|app)\/(grClassic|gr-classic)/.test(l)
+    const touchesGrc = /@\/(lib|components|app)\/(grClassic|gr-classic)/.test(l)
+    const allowedPortalImport = PORTAL_INTEGRATION.includes(file) && PORTAL_ENTRY_POINTS.some((e) => l.includes(e))
+    const bad = isGrc ? EXISTING_GAMEROOM.some((p) => l.includes(`@/${p}`) || l.includes(`@/${p.replace(/\/$/, '')}'`)) : touchesGrc && !allowedPortalImport
     if (bad) {
       console.error(`  FAIL: ${file}: ${l.trim()}`)
       failures++

@@ -34,6 +34,8 @@ import { totals } from '@/lib/grClassic/scoring'
 import { validateQuestion, type QuestionInput, type ValidQuestion } from '@/lib/grClassic/validateQuestion'
 import type { AssignmentSummary, Category, GameSummary, PracticeGame, Question, QuestionResult } from '@/lib/grClassic/types'
 import { PracticeRunner } from '@/components/grClassic/student/PracticeRunner'
+import { PracticeStatsView } from '@/components/grClassic/teacher/PracticeStatsView'
+import { StudentGameScores, StudentGamesSection, TeacherGamesSection } from '@/components/grClassic/portal/PortalGames'
 
 const params = new URLSearchParams(location.search)
 const live = liveStandIn(params)
@@ -61,11 +63,11 @@ const keyOf = (q: Question) => {
 // ---- sample assignments, as the server would send them ----
 const assignmentSummaries: AssignmentSummary[] = empty ? [] : ASSIGNMENTS.map((a) => {
   const rs = resultsFor(a)
-  return { id: a.id, title: a.title, type: a.type, classNames: a.classIds.map(className), dueAt: a.dueAt, status: a.status, submitted: rs.filter((r) => r.status === 'submitted').length, students: rs.length }
+  return { id: a.id, mine: a.id !== 'a-porul', ownerName: a.id !== 'a-porul' ? 'You' : 'Ms. Priya', title: a.title, type: a.type, classNames: a.classIds.map(className), dueAt: a.dueAt, status: a.status, submitted: rs.filter((r) => r.status === 'submitted').length, students: rs.length }
 })
-const sampleView = (id: string) => {
+const sampleView = (id: string, canManage = true) => {
   const a = assignmentById(id)!
-  return { assignment: a, classes: a.classIds.map((c) => ({ id: c, name: className(c) })), results: resultsFor(a) }
+  return { assignment: a, canManage, ownerName: canManage ? '' : 'Ms. Priya', classes: a.classIds.map((c) => ({ id: c, name: className(c) })), results: resultsFor(a) }
 }
 
 // ---- a stand-in attempt for the real AssignmentRunner (?resume=2, ?timer=1, ?closed=1, ?failsubmit=1) ----
@@ -117,7 +119,11 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     runGame.questions.slice(0, resume).forEach((q) => answers.set(q.id, { questionId: q.id, prompt: q.prompt, correctUnits: 1, totalUnits: 1, given: '', expected: '' }))
     return reply({ attemptId: 'att-1', title: runGame.title, type: runGame.type, questions: runGame.questions.map(toPlayQuestion), answeredIds: Array.from(answers.keys()), deadlineAt: params.get('timer') === '1' ? new Date(Date.now() + 8000).toISOString() : null, attemptNo: 1, attemptsLeftAfter: 1 })
   }
-  if (asg && method === 'PATCH') return reply({ dueAt: body.dueAt ?? assignmentById(asg[1])!.dueAt, status: body.status ?? 'open' })
+  if (asg && method === 'PATCH') {
+    const a = assignmentById(asg[1])!
+    const settings = { ...a.settings, ...(body.settings ?? {}) }
+    return reply({ dueAt: body.dueAt ?? a.dueAt, status: body.status ?? 'open', settings })
+  }
   const att = path.match(/^\/attempts\/([^/]+)\/(check|submit)$/)
   if (att && att[2] === 'check') {
     const q = runGame.questions.find((x) => x.id === body.questionId)!
@@ -188,6 +194,27 @@ export const SCREENS: Record<string, () => ReactNode> = {
   edit: () => <CreateGameWizard edit={editGame} library={library} categories={categories} />,
   assign: () => <AssignForm game={{ id: 'g-uyir-quiz', title: g('g-uyir-quiz').title, type: 'quiz', category: g('g-uyir-quiz').category, questionCount: 5 }} classes={empty ? [] : CLASSES} />,
   results: () => <AssignmentResults view={sampleView('a-uyir')} />,
+  'results-coteacher': () => <AssignmentResults view={sampleView('a-porul', false)} />,
+  'practice-stats': () => (
+    <PracticeStatsView
+      stats={{ gameId: 'g-uyir-quiz', title: g('g-uyir-quiz').title, type: 'quiz', practice: true, rows: [
+        { studentId: 's1', name: 'Kavin Raj', plays: 4, bestPercent: 100, lastPercent: 80, lastPlayedAt: new Date(Date.now() - 3600_000).toISOString() },
+        { studentId: 's2', name: 'Nila Kumar', plays: 2, bestPercent: 60, lastPercent: 60, lastPlayedAt: new Date(Date.now() - 86400_000).toISOString() },
+        { studentId: 's3', name: 'Aadhav S', plays: 1, bestPercent: 40, lastPercent: 40, lastPlayedAt: new Date(Date.now() - 2 * 86400_000).toISOString() },
+      ] }}
+    />
+  ),
+  'portal-student': () => (
+    <div className="mx-auto max-w-4xl space-y-8 bg-stone-50 p-6">
+      <StudentGamesSection items={studentAssignments()} />
+      <StudentGameScores items={studentAssignments()} />
+    </div>
+  ),
+  'portal-teacher': () => (
+    <div className="mx-auto max-w-5xl bg-stone-50 p-6">
+      <TeacherGamesSection items={assignmentSummaries} />
+    </div>
+  ),
   student: () => <StudentHome name="Kavin" assignments={empty ? [] : studentAssignments()} practice={practiceList} />,
   practice: () => <PracticeRunner gameId="g-uyir-quiz" title={g('g-uyir-quiz').title} type="quiz" questions={g('g-uyir-quiz').questions.map(toPlayQuestion)} />,
   'student-assignments': () => <AssignmentsBoard items={empty ? [] : studentAssignments()} />,

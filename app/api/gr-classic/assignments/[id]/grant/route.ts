@@ -3,14 +3,17 @@ import { dbErrorResponse, grcTeacherApi, readJson } from '@/lib/grClassic/server
 import { isUuid } from '@/lib/grClassic/validateQuestion'
 
 // POST /api/gr-classic/assignments/:id/grant { studentId }
-// Gives one student one more attempt. The student must be enrolled in a
-// class this assignment was given to.
+// Gives one student one more attempt. Only the teacher who made the
+// assignment; the student must be enrolled in a class it was given to.
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const guard = await grcTeacherApi()
   if (!guard.ok) return guard.response
   const body = await readJson(request)
   if (!isUuid(params.id) || !isUuid(body?.studentId)) return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   const { supabase } = guard
+  const { data: own } = await supabase.from('sms_grc_assignments').select('owner_id').eq('id', params.id).maybeSingle()
+  if (!own) return NextResponse.json({ error: 'Assignment not found.' }, { status: 404 })
+  if ((own as { owner_id: string }).owner_id !== guard.userId) return NextResponse.json({ error: 'Only the teacher who made this assignment can give extra attempts.' }, { status: 403 })
   const { data: links } = await supabase.from('sms_grc_assignment_classes').select('class_id').eq('assignment_id', params.id)
   const classIds = ((links ?? []) as { class_id: string }[]).map((l) => l.class_id)
   if (!classIds.length) return NextResponse.json({ error: 'Assignment not found.' }, { status: 404 })

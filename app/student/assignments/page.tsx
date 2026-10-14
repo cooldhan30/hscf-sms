@@ -5,6 +5,8 @@ import { auth } from '@clerk/nextjs/server'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { previewMaxPoints } from '@/lib/points'
 import { isPastDueDate, formatDateOnly, sortByDueDate } from '@/lib/dates'
+import { StudentGamesSection } from '@/components/grClassic/portal/PortalGames'
+import { portalStudentGames } from '@/lib/grClassic/server/portal'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,9 +25,11 @@ export default async function StudentAssignmentsPage() {
     .select('*, class:sms_classes!inner(id, name)')
   const assignments = sortByDueDate(assignmentRows ?? [])
 
-  const [{ data: myGrades }, { data: mySubmissions }] = await Promise.all([
+  const [{ data: myGrades }, { data: mySubmissions }, games] = await Promise.all([
     supabase.from('sms_grades').select('assignment_id, score, feedback').eq('student_id', student?.id ?? ''),
     supabase.from('sms_submissions').select('assignment_id, submitted_at').eq('student_id', student?.id ?? ''),
+    // GameRoom Classic games assigned to this student (empty when switched off).
+    portalStudentGames(student?.id),
   ])
 
   const gradeByAssignment = new Map((myGrades ?? []).map((g) => [g.assignment_id, g]))
@@ -39,8 +43,10 @@ export default async function StudentAssignmentsPage() {
         <p className="text-stone-500 dark:text-stone-400 mt-1">Your assignments across all classes.</p>
       </div>
 
+      <StudentGamesSection items={games} />
+
       {!assignments || assignments.length === 0 ? (
-        <EmptyState title="No assignments yet" />
+        games.length === 0 && <EmptyState title="No assignments yet" />
       ) : (
         <div className="space-y-3">
           {assignments.map((a) => {

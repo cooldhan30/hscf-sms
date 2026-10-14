@@ -193,6 +193,9 @@ export interface TeacherClass {
 // One row of the teacher's assignment list.
 export interface AssignmentSummary {
   id: string
+  // false = a co-teacher made it (you can see results, not change it)
+  mine: boolean
+  ownerName: string
   title: string
   type: GameType
   classNames: string[]
@@ -211,4 +214,22 @@ export interface PracticeGame {
   teacher: string
   bestPercent: number | null // practice only -- never a grade
   plays: number
+}
+
+// How students have practised one of a teacher's games (teacher view).
+export interface PracticeStatRow {
+  studentId: string
+  name: string
+  plays: number
+  bestPercent: number
+  lastPercent: number
+  lastPlayedAt: string
+}
+
+export interface PracticeStats {
+  gameId: string
+  title: string
+  type: GameType
+  practice: boolean
+  rows: PracticeStatRow[]
 }

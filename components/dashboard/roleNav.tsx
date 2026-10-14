@@ -17,6 +17,7 @@ import {
   FiFeather,
   FiTrendingUp,
   FiDollarSign,
+  FiZap,
 } from 'react-icons/fi'
 import type { SidebarItem } from './Sidebar'
 
@@ -29,6 +30,11 @@ const iconClass = 'w-4 h-4 flex-shrink-0'
 // GameRoom if V2 is rolled back (GAMEROOM_V2_ENABLED=false). See
 // docs/gameroom-v2-rollback.md.
 export const GAMEROOM_NAV_HREF = '/gameroom'
+
+// GameRoom Classic (/gr-classic): live games, assignments and practice for
+// teachers and students. If it is switched off (GR_CLASSIC_ENABLED), the
+// link shows a not-found page, so remove this item when rolling it back.
+const GR_CLASSIC_NAV_ITEM: SidebarItem = { label: 'GameRoom Classic', href: '/gr-classic', icon: <FiZap className={iconClass} /> }
 
 export const STUDENT_NAV_ITEMS: SidebarItem[] = [
   { label: 'Dashboard', href: '/student', icon: <FiHome className={iconClass} /> },
@@ -44,6 +50,7 @@ export const STUDENT_NAV_ITEMS: SidebarItem[] = [
   { label: 'Chat', href: '/student/chat', icon: <FiMessageCircle className={iconClass} /> },
   { label: 'Link Requests', href: '/student/link-requests', icon: <FiUserCheck className={iconClass} /> },
   { label: 'Game Room', href: GAMEROOM_NAV_HREF, icon: <FiPlayCircle className={iconClass} /> },
+  GR_CLASSIC_NAV_ITEM,
 ]
 
 // Shown only once the student has joined a Tamil Theni season.
@@ -60,6 +67,7 @@ export const TEACHER_NAV_ITEMS: SidebarItem[] = [
   { label: 'Resources', href: '/teacher/resources', icon: <FiFolder className={iconClass} /> },
   { label: 'Story Generator', href: '/teacher/story-generator', icon: <FiFeather className={iconClass} /> },
   { label: 'Game Room', href: GAMEROOM_NAV_HREF, icon: <FiPlayCircle className={iconClass} /> },
+  GR_CLASSIC_NAV_ITEM,
   { label: 'Announcements', href: '/teacher/announcements', icon: <FiClipboard className={iconClass} /> },
   { label: 'Meetings', href: '/teacher/meetings', icon: <FiVideo className={iconClass} /> },
   { label: 'Chat', href: '/teacher/chat', icon: <FiMessageCircle className={iconClass} /> },

@@ -3,10 +3,11 @@ import { unitsOf } from '../assignments'
 import { expectedText } from '../play'
 import type { Assignment, GameType, Question, QuestionResult } from '../types'
 
-export const ASSIGNMENT_COLUMNS = 'id, game_id, title, game_type, due_at, status, max_attempts, timer_minutes, passing_percent, randomize, allow_late, show_answers, score_policy, question_count, total_units'
+export const ASSIGNMENT_COLUMNS = 'id, owner_id, game_id, title, game_type, due_at, status, max_attempts, timer_minutes, passing_percent, randomize, allow_late, show_answers, score_policy, question_count, total_units'
 
 export interface AssignmentRow {
   id: string
+  owner_id: string
   game_id: string | null
   title: string
   game_type: GameType
