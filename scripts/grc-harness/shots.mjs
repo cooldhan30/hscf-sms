@@ -305,18 +305,40 @@ for (const vp of VIEWPORTS) {
     await ctx.close()
   })
 
+  await flow('quick-setup', vp, async () => {
+    const { ctx, page } = await open(vp, 'create')
+    await page.getByRole('button', { name: /Classic Quiz/ }).click()
+    // Pick the topic with the most quiz questions; the game fills itself.
+    const best = await page.locator('#grc-category option').evaluateAll((os) =>
+      os.map((o) => ({ value: o.value, n: Number((o.textContent.match(/\((\d+)\)$/) || [])[1] || 0) })).filter((o) => o.value && o.value !== '__new').sort((a, b) => b.n - a.n)[0])
+    if (!best || best.n < 2) throw new Error('no topic with quiz questions in the sample library')
+    await page.locator('#grc-category').selectOption(best.value)
+    const rows = page.locator('ol.space-y-2 > li')
+    await page.waitForTimeout(200)
+    if ((await rows.count()) !== Math.min(10, best.n)) throw new Error(`topic fill: expected ${Math.min(10, best.n)}, got ${await rows.count()}`)
+    if (!(await page.getByLabel('Game name').inputValue())) throw new Error('game name was not filled from the topic')
+    await page.getByRole('button', { name: `All ${best.n}` }).click()
+    if ((await rows.count()) !== best.n) throw new Error('"All" did not use every question in the topic')
+    await page.getByRole('button', { name: '30s' }).click()
+    await page.getByText(/Showing “.*” only/).waitFor()
+    await page.getByRole('button', { name: 'Save & host live' }).waitFor()
+    await shot(page, vp, 'flow-quick-setup')
+    // A hand edit stops the automatic fill.
+    await rows.first().getByRole('button', { name: 'Remove from game' }).click()
+    await page.getByRole('button', { name: `All ${best.n}` }).click()
+    if ((await rows.count()) !== best.n - 1) throw new Error('quick setup overwrote a hand-picked list')
+    await ctx.close()
+  })
+
   await flow('create-save', vp, async () => {
     const { ctx, page } = await open(vp, 'create')
     await page.getByRole('button', { name: /Classic Quiz/ }).click()
     await page.getByLabel('Game name').fill('உயிர் எழுத்துக்கள் — வாரம் 1')
     await page.getByRole('checkbox').nth(0).check()
     await page.getByRole('checkbox').nth(2).check()
-    await page.getByLabel('Question', { exact: true }).fill('"ஆடு" எந்த எழுத்தில் தொடங்குகிறது?')
-    await page.getByLabel('Answer 1', { exact: true }).fill('அ')
-    await page.getByLabel('Answer 2', { exact: true }).fill('ஆ')
-    await page.getByLabel('Answer 2 is right').check()
-    await page.getByRole('button', { name: 'Add question' }).click()
-    await page.waitForTimeout(500)
+    if ((await page.locator('ol.space-y-2 > li').count()) !== 2) throw new Error('hand-picked questions were not added')
+    // Questions are only picked from the library here, never written.
+    if ((await page.getByText('Write a new question').count()) > 0) throw new Error('Create Game still offers to write a question')
     await shot(page, vp, 'flow-create-filled')
     await page.getByRole('button', { name: 'Save game' }).click()
     await page.getByText('Game saved!').waitFor()
