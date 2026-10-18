@@ -155,10 +155,10 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     return reply({ question: q }, 201)
   }
   const one = path.match(/^\/questions\/([^/]+)$/)
-  if (one && library.find((q) => q.id === one[1])?.mine === false) return reply({ error: 'Only the teacher who wrote this question can change it. You can still use it in your games.' }, 403)
   if (one && method === 'PATCH') {
     const v = validateQuestion(body)
-    return v.ok ? reply({ question: toQuestion(v.value, one[1]) }) : reply({ error: v.errors.join(' ') }, 400)
+    const was = library.find((q) => q.id === one[1])
+    return v.ok ? reply({ question: { ...toQuestion(v.value, one[1]), mine: was?.mine ?? true, author: was?.author ?? 'You' } }) : reply({ error: v.errors.join(' ') }, 400)
   }
   if (one && method === 'DELETE') return reply({ archived: true })
   if (path === '/questions/import') {

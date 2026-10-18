@@ -1,5 +1,5 @@
--- GameRoom Classic shared library test (migration 099). Run AFTER 094 to
--- 099 are applied, in the Supabase SQL editor (nothing selected, then Run).
+-- GameRoom Classic shared library test (migrations 099 and 100). Run AFTER
+-- 094 to 100 are applied, in the Supabase SQL editor (nothing selected, then Run).
 -- It ALWAYS rolls back. It finishes by raising one of:
 --   'GRC SHARED LIBRARY TEST PASSED ...'
 --   'GRC SHARED LIBRARY TEST FAILED ...'
@@ -41,13 +41,19 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN NULL;
   END;
 
-  -- ...but cannot change or archive them, or rename the topic
-  UPDATE sms_grc_questions SET prompt = 'changed' WHERE id = q_choice;
+  -- ...and can edit them (100), but an edit keeps the author and the type
+  UPDATE sms_grc_questions SET prompt = 'changed', owner_id = 'grc_test_t2', kind = 'match' WHERE id = q_choice;
   GET DIAGNOSTICS n = ROW_COUNT;
-  IF n <> 0 THEN fails := fails || 'teacher 2 edited teacher 1 question'; END IF;
-  UPDATE sms_grc_questions SET archived_at = now() WHERE id = q_choice;
+  IF n <> 1 THEN fails := fails || 'teacher 2 cannot edit teacher 1 question'; END IF;
+  SELECT count(*) INTO n FROM sms_grc_questions WHERE id = q_choice AND prompt = 'changed' AND owner_id = 'grc_test_t1' AND kind = 'choice';
+  IF n <> 1 THEN fails := fails || 'an edit changed the author or the type, or did not save'; END IF;
+  UPDATE sms_grc_questions SET archived_at = now() WHERE id = q_order;
   GET DIAGNOSTICS n = ROW_COUNT;
-  IF n <> 0 THEN fails := fails || 'teacher 2 archived teacher 1 question'; END IF;
+  IF n <> 1 THEN fails := fails || 'teacher 2 cannot archive teacher 1 question'; END IF;
+  -- Deleting outright and renaming the topic stay with the author
+  DELETE FROM sms_grc_questions WHERE id = q_choice;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN fails := fails || 'teacher 2 deleted teacher 1 question'; END IF;
   UPDATE sms_grc_categories SET name = 'renamed' WHERE id = cat;
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n <> 0 THEN fails := fails || 'teacher 2 renamed teacher 1 topic'; END IF;

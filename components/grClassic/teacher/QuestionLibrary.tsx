@@ -160,7 +160,14 @@ export function QuestionLibrary({ questions: initial, categories: initialCategor
           <li key={q.id}>
             <Card className="p-4 sm:p-5">
               {editing === q.id ? (
-                <QuestionEditor kind={q.kind} initial={q} categories={categories} onSaved={saved} onCancel={() => setEditing(null)} />
+                <>
+                  {q.mine === false && (
+                    <p className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+                      {q.author} wrote this question. Your changes also update every game that uses it.
+                    </p>
+                  )}
+                  <QuestionEditor kind={q.kind} initial={q} categories={categories} onSaved={saved} onCancel={() => setEditing(null)} />
+                </>
               ) : (
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <div className="min-w-0 flex-1">
@@ -193,8 +200,6 @@ export function QuestionLibrary({ questions: initial, categories: initialCategor
                         Keep
                       </Button>
                     </div>
-                  ) : q.mine === false ? (
-                    <p className="shrink-0 text-xs font-semibold text-slate-500">Only {q.author} can edit</p>
                   ) : (
                     <div className="flex shrink-0 gap-1">
                       <Button tone="ghost" size="sm" onClick={() => setEditing(q.id)}>

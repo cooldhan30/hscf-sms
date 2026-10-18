@@ -231,13 +231,19 @@ for (const vp of VIEWPORTS) {
   await flow('shared-library', vp, async () => {
     const { ctx, page } = await open(vp, 'library')
     await page.getByText('by Ms. Priya').first().waitFor()
-    await page.getByText('Only Ms. Priya can edit').first().waitFor()
     const all = await page.locator('ul.mt-4 > li').count()
     await shot(page, vp, 'flow-shared-library')
     await page.getByRole('button', { name: 'Only mine' }).click()
     const mine = await page.locator('ul.mt-4 > li').count()
     if (!(mine < all)) throw new Error(`"Only mine" did not narrow the list (${all} -> ${mine})`)
     if ((await page.getByText('by Ms. Priya').count()) > 0) throw new Error('"Only mine" still shows another teacher')
+    // Any teacher can edit any question; the editor says whose it is.
+    await page.getByRole('button', { name: 'All teachers' }).click()
+    const theirs = page.locator('ul.mt-4 > li').filter({ hasText: 'by Ms. Priya' }).first()
+    await theirs.getByRole('button', { name: 'Edit' }).click()
+    await page.getByText('Ms. Priya wrote this question').waitFor()
+    await shot(page, vp, 'flow-shared-library-edit')
+    await page.getByRole('button', { name: 'Cancel' }).click()
     await ctx.close()
   })
   await flow('library-to-game', vp, async () => {
