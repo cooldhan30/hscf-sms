@@ -53,9 +53,6 @@ export const STUDENT_NAV_ITEMS: SidebarItem[] = [
   GR_CLASSIC_NAV_ITEM,
 ]
 
-// Shown only once the student has joined a Tamil Theni season.
-export const THENI_NAV_ITEM: SidebarItem = { label: 'Tamil Theni', href: '/student/theni', icon: <span className="text-sm">🐝</span> }
-
 export const TEACHER_NAV_ITEMS: SidebarItem[] = [
   { label: 'Dashboard', href: '/teacher', icon: <FiHome className={iconClass} /> },
   { label: 'My Classes', href: '/teacher/classes', icon: <FiBookOpen className={iconClass} /> },
@@ -84,7 +81,6 @@ export const ADMIN_NAV_ITEMS: SidebarItem[] = [
   { label: 'Registrations', href: '/admin/registrations', icon: <FiClipboard className={iconClass} /> },
   { label: 'Payments', href: '/admin/payments', icon: <FiDollarSign className={iconClass} /> },
   { label: 'Resources', href: '/admin/resources', icon: <FiFolder className={iconClass} /> },
-  { label: 'Tamil Theni', href: '/admin/theni', icon: <span className="text-sm">🐝</span> },
   { label: 'Reports', href: '/admin/reports', icon: <FiBarChart2 className={iconClass} /> },
   { label: 'Announcements', href: '/admin/announcements', icon: <FiSpeaker className={iconClass} /> },
   { label: 'Meetings', href: '/admin/meetings', icon: <FiVideo className={iconClass} /> },

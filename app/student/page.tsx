@@ -4,7 +4,6 @@ import { createClient } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { RichTextContent } from '@/components/announcements/RichTextContent'
-import { TheniJoinBanner } from '@/components/theni/TheniJoinBanner'
 import { formatDateOnly, todayISODate } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
@@ -17,7 +16,7 @@ export default async function StudentDashboardPage() {
   const { data: student } = await supabase.from('sms_students').select('id').eq('profile_id', userId ?? '').single()
   const studentId = student?.id ?? ''
 
-  const [{ data: classes }, { data: allAssignments }, { data: mySubmissions }, { data: grades }, { data: attendance }, { data: announcements }, { data: theniEnrollment }] =
+  const [{ data: classes }, { data: allAssignments }, { data: mySubmissions }, { data: grades }, { data: attendance }, { data: announcements }] =
     await Promise.all([
       supabase.from('sms_classes').select('id, name'),
       // RLS ("assignments: student read published in own class") already
@@ -40,7 +39,6 @@ export default async function StudentDashboardPage() {
         .limit(5),
       supabase.from('sms_attendance').select('status').eq('student_id', studentId).lte('date', todayISODate()),
       supabase.from('sms_announcements').select('*').order('created_at', { ascending: false }).limit(3),
-      supabase.from('sms_theni_enrollments').select('id').eq('student_id', studentId).limit(1).maybeSingle(),
     ])
 
   // "Upcoming Assignments" here really means "still needs action" --
@@ -77,8 +75,6 @@ export default async function StudentDashboardPage() {
         <h1 className="text-2xl font-bold text-primary-900 dark:text-white">My Dashboard</h1>
         <p className="text-stone-500 dark:text-stone-400 mt-1">Your classes, grades, and attendance.</p>
       </div>
-
-      {!theniEnrollment && <TheniJoinBanner />}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {stats.map((s) => (

@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation'
 import { DashboardLayout, type SidebarItem } from '@/components/dashboard'
-import { STUDENT_NAV_ITEMS, TEACHER_NAV_ITEMS, ADMIN_NAV_ITEMS, THENI_NAV_ITEM, GAMEROOM_NAV_HREF } from '@/components/dashboard/roleNav'
+import { STUDENT_NAV_ITEMS, TEACHER_NAV_ITEMS, ADMIN_NAV_ITEMS, GAMEROOM_NAV_HREF } from '@/components/dashboard/roleNav'
 import { getCurrentProfile, getAvailableRoles } from '@/lib/auth'
-import { createClient } from '@/lib/supabase/server'
 import type { SmsProfile } from '@/types/database'
 
 // Renders a GameRoom application page (home, boards, topics, library,
@@ -32,14 +31,7 @@ function withGameRoomActive(items: SidebarItem[]): SidebarItem[] {
 }
 
 async function navItemsFor(profile: SmsProfile): Promise<SidebarItem[]> {
-  if (profile.role === 'student') {
-    const supabase = createClient()
-    const { data: student } = await supabase.from('sms_students').select('id').eq('profile_id', profile.id).maybeSingle()
-    const { data: theni } = student
-      ? await supabase.from('sms_theni_enrollments').select('id').eq('student_id', student.id).limit(1).maybeSingle()
-      : { data: null }
-    return withGameRoomActive(theni ? [...STUDENT_NAV_ITEMS, THENI_NAV_ITEM] : STUDENT_NAV_ITEMS)
-  }
+  if (profile.role === 'student') return withGameRoomActive(STUDENT_NAV_ITEMS)
   if (profile.role === 'teacher') return withGameRoomActive(TEACHER_NAV_ITEMS)
   return withGameRoomActive(ADMIN_NAV_ITEMS)
 }
