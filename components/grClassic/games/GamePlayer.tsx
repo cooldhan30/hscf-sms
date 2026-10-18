@@ -44,6 +44,9 @@ export type PlaySource = { source: 'local'; questions: Question[] } | { source: 
 export interface GameInfo {
   title: string
   type: GameType
+  // Practice only: a countdown per question; at zero the question counts
+  // as not answered and the game moves on.
+  secondsPerQuestion?: number
 }
 
 // Runs one game from first question to results, the same way for every
@@ -82,6 +85,26 @@ function Player({ game, play, mode, assignment, exit, onFinished }: { game: Game
   const q = questions[index]
   const last = index === questions.length - 1
   const left = useCountdown(graded ? assignment?.deadlineAt : null)
+
+  // Time per question (practice by topic): restarts on every question.
+  const perQuestion = graded ? undefined : game.secondsPerQuestion
+  // The deadline belongs to one question (key), so the next question never
+  // inherits the last one's expired clock.
+  const qKey = `${round}-${index}`
+  const [qDeadline, setQDeadline] = useState<{ key: string; at: string } | null>(null)
+  useEffect(() => {
+    setQDeadline(perQuestion && phase === 'play' ? { key: qKey, at: new Date(Date.now() + perQuestion * 1000).toISOString() } : null)
+  }, [qKey, phase, perQuestion])
+  const current = qDeadline?.key === qKey ? qDeadline.at : null
+  const qLeft = useCountdown(pending ? null : current)
+  useEffect(() => {
+    if (current && qLeft !== null && qLeft <= 0 && !pending && phase === 'play' && q) {
+      setPending({ questionId: q.id, prompt: q.prompt, correctUnits: 0, totalUnits: 1, given: '', expected: '', timedOut: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qLeft])
+  // An answer that arrives after the time ran out does not count.
+  const answered = (r: QuestionResult) => setPending((p) => p ?? r)
 
   // A new question: move focus to it, so screen readers read it out and
   // keyboard users start from the top (not on the first one -- the page
@@ -156,6 +179,11 @@ function Player({ game, play, mode, assignment, exit, onFinished }: { game: Game
             ⏱ {formatClock(left)}
           </span>
         )}
+        {phase === 'play' && perQuestion && qLeft !== null && !pending && (
+          <span role="timer" aria-label={`${Math.max(0, qLeft)} seconds left`} className={`shrink-0 rounded-xl px-3 py-1.5 text-sm font-extrabold tabular-nums ring-1 ${qLeft <= 5 ? 'bg-rose-600 text-white ring-rose-600' : 'bg-white text-slate-700 ring-slate-200'}`}>
+            ⏱ {Math.max(0, qLeft)}s
+          </span>
+        )}
         {phase === 'play' && (
           <span className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-sm font-extrabold text-slate-700 ring-1 ring-slate-200">
             {index + 1} / {questions.length}
@@ -166,8 +194,8 @@ function Player({ game, play, mode, assignment, exit, onFinished }: { game: Game
       {phase === 'play' && (
         <>
           <ProgressBar value={index + (pending ? 1 : 0)} max={questions.length} label="Progress" />
-          <Card className="mt-5 p-5 sm:p-8">
-            <QuestionView key={`${round}-${q.id}`} question={q} session={session} reveal={!graded} hints={mode === 'practice'} onAnswered={setPending} />
+          <Card className={`mt-5 p-5 sm:p-8 ${pending?.timedOut ? 'pointer-events-none opacity-50' : ''}`}>
+            <QuestionView key={`${round}-${q.id}`} question={q} session={session} reveal={!graded} hints={mode === 'practice'} onAnswered={answered} />
           </Card>
           <AnimatePresence>
             {pending && (
@@ -221,7 +249,7 @@ function Feedback({ result, graded, explanation, onNext, last }: { result: Quest
             <p className="text-lg font-extrabold">Answer saved</p>
           ) : (
             <>
-              <p className="text-lg font-extrabold">{all ? 'சரி! Correct!' : result.totalUnits > 1 ? `${result.correctUnits} of ${result.totalUnits} right first time` : 'Not this time'}</p>
+              <p className="text-lg font-extrabold">{result.timedOut ? 'Time’s up! ⏰' : all ? 'சரி! Correct!' : result.totalUnits > 1 ? `${result.correctUnits} of ${result.totalUnits} right first time` : 'Not this time'}</p>
               {!all && result.totalUnits === 1 && result.expected && <p className="font-semibold">Answer: {result.expected}</p>}
               {explanation && <p className="mt-0.5 text-sm opacity-90">{explanation}</p>}
             </>
@@ -319,6 +347,8 @@ function useCountdown(deadline: string | null | undefined): number | null {
   const calc = () => (deadline ? Math.ceil((new Date(deadline).getTime() - Date.now()) / 1000) : null)
   const [left, setLeft] = useState(calc)
   useEffect(() => {
+    // A new deadline (or none) takes effect at once, not a second later.
+    setLeft(calc())
     if (!deadline) return
     const t = setInterval(() => setLeft(calc()), 1000)
     return () => clearInterval(t)

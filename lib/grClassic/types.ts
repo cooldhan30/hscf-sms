@@ -151,6 +151,7 @@ export interface QuestionResult {
   given: string
   expected: string // '' when the answer may not be shown yet
   explanation?: string
+  timedOut?: boolean // the time per question ran out (practice by topic)
 }
 
 export interface StudentResult {

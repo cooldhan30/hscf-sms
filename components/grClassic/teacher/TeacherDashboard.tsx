@@ -39,14 +39,17 @@ export function TeacherDashboard({ games: initialGames, assignments, pick, tab: 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-900">வணக்கம்! 👋</h1>
-          <p className="font-semibold text-slate-600">Pick a game to play, host or assign — or make a new one.</p>
+          <p className="font-semibold text-slate-600">Start a quick live game from any topic, or pick a game to play, host or assign.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <ButtonLink href="/gr-classic/teacher/library" tone="plain" size="lg">
             <FiBookOpen aria-hidden /> Question Library
           </ButtonLink>
-          <ButtonLink href="/gr-classic/teacher/create" size="lg">
+          <ButtonLink href="/gr-classic/teacher/create" tone="plain" size="lg">
             <FiPlusCircle aria-hidden /> Create Game
+          </ButtonLink>
+          <ButtonLink href="/gr-classic/teacher/quick" size="lg">
+            <FiRadio aria-hidden /> Quick live game
           </ButtonLink>
         </div>
       </div>

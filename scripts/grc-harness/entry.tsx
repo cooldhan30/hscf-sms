@@ -34,6 +34,9 @@ import { totals } from '@/lib/grClassic/scoring'
 import { validateQuestion, type QuestionInput, type ValidQuestion } from '@/lib/grClassic/validateQuestion'
 import type { AssignmentSummary, Category, GameSummary, PracticeGame, Question, QuestionResult } from '@/lib/grClassic/types'
 import { PracticeRunner } from '@/components/grClassic/student/PracticeRunner'
+import { TopicPracticeRunner } from '@/components/grClassic/student/TopicPracticeRunner'
+import { TopicPicker } from '@/components/grClassic/TopicPicker'
+import { NO_TOPIC, type TopicSummary } from '@/lib/grClassic/topicPlay'
 import { PracticeStatsView } from '@/components/grClassic/teacher/PracticeStatsView'
 import { StudentGameScores, StudentGamesSection, TeacherGamesSection } from '@/components/grClassic/portal/PortalGames'
 
@@ -49,6 +52,18 @@ const library: Question[] = empty ? [] : LIBRARY.filter((q) => params.get('onlyq
   const theirs = /peyar|thinai/.test(q.id)
   return { ...q, categoryId: catId(q.category), difficulty: 'easy' as const, mine: !theirs, author: theirs ? 'Ms. Priya' : 'You' }
 })
+// Play by topic: the library grouped by topic, as topicCatalog() sends it.
+const GAME_OF = { choice: 'quiz', match: 'match', order: 'word-builder' } as const
+const topics: TopicSummary[] = Array.from(
+  library
+    .reduce((m, q) => {
+      const id = q.categoryId ?? NO_TOPIC
+      const t = m.get(id) ?? { id, name: q.category || 'Other questions', counts: { quiz: 0, match: 0, 'word-builder': 0 } }
+      t.counts[GAME_OF[q.kind]]++
+      return m.set(id, t)
+    }, new Map<string, TopicSummary>())
+    .values()
+)
 const summaries: GameSummary[] = empty ? [] : GAMES.map((g, i) => ({ id: g.id, title: g.title, type: g.type, category: g.category, questionCount: g.questions.length, updatedAt: g.updatedAt, practice: i !== 1 }))
 const practiceList: PracticeGame[] = empty ? [] : GAMES.map((g, i) => ({ id: g.id, title: g.title, type: g.type, questionCount: g.questions.length, teacher: 'Ms. Vani', bestPercent: i === 0 ? 80 : i === 2 ? 45 : null, plays: i === 0 || i === 2 ? 2 : 0 }))
 
@@ -93,6 +108,15 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const lv = live(path, method, body, new Headers(init?.headers))
   if (lv) return reply(lv.data, lv.status)
 
+  // Play by topic: a teacher starts a live game; a student's answers are
+  // checked against the library like the real server.
+  if (path === '/live/topic' && method === 'POST') return reply({ sessionId: 'live-1' }, 201)
+  const topicCheck = path.match(/^\/practice\/topic\/(check|hint)$/)
+  if (topicCheck) {
+    const q = library.find((x) => x.id === body.questionId)
+    if (!q) return reply({ error: 'Question not found.' }, 404)
+    return reply(topicCheck[1] === 'check' ? checkResponse(q, body.response, true) : hintFor(q, body.matched))
+  }
   // Practice: checked like the real server, with the answer revealed.
   const prac = path.match(new RegExp('^/practice/([^/]+)/(check|hint|finish)$'))
   if (prac) {
@@ -234,6 +258,13 @@ export const SCREENS: Record<string, () => ReactNode> = {
   'remote-match': () => remote('g-porul-match'),
   'remote-word': () => remote('g-word-builder'),
   join: () => <JoinLive name="Kavin" />,
+  'teacher-quick': () => <TopicPicker mode="host" topics={topics} classes={empty ? [] : CLASSES} />,
+  'student-topics': () => <TopicPicker mode="solo" topics={topics} />,
+  'topic-practice': () => {
+    const t = topics.find((x) => x.counts.quiz >= 3)!
+    const qs = library.filter((q) => q.kind === 'choice' && (q.categoryId ?? NO_TOPIC) === t.id)
+    return <TopicPracticeRunner title={t.name} type="quiz" seconds={Number(params.get('seconds') ?? 10)} questions={qs.map(toPlayQuestion)} />
+  },
   host: () => <HostLive sessionId="live-1" />,
   'host-setup': () => <HostSetup gameId="g-uyir-quiz" title={g('g-uyir-quiz').title} type="quiz" classes={CLASSES} />,
 }

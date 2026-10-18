@@ -72,7 +72,7 @@ async function flow(name, vp, fn) {
   }
 }
 
-const STATIC = ['home', 'teacher', 'teacher&empty=1', 'library', 'teachers-only', 'teacher-pick-host', 'teacher-assignments', 'create', 'edit', 'assign', 'results', 'student', 'student-assignments', 'review', 'quiz', 'match', 'word', 'sentence', 'join', 'host-setup', 'results-coteacher', 'practice-stats', 'portal-student', 'portal-teacher']
+const STATIC = ['home', 'teacher', 'teacher&empty=1', 'library', 'teachers-only', 'teacher-pick-host', 'teacher-assignments', 'create', 'edit', 'assign', 'results', 'student', 'student-assignments', 'review', 'quiz', 'match', 'word', 'sentence', 'join', 'host-setup', 'results-coteacher', 'practice-stats', 'portal-student', 'portal-teacher', 'teacher-quick', 'student-topics', 'topic-practice']
 for (const vp of VIEWPORTS) {
   if (only && !vp.name.startsWith(only)) continue
   for (const s of STATIC) {
@@ -327,6 +327,59 @@ for (const vp of VIEWPORTS) {
     await rows.first().getByRole('button', { name: 'Remove from game' }).click()
     await page.getByRole('button', { name: `All ${best.n}` }).click()
     if ((await rows.count()) !== best.n - 1) throw new Error('quick setup overwrote a hand-picked list')
+    await ctx.close()
+  })
+
+  await flow('teacher-quick', vp, async () => {
+    // A quick live game: topic, number of questions, time, class, Start.
+    const { ctx, page } = await open(vp, 'teacher-quick')
+    const topicsList = page.getByRole('list', { name: 'Topics' })
+    await topicsList.getByRole('button').first().click()
+    await page.locator('#grc-topic-settings').waitFor()
+    await page.getByRole('button', { name: /^All \d+$/ }).click()
+    await page.getByRole('button', { name: '30s' }).click()
+    await shot(page, vp, 'flow-teacher-quick')
+    let asked = null
+    page.on('request', (r) => r.url().includes('/live/topic') && (asked = r.postDataJSON()))
+    // Two classes in the sample: starting without one asks for it.
+    await page.getByRole('button', { name: 'Start live game' }).click()
+    await page.getByText('Choose the class that is playing.').waitFor()
+    await page.getByRole('group', { name: 'Class playing' }).getByRole('button').first().click()
+    await page.getByRole('button', { name: 'Start live game' }).click()
+    await page.waitForURL(/\/gr-classic\/live\/live-1/, { timeout: 5000 }).catch(() => {})
+    await ctx.close()
+  })
+
+  await flow('student-topics', vp, async () => {
+    const { ctx, page } = await open(vp, 'student-topics')
+    const topicsList = page.getByRole('list', { name: 'Topics' })
+    await topicsList.getByRole('button').first().click()
+    await page.getByRole('button', { name: '5', exact: true }).click().catch(() => {})
+    await page.getByRole('button', { name: '20s' }).click()
+    const href = await page.getByRole('link', { name: 'Start' }).getAttribute('href')
+    if (!/practice\/topic\?topic=.+&type=quiz&count=\d+&seconds=20/.test(href)) throw new Error('unexpected start link: ' + href)
+    // 'All' asks for every question in the topic (never 0).
+    const allButton = page.getByRole('button', { name: /^All \d+$/ })
+    await allButton.click()
+    const allN = (await allButton.textContent()).match(/\d+/)[0]
+    const allHref = await page.getByRole('link', { name: 'Start' }).getAttribute('href')
+    if (!allHref.includes(`&count=${allN}&`)) throw new Error('All gives the wrong count: ' + allHref)
+    await shot(page, vp, 'flow-student-topics')
+    await ctx.close()
+  })
+
+  await flow('topic-practice-timer', vp, async () => {
+    // Time per question: answering in time scores; running out moves on.
+    const { ctx, page } = await open(vp, 'topic-practice&seconds=10')
+    await page.getByRole('timer').waitFor()
+    await page.getByRole('button', { name: /^Answer 1/ }).click()
+    await page.getByRole('button', { name: /Next →/ }).click()
+    await page.getByText('Time’s up! ⏰').waitFor({ timeout: 13000 })
+    await shot(page, vp, 'flow-topic-time-up')
+    await page.getByRole('button', { name: /Next →|See my score/ }).click()
+    // The next question starts with a fresh clock, not an expired one.
+    await page.waitForTimeout(1500)
+    if ((await page.getByText('Time’s up! ⏰').count()) > 0) throw new Error('the next question inherited the expired clock')
     await ctx.close()
   })
 

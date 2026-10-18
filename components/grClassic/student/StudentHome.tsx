@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { FiBookOpen, FiEdit3, FiPlayCircle } from 'react-icons/fi'
+import { FiBookOpen, FiEdit3, FiGrid, FiPlayCircle } from 'react-icons/fi'
 import type { IconType } from 'react-icons'
 import { starsFor } from '@/lib/grClassic/scoring'
 import type { PracticeGame, StudentAssignment } from '@/lib/grClassic/types'
@@ -15,8 +15,9 @@ export function StudentHome({ name, assignments, practice }: { name: string; ass
       <h1 className="text-3xl font-black text-slate-900">வணக்கம், {name}! 👋</h1>
       <p className="font-semibold text-slate-600">What do you want to do?</p>
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-3">
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <BigTile href="/gr-classic/join" icon={FiPlayCircle} title="Join Live Game" ta="நேரலை விளையாட்டு" cls="from-indigo-600 to-violet-500 shadow-[0_8px_0_0_#3730a3]" />
+        <BigTile href="/gr-classic/student/topics" icon={FiGrid} title="Play by Topic" ta="தலைப்பு விளையாட்டு" cls="from-fuchsia-700 to-pink-600 shadow-[0_8px_0_0_#701a75]" />
         <BigTile href="/gr-classic/student/assignments" icon={FiBookOpen} title="My Assignments" ta="என் பணிகள்" cls="from-teal-600 to-emerald-500 shadow-[0_8px_0_0_#115e59]" badge={open.length ? `${open.length} to do` : undefined} />
         <BigTile href="#practice" icon={FiEdit3} title="Practice Games" ta="பயிற்சி" cls="from-rose-600 to-orange-500 shadow-[0_8px_0_0_#9f1239]" />
       </div>

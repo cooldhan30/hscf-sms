@@ -64,17 +64,22 @@ export async function hostSession(supabase: SupabaseClient, game: Game, classId:
     .limit(1)
   const open = (existing as SessionRow[] | null)?.[0]
   if (open && !isExpired(open.updated_at)) return open.id
+  return createLiveSession(supabase, { gameId: game.id, title: game.title, type: game.type, liveSeconds: game.liveSeconds, questions: game.questions }, classId)
+}
 
-  const questions: Question[] = game.questions
+// A new live game with its own frozen copy of the questions. gameId is
+// null for a game played straight from a topic of the question library.
+export async function createLiveSession(supabase: SupabaseClient, g: { gameId: string | null; title: string; type: Game['type']; liveSeconds: number; questions: Question[] }, classId: string): Promise<string> {
+  const questions = g.questions
   const play: PlayQuestion[] = questions.map(toPlayQuestion)
   for (let tries = 0; tries < 6; tries++) {
     const { data, error } = await supabase.rpc('sms_grc_create_live_session', {
-      p_game_id: game.id,
+      p_game_id: g.gameId,
       p_class_id: classId,
-      p_title: game.title,
-      p_game_type: game.type,
+      p_title: g.title.slice(0, 120),
+      p_game_type: g.type,
       p_pin: makePin(),
-      p_live_seconds: game.liveSeconds,
+      p_live_seconds: g.liveSeconds,
       p_questions: questions,
       p_play: play,
       p_question_count: questions.length,
