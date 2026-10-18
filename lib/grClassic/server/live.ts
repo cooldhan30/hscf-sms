@@ -221,10 +221,12 @@ export async function playerState(admin: SupabaseClient, sessionId: string, prof
   const as = (answers ?? []) as AnswerRow[]
   const status = effectiveStatus(s)
   const race = isRace(s.game_type)
-  const standings = rankPlayers(ps, as, race)
-  const mine = standings.find((x) => x.studentId === me.student_id)
   const revealed = status === 'reveal' || status === 'leaderboard' || status === 'ended'
   const current = !race && s.current_index >= 0 && status !== 'lobby' ? c.play[s.current_index] : null
+  // While a question is open, scores leave it out: a jump straight after
+  // answering would give away whether the answer was right.
+  const standings = rankPlayers(ps, status === 'question' && current ? as.filter((a) => a.question_id !== current.id) : as, race)
+  const mine = standings.find((x) => x.studentId === me.student_id)
   const myAnswer = current ? as.find((a) => a.student_id === me.student_id && a.question_id === current.id) : undefined
   const fullCurrent = current ? c.questions.find((q) => q.id === current.id) : undefined
 

@@ -14,21 +14,22 @@ export function JoinLive({ name }: { name: string }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [joining, setJoining] = useState(false)
-  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [joined, setJoined] = useState<{ sessionId: string; playerId: string } | null>(null)
 
   const join = async (raw: string) => {
     const p = normalizePin(raw)
     if (p.length !== 6) return setError('A game PIN has 6 numbers.')
     setJoining(true)
     setError('')
-    const res = await grcApi<{ sessionId: string }>('/live/join', { method: 'POST', body: { pin: p } })
+    const res = await grcApi<{ sessionId: string; playerId: string }>('/live/join', { method: 'POST', body: { pin: p } })
     setJoining(false)
     if (!res.ok) return setError(res.error)
     // Keep the PIN in the address so a reload rejoins the same game.
     const url = new URL(window.location.href)
     url.searchParams.set('pin', p)
     window.history.replaceState(null, '', url.toString())
-    setSessionId(res.data.sessionId)
+    // The tab stays this student for the whole game, whoever signs in later.
+    setJoined({ sessionId: res.data.sessionId, playerId: res.data.playerId })
   }
 
   useEffect(() => {
@@ -39,12 +40,14 @@ export function JoinLive({ name }: { name: string }) {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (sessionId) {
+  if (joined) {
     return (
       <LivePlayer
-        sessionId={sessionId}
+        sessionId={joined.sessionId}
+        playerId={joined.playerId}
+        name={name}
         onLeft={(message) => {
-          setSessionId(null)
+          setJoined(null)
           setError(message)
         }}
       />

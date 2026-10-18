@@ -269,11 +269,15 @@ function Distribution({ q, counts }: { q: ChoiceQuestion; counts: number[] }) {
 
 function Podium({ s, onAgain, busy }: { s: HostState; onAgain: () => void; busy: boolean }) {
   const top = s.standings
+  // Medals follow the rank (a tie for first shows two gold medals).
+  const medal = (rank: number) => ['🥇', '🥈', '🥉'][rank - 1] ?? '🏅'
   const places = [
-    { p: top[1], h: 'h-40', medal: '🥈', delay: 0.4 },
-    { p: top[0], h: 'h-56', medal: '🥇', delay: 0.9 },
-    { p: top[2], h: 'h-28', medal: '🥉', delay: 0 },
-  ].filter((x) => x.p)
+    { p: top[1], h: 'h-40', delay: 0.4 },
+    { p: top[0], h: 'h-56', delay: 0.9 },
+    { p: top[2], h: 'h-28', delay: 0 },
+  ]
+    .filter((x) => x.p)
+    .map((x) => ({ ...x, medal: medal(x.p.rank) }))
   return (
     <section className="flex flex-1 flex-col items-center py-8">
       {top.length > 0 && <Confetti pieces={60} />}

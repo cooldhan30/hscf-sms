@@ -6,7 +6,8 @@ import { errorResponse, grcStudentApi } from '@/lib/grClassic/server/studentAssi
 
 // POST /api/gr-classic/live/join { pin } -- a signed-in student joins a
 // live game for a class they are enrolled in. Joining again returns the
-// same player (refresh, or a new phone).
+// same player (refresh, or a new phone). `playerId` is the account it
+// joined with; the game tab sends it back on every call (PLAYER_HEADER).
 export async function POST(request: Request) {
   const guard = await grcStudentApi()
   if (!guard.ok) return guard.response
@@ -14,7 +15,8 @@ export async function POST(request: Request) {
   const pin = normalizePin(body?.pin)
   if (pin.length !== 6) return NextResponse.json({ error: 'A game PIN has 6 numbers.' }, { status: 400 })
   try {
-    return NextResponse.json(await joinLive(guard.admin, { id: guard.studentId, profileId: guard.profileId, firstName: guard.firstName, lastName: guard.lastName }, pin))
+    const joined = await joinLive(guard.admin, { id: guard.studentId, profileId: guard.profileId, firstName: guard.firstName, lastName: guard.lastName }, pin)
+    return NextResponse.json({ ...joined, playerId: guard.profileId }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     return errorResponse(e, 'join live game')
   }

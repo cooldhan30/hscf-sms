@@ -10,6 +10,11 @@ export type LiveStatus = 'lobby' | 'question' | 'reveal' | 'leaderboard' | 'race
 export const LIVE_EXPIRY_MS = 3 * 60 * 60 * 1000
 // Answers that leave the phone just as the timer hits zero still count.
 export const ANSWER_GRACE_MS = 1500
+// A player's game tab sends the account it joined with in this header; if
+// the browser is now signed in as someone else, the server refuses with
+// code WRONG_ACCOUNT (see lib/grClassic/server/liveAuth.ts).
+export const PLAYER_HEADER = 'x-grc-player'
+export const WRONG_ACCOUNT = 'WRONG_ACCOUNT'
 // A player counts as "connected" if their phone checked in recently.
 export const CONNECTED_MS = 15_000
 

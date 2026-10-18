@@ -448,6 +448,17 @@ for (const vp of VIEWPORTS) {
     await ctx.close()
   })
 
+  await flow('live-wrong-account', vp, async () => {
+    // Another student signs in on this browser mid-game: the tab must stop,
+    // not carry on under their name.
+    const { ctx, page } = await open(vp, 'join&auto=1&switch=1&pin=482913')
+    await page.getByText('You’re in, Kavin!').waitFor()
+    await page.getByText('Someone else signed in').waitFor({ timeout: 15000 })
+    if ((await page.getByRole('button', { name: /^Answer \d/ }).count()) > 0) throw new Error('answer buttons still showing for the wrong account')
+    await shot(page, vp, 'flow-live-wrong-account')
+    await ctx.close()
+  })
+
   await flow('live-student-race', vp, async () => {
     const { ctx, page } = await open(vp, 'join&auto=1&game=g-porul-match&pin=482913')
     await page.getByText('Tap one card, then its partner.').waitFor({ timeout: 15000 })

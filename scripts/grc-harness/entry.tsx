@@ -90,7 +90,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const body = init?.body ? JSON.parse(String(init.body)) : null
   await new Promise((r) => setTimeout(r, 120))
   const reply = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
-  const lv = live(path, method, body)
+  const lv = live(path, method, body, new Headers(init?.headers))
   if (lv) return reply(lv.data, lv.status)
 
   // Practice: checked like the real server, with the answer revealed.

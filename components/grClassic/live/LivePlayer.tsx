@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { FiCheckCircle, FiWifiOff, FiXCircle } from 'react-icons/fi'
-import type { PlayerState } from '@/lib/grClassic/live'
+import { FiAlertTriangle, FiCheckCircle, FiWifiOff, FiXCircle } from 'react-icons/fi'
+import { PLAYER_HEADER, WRONG_ACCOUNT, type PlayerState } from '@/lib/grClassic/live'
 import type { CheckResult, PlayQuestion, PlayResponse, PlaySession } from '@/lib/grClassic/play'
 import { AnswerButton } from '../games/AnswerButton'
 import { MatchBoard } from '../games/MatchBoard'
@@ -15,10 +15,21 @@ import { usePoll, useServerCountdown } from './usePoll'
 // One student's phone during a live game. It shows whatever step the
 // teacher is on (polled from the server about once a second) and sends
 // answers. It never knows the right answer until the teacher reveals it.
-export function LivePlayer({ sessionId, onLeft }: { sessionId: string; onLeft: (message: string) => void }) {
-  const { data: s, setData, error, offset } = usePoll<PlayerState>(`/live/${sessionId}/me`, 1000)
+// The tab belongs to the student who joined (playerId): if the browser is
+// signed in as someone else later, it stops and says so (WRONG_ACCOUNT).
+export function LivePlayer({ sessionId, playerId, name, onLeft }: { sessionId: string; playerId: string; name: string; onLeft: (message: string) => void }) {
+  const { data: s, error, offset } = usePoll<PlayerState>(`/live/${sessionId}/me`, 1000, playerId)
   const left = useServerCountdown(s?.status === 'question' ? s.endsAt : null, offset)
   const [sendError, setSendError] = useState('')
+  // The answer this phone sent for a question. It keeps the buttons locked
+  // even if a status check that left before the answer says "not answered".
+  const [sent, setSent] = useState<{ questionId: string; choice: number } | null>(null)
+  const [wrongAccount, setWrongAccount] = useState(false)
+  const markWrongAccount = useCallback(() => setWrongAccount(true), [])
+  useEffect(() => {
+    if (error?.code === WRONG_ACCOUNT) setWrongAccount(true)
+    else if (s && !error) setWrongAccount(false)
+  }, [error, s])
 
   // Removed from the game (or it was never joined): back to the PIN screen.
   useEffect(() => {
@@ -26,15 +37,33 @@ export function LivePlayer({ sessionId, onLeft }: { sessionId: string; onLeft: (
   }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const answer = async (questionId: string, choice: number) => {
-    if (!s) return
+    if (!s || sent?.questionId === questionId) return
     setSendError('')
     // Lock the buttons straight away; the server decides if it counted.
-    setData({ ...s, myAnswer: { choice, correct: null, points: null } })
-    const res = await grcApi(`/live/${sessionId}/answer`, { method: 'POST', body: { questionId, response: { kind: 'choice', choice } } })
+    setSent({ questionId, choice })
+    const res = await grcApi(`/live/${sessionId}/answer`, { method: 'POST', body: { questionId, response: { kind: 'choice', choice } }, headers: { [PLAYER_HEADER]: playerId } })
     if (!res.ok) {
-      setData({ ...s, myAnswer: { choice: null, correct: null, points: null } })
+      if (res.code === WRONG_ACCOUNT) setWrongAccount(true)
+      setSent(null)
       setSendError(res.error)
     }
+  }
+
+  if (wrongAccount) {
+    return (
+      <Screen>
+        <section className="m-auto max-w-md text-center" role="alert">
+          <FiAlertTriangle aria-hidden className="mx-auto h-16 w-16 text-amber-300" />
+          <h1 className="mt-4 text-3xl font-black">Someone else signed in</h1>
+          <p className="mt-3 text-lg font-bold text-white/85">
+            This game is {name}’s, but this browser is now signed in as a different student. Your answers are paused so nobody gets the wrong points.
+          </p>
+          <p className="mt-4 font-semibold text-white/70">
+            {name}: sign back in to carry on — this screen picks up where you left off. Everyone else: please play on your own device or browser.
+          </p>
+        </section>
+      </Screen>
+    )
   }
 
   if (!s) {
@@ -48,7 +77,7 @@ export function LivePlayer({ sessionId, onLeft }: { sessionId: string; onLeft: (
   }
 
   const q = s.question?.kind === 'choice' ? s.question : null
-  const chosen = s.myAnswer?.choice ?? null
+  const chosen = s.myAnswer?.choice ?? (q && sent?.questionId === q.id ? sent.choice : null)
 
   return (
     <Screen>
@@ -131,7 +160,7 @@ export function LivePlayer({ sessionId, onLeft }: { sessionId: string; onLeft: (
         </section>
       )}
 
-      {s.status === 'race' && s.questions && <Race sessionId={sessionId} questions={s.questions} doneIds={s.doneIds} score={s.score} rank={s.rank} />}
+      {s.status === 'race' && s.questions && <Race sessionId={sessionId} playerId={playerId} onWrongAccount={markWrongAccount} questions={s.questions} doneIds={s.doneIds} score={s.score} rank={s.rank} />}
 
       {s.status === 'ended' && (
         <section className="flex flex-1 flex-col items-center justify-center text-center">
@@ -169,21 +198,24 @@ function Screen({ children }: { children: React.ReactNode }) {
 
 // Match the Pairs / Word Builder: everyone plays every question at their
 // own pace; each answer is checked (right/wrong only) by the server.
-function Race({ sessionId, questions, doneIds, score, rank }: { sessionId: string; questions: PlayQuestion[]; doneIds: string[]; score: number; rank: number | null }) {
+function Race({ sessionId, playerId, onWrongAccount, questions, doneIds, score, rank }: { sessionId: string; playerId: string; onWrongAccount: () => void; questions: PlayQuestion[]; doneIds: string[]; score: number; rank: number | null }) {
   const [finished, setFinished] = useState<string[]>(doneIds)
   const current = questions.find((q) => !finished.includes(q.id)) ?? null
   const session: PlaySession = useMemo(
     () => ({
       async check(questionId: string, response: PlayResponse): Promise<CheckResult> {
-        const res = await grcApi<CheckResult>(`/live/${sessionId}/answer`, { method: 'POST', body: { questionId, response } })
-        if (!res.ok) throw new Error(res.error)
+        const res = await grcApi<CheckResult>(`/live/${sessionId}/answer`, { method: 'POST', body: { questionId, response }, headers: { [PLAYER_HEADER]: playerId } })
+        if (!res.ok) {
+          if (res.code === WRONG_ACCOUNT) onWrongAccount()
+          throw new Error(res.error)
+        }
         return res.data
       },
       async hint() {
         return { none: true as const }
       },
     }),
-    [sessionId]
+    [sessionId, playerId, onWrongAccount]
   )
   const done = () => current && setTimeout(() => setFinished((f) => [...f, current.id]), 900)
 

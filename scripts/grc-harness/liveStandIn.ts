@@ -4,10 +4,12 @@
 // with ?auto=1 -- a "teacher" presses Next on a timer, so a student's
 // phone can be watched through a whole game. It mimics the API's shape
 // only; the real server also checks enrollment, PINs and the clock.
+// ?switch=1: once the first question opens, the browser "is signed in as
+// someone else" -- the game tab must stop instead of playing as them.
 import { LIVE_ROSTER, gameById } from '@/lib/grClassic/sampleData'
 import { checkResponse, toPlayQuestion } from '@/lib/grClassic/play'
 import { livePoints } from '@/lib/grClassic/scoring'
-import { isRace, nextStep, rankPlayers, RACE_POINTS_PER_UNIT, type HostState, type LiveStatus, type PlayerState } from '@/lib/grClassic/live'
+import { isRace, nextStep, rankPlayers, PLAYER_HEADER, RACE_POINTS_PER_UNIT, WRONG_ACCOUNT, type HostState, type LiveStatus, type PlayerState } from '@/lib/grClassic/live'
 
 type Ans = { student_id: string; question_id: string; points: number; correct: boolean; done: boolean; choice: number | null }
 
@@ -140,11 +142,19 @@ export function liveStandIn(params: URLSearchParams) {
   }
 
   // Returns a reply for live paths, or null for anything else.
-  return (path: string, method: string, body: Record<string, unknown> | null): { data: unknown; status: number } | null => {
+  const ME_ACCOUNT = 'user_kavin'
+  // The account the browser is signed in as right now.
+  const signedInAs = () => (params.get('switch') === '1' && s.status !== 'lobby' ? 'user_someone_else' : ME_ACCOUNT)
+  const wrongAccount = (headers: Headers) => {
+    const joinedAs = headers.get(PLAYER_HEADER)
+    return joinedAs && joinedAs !== signedInAs() ? { data: { error: 'This browser is now signed in as a different student.', code: WRONG_ACCOUNT }, status: 409 } : null
+  }
+
+  return (path: string, method: string, body: Record<string, unknown> | null, headers: Headers = new Headers()): { data: unknown; status: number } | null => {
     if (path === '/live/join') {
       if (body?.pin !== '482913') return { data: { error: 'We couldn’t find a live game with that PIN. Check the big screen and try again.' }, status: 404 }
       if (!players.some((p) => p.student_id === ME)) addPlayer(ME, 'Kavin')
-      return { data: { sessionId: 'live-1' }, status: 200 }
+      return { data: { sessionId: 'live-1', playerId: ME_ACCOUNT }, status: 200 }
     }
     if (path === '/live/live-1/host') {
       if (method === 'POST') {
@@ -162,6 +172,10 @@ export function liveStandIn(params: URLSearchParams) {
         }
       }
       return { data: hostState(), status: 200 }
+    }
+    if (path === '/live/live-1/me' || path === '/live/live-1/answer') {
+      const refused = wrongAccount(headers)
+      if (refused) return refused
     }
     if (path === '/live/live-1/me') {
       if (!players.some((p) => p.student_id === ME)) return { data: { error: 'Join the game with its PIN first.' }, status: 403 }
