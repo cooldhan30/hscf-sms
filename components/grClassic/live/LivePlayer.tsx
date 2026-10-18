@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { FiAlertTriangle, FiCheckCircle, FiWifiOff, FiXCircle } from 'react-icons/fi'
-import { PLAYER_HEADER, WRONG_ACCOUNT, type PlayerState } from '@/lib/grClassic/live'
+import { PLAYER_HEADER, WRONG_ACCOUNT, type BoardRow, type PlayerState } from '@/lib/grClassic/live'
 import type { CheckResult, PlayQuestion, PlayResponse, PlaySession } from '@/lib/grClassic/play'
 import { AnswerButton } from '../games/AnswerButton'
 import { MatchBoard } from '../games/MatchBoard'
@@ -156,11 +156,13 @@ export function LivePlayer({ sessionId, playerId, name, onLeft }: { sessionId: s
           </p>
           <h1 className="mt-4 text-4xl font-black">You’re number {s.rank ?? '—'}</h1>
           <p className="mt-2 text-2xl font-extrabold tabular-nums text-amber-300">{s.score} points</p>
-          <p className="mt-6 font-bold text-white/70">Look at the big screen!</p>
+          {s.leaderboard && <Board rows={s.leaderboard} />}
+          <p className="mt-4 font-bold text-white/70">{s.index + 1 < s.count ? 'Next question coming up…' : 'Winners coming up…'}</p>
         </section>
       )}
 
       {s.status === 'race' && s.questions && <Race sessionId={sessionId} playerId={playerId} onWrongAccount={markWrongAccount} questions={s.questions} doneIds={s.doneIds} score={s.score} rank={s.rank} />}
+      {s.status === 'race' && s.leaderboard && <Board rows={s.leaderboard} max={5} title="Live scores" />}
 
       {s.status === 'ended' && (
         <section className="flex flex-1 flex-col items-center justify-center text-center">
@@ -170,21 +172,46 @@ export function LivePlayer({ sessionId, playerId, name, onLeft }: { sessionId: s
           <h1 className="mt-4 text-4xl font-black">{s.rank ? `You came number ${s.rank}!` : 'Game over!'}</h1>
           <p className="mt-2 text-2xl font-extrabold tabular-nums text-amber-300">{s.score} points</p>
           <p className="mt-2 font-bold text-white/80">அருமை! Great playing.</p>
-          {s.podium && s.podium.length > 0 && (
-            <ol className="mt-6 space-y-1 text-lg font-bold">
-              {s.podium.map((p) => (
-                <li key={p.studentId}>
-                  {p.rank}. {p.nickname} — {p.score}
-                </li>
-              ))}
-            </ol>
-          )}
+          {s.leaderboard && <Board rows={s.leaderboard} max={50} />}
           <ButtonLink href="/gr-classic/student" tone="plain" size="lg" className="mt-10">
             Back to GameRoom
           </ButtonLink>
         </section>
       )}
     </Screen>
+  )
+}
+
+// The class leaderboard on a phone: the top players, plus this student's
+// own row (highlighted) if they are further down.
+function Board({ rows, max = 10, title = 'Leaderboard' }: { rows: BoardRow[]; max?: number; title?: string }) {
+  const top = rows.slice(0, max)
+  const me = rows.find((r) => r.me)
+  const extra = me && !top.includes(me) ? me : null
+  const row = (r: BoardRow) => (
+    <motion.li key={r.nickname} layout className={`flex items-center gap-3 rounded-2xl px-3 py-2 ${r.me ? 'bg-amber-300 text-indigo-950' : 'bg-white/10'}`}>
+      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full font-black ${r.rank <= 3 ? 'text-lg' : 'text-sm'} ${r.me ? 'bg-indigo-950 text-amber-300' : 'bg-white/20'}`}>{r.rank <= 3 ? ['🥇', '🥈', '🥉'][r.rank - 1] : r.rank}</span>
+      <span className="min-w-0 flex-1 truncate text-left font-extrabold">
+        {r.nickname}
+        {r.me && ' (you)'}
+      </span>
+      {r.gained > 0 && <span className={`text-sm font-bold ${r.me ? 'text-emerald-800' : 'text-emerald-300'}`}>+{r.gained}</span>}
+      <span className="font-black tabular-nums">{r.score}</span>
+    </motion.li>
+  )
+  return (
+    <section className="mt-6 w-full max-w-md" aria-label={title}>
+      <h2 className="mb-2 text-sm font-extrabold uppercase tracking-wide text-white/70">{title}</h2>
+      <ol className="space-y-1.5">
+        {top.map(row)}
+        {extra && (
+          <>
+            <li aria-hidden className="text-center font-black text-white/50">⋯</li>
+            {row(extra)}
+          </>
+        )}
+      </ol>
+    </section>
   )
 }
 

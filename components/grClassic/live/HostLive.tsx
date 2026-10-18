@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
-import { FiUsers, FiWifiOff, FiX } from 'react-icons/fi'
-import type { HostState, LiveStatus } from '@/lib/grClassic/live'
+import { FiPause, FiPlay, FiUsers, FiWifiOff, FiX } from 'react-icons/fi'
+import { AUTO_LEADERBOARD_MS, AUTO_REVEAL_MS, type HostState, type LiveStatus } from '@/lib/grClassic/live'
 import type { ChoiceQuestion } from '@/lib/grClassic/types'
 import { ANSWER_STYLES } from '../games/AnswerButton'
 import { Confetti } from '../games/Confetti'
@@ -16,7 +16,8 @@ import { usePoll, useServerCountdown } from './usePoll'
 // The teacher's projector view of a live game. The server owns the clock,
 // the answers and the scores; this screen shows them and sends the
 // teacher's Next / End / Play again. Classic Quiz runs question by
-// question; Match and Word Builder run as a race.
+// question; Match and Word Builder run as a race. After Start, auto-play
+// moves the game on by itself (Pause hands control back to the teacher).
 export function HostLive({ sessionId }: { sessionId: string }) {
   const { data: s, setData, error, offset, refresh } = usePoll<HostState>(`/live/${sessionId}/host`, 1000)
   const [busy, setBusy] = useState(false)
@@ -49,6 +50,30 @@ export function HostLive({ sessionId }: { sessionId: string }) {
     }
   }) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-play: after Start, the answer and then the leaderboard stay up for
+  // a few seconds and the game moves on by itself (Pause stops it). In a
+  // race, the game ends once every player has finished.
+  const [auto, setAuto] = useState(true)
+  const [autoAt, setAutoAt] = useState<number | null>(null)
+  const [now, setNow] = useState(() => Date.now())
+  const stepKey = s ? `${s.status}:${s.index}` : ''
+  const allFinished = !!s?.race && s.race.length > 0 && s.race.every((p) => p.finished)
+  useEffect(() => {
+    if (!s || !auto) return setAutoAt(null)
+    const wait = s.status === 'reveal' ? AUTO_REVEAL_MS : s.status === 'leaderboard' ? AUTO_LEADERBOARD_MS : s.status === 'race' && allFinished ? AUTO_REVEAL_MS : null
+    if (wait === null) return setAutoAt(null)
+    const expectNow = { status: s.status, index: s.index }
+    setAutoAt(Date.now() + wait)
+    const t = setTimeout(() => act('next', expectNow), wait)
+    return () => clearTimeout(t)
+  }, [stepKey, auto, allFinished]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (autoAt === null) return
+    const t = setInterval(() => setNow(Date.now()), 250)
+    return () => clearInterval(t)
+  }, [autoAt])
+  const autoLeft = autoAt === null ? null : Math.max(0, Math.ceil((autoAt - now) / 1000))
+
   if (!s) {
     return (
       <Screen>
@@ -74,6 +99,19 @@ export function HostLive({ sessionId }: { sessionId: string }) {
           <span className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-3 py-1.5 text-sm font-bold" role="status">
             <FiWifiOff aria-hidden /> Reconnecting…
           </span>
+        )}
+        {s.status !== 'lobby' && s.status !== 'ended' && (
+          <button type="button" onClick={() => setAuto((a) => !a)} aria-pressed={!auto} className="flex items-center gap-1 rounded-xl bg-white/10 px-3 py-1.5 font-bold hover:bg-white/20">
+            {auto ? (
+              <>
+                <FiPause aria-hidden /> Pause
+              </>
+            ) : (
+              <>
+                <FiPlay aria-hidden /> Resume auto-play
+              </>
+            )}
+          </button>
         )}
         <span className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-1.5 font-extrabold" title="Players connected / joined">
           <FiUsers aria-hidden /> {connected}/{s.players.length}
@@ -150,7 +188,7 @@ export function HostLive({ sessionId }: { sessionId: string }) {
           {q.explanation && <p className="mx-auto mt-6 max-w-3xl rounded-2xl bg-white/10 px-5 py-3 text-center text-lg font-bold">{q.explanation}</p>}
           <div className="mt-8 text-center">
             <Button tone="amber" size="lg" disabled={busy} onClick={() => act('next', expect)}>
-              Next ▶
+              {autoLeft !== null ? `Leaderboard in ${autoLeft}… ▶` : 'Next ▶'}
             </Button>
           </div>
         </section>
@@ -171,7 +209,7 @@ export function HostLive({ sessionId }: { sessionId: string }) {
           </ol>
           <div className="mt-auto pt-10">
             <Button tone="amber" size="lg" disabled={busy} onClick={() => act('next', expect)}>
-              {s.index + 1 < s.count ? 'Next question ▶' : 'Show winners 🏆'}
+              {s.index + 1 < s.count ? (autoLeft !== null ? `Next question in ${autoLeft}… ▶` : 'Next question ▶') : autoLeft !== null ? `Winners in ${autoLeft}… 🏆` : 'Show winners 🏆'}
             </Button>
           </div>
         </section>
@@ -196,7 +234,7 @@ export function HostLive({ sessionId }: { sessionId: string }) {
           </ol>
           <div className="mt-8 text-center">
             <Button tone="amber" size="lg" disabled={busy} onClick={() => act('next', expect)}>
-              End game & show winners 🏆
+              {autoLeft !== null ? `Everyone finished — winners in ${autoLeft}… 🏆` : 'End game & show winners 🏆'}
             </Button>
           </div>
         </section>

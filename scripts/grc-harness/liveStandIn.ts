@@ -9,7 +9,7 @@
 import { LIVE_ROSTER, gameById } from '@/lib/grClassic/sampleData'
 import { checkResponse, toPlayQuestion } from '@/lib/grClassic/play'
 import { livePoints } from '@/lib/grClassic/scoring'
-import { isRace, nextStep, rankPlayers, PLAYER_HEADER, RACE_POINTS_PER_UNIT, WRONG_ACCOUNT, type HostState, type LiveStatus, type PlayerState } from '@/lib/grClassic/live'
+import { isRace, nextStep, playerBoard, rankPlayers, PLAYER_HEADER, RACE_POINTS_PER_UNIT, WRONG_ACCOUNT, type HostState, type LiveStatus, type PlayerState } from '@/lib/grClassic/live'
 
 type Ans = { student_id: string; question_id: string; points: number; correct: boolean; done: boolean; choice: number | null }
 
@@ -138,6 +138,7 @@ export function liveStandIn(params: URLSearchParams) {
       score: me?.score ?? 0,
       rank: s.status === 'leaderboard' || s.status === 'ended' || race ? (me?.rank ?? null) : null,
       podium: s.status === 'ended' ? st.slice(0, 3) : null,
+      leaderboard: s.status === 'leaderboard' || s.status === 'ended' || (race && s.status === 'race') ? playerBoard(st, ME, s.status === 'leaderboard' && current ? Object.fromEntries(answers.filter((a) => a.question_id === current.id).map((a) => [a.student_id, a.points])) : {}) : null,
     }
   }
 

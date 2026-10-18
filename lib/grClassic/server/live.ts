@@ -1,6 +1,6 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { CONNECTED_MS, canAnswerLive, isExpired, isRace, makePin, nextStep, nicknameFor, rankPlayers, RACE_POINTS_PER_UNIT, type HostState, type LiveStatus, type PlayerState } from '../live'
+import { CONNECTED_MS, canAnswerLive, isExpired, isRace, makePin, nextStep, nicknameFor, playerBoard, rankPlayers, RACE_POINTS_PER_UNIT, type HostState, type LiveStatus, type PlayerState } from '../live'
 import { checkResponse, toPlayQuestion, type CheckResult, type PlayQuestion, type PlayResponse } from '../play'
 import { livePoints } from '../scoring'
 import type { Game, Question } from '../types'
@@ -253,6 +253,10 @@ export async function playerState(admin: SupabaseClient, sessionId: string, prof
     score: mine?.score ?? 0,
     rank: status === 'leaderboard' || status === 'ended' || race ? (mine?.rank ?? null) : null,
     podium: status === 'ended' ? standings.slice(0, 3) : null,
+    leaderboard:
+      status === 'leaderboard' || status === 'ended' || (race && status === 'race')
+        ? playerBoard(standings, me.student_id, status === 'leaderboard' && current ? Object.fromEntries(as.filter((a) => a.question_id === current.id).map((a) => [a.student_id, a.points])) : {})
+        : null,
   }
 }
 

@@ -444,6 +444,9 @@ for (const vp of VIEWPORTS) {
     await page.getByText('சரி! Correct!').waitFor({ timeout: 15000 })
     await shot(page, vp, 'flow-live-reveal-phone')
     await page.getByText('You’re number').waitFor({ timeout: 10000 })
+    // Students see the whole class leaderboard, their own row marked.
+    await page.getByRole('region', { name: 'Leaderboard' }).getByText('Kavin (you)').waitFor()
+    if ((await page.getByRole('region', { name: 'Leaderboard' }).locator('li').count()) < 3) throw new Error('phone leaderboard does not list the class')
     await shot(page, vp, 'flow-live-leaderboard-phone')
     await ctx.close()
   })
@@ -481,15 +484,21 @@ for (const vp of VIEWPORTS) {
       await page.getByRole('timer').waitFor()
       await page.waitForTimeout(2500)
       await shot(page, vp, 'flow-host-question')
-      // Revealed automatically when everyone has answered or time is up.
-      await page.getByRole('button', { name: 'Next ▶' }).waitFor({ timeout: 15000 })
+      // Auto-play: revealed when everyone has answered or time is up, then
+      // the leaderboard and the next question follow with no clicks.
+      await page.getByRole('button', { name: /Leaderboard in \d/ }).waitFor({ timeout: 15000 })
       await page.waitForTimeout(600)
       await shot(page, vp, 'flow-host-reveal')
-      await page.getByRole('button', { name: 'Next ▶' }).click()
-      await page.getByRole('heading', { name: 'Leaderboard' }).waitFor()
+      await page.getByRole('heading', { name: 'Leaderboard' }).waitFor({ timeout: 8000 })
+      await page.getByRole('button', { name: /Next question in \d/ }).waitFor()
       await page.waitForTimeout(400)
       await shot(page, vp, 'flow-host-leaderboard')
-      for (let i = 1; i < 5; i++) {
+      await page.getByText('2 / 5').waitFor({ timeout: 9000 })
+      // Paused: the teacher moves on by hand again.
+      await page.getByRole('button', { name: 'Pause' }).click()
+      await page.getByRole('button', { name: /Stop timer/ }).click()
+      await page.getByRole('button', { name: 'Next ▶' }).click()
+      for (let i = 2; i < 5; i++) {
         await page.getByRole('button', { name: 'Next question ▶' }).click()
         await page.getByRole('button', { name: /Stop timer/ }).click()
         await page.getByRole('button', { name: 'Next ▶' }).click()

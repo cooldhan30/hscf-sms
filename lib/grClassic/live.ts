@@ -15,6 +15,10 @@ export const ANSWER_GRACE_MS = 1500
 // code WRONG_ACCOUNT (see lib/grClassic/server/liveAuth.ts).
 export const PLAYER_HEADER = 'x-grc-player'
 export const WRONG_ACCOUNT = 'WRONG_ACCOUNT'
+// Auto-play on the teacher's screen: how long the answer, then the
+// leaderboard, stay up before the game moves on by itself.
+export const AUTO_REVEAL_MS = 5000
+export const AUTO_LEADERBOARD_MS = 6000
 // A player counts as "connected" if their phone checked in recently.
 export const CONNECTED_MS = 15_000
 
@@ -83,6 +87,20 @@ export interface Standing {
   rank: number
 }
 
+// The class leaderboard as a student's phone sees it: names, scores and
+// ranks (no ids), the points each player just won, and which row is them.
+export interface BoardRow {
+  rank: number
+  nickname: string
+  score: number
+  gained: number
+  me: boolean
+}
+
+export function playerBoard(standings: Standing[], meId: string, gained: Record<string, number> = {}): BoardRow[] {
+  return standings.map((st) => ({ rank: st.rank, nickname: st.nickname, score: st.score, gained: gained[st.studentId] ?? 0, me: st.studentId === meId }))
+}
+
 // Highest score first; equal scores share a rank (1, 1, 3).
 export function rankPlayers(players: { student_id: string; nickname: string; finished_at: string | null }[], answers: { student_id: string; points: number }[], race: boolean): Standing[] {
   const points = new Map<string, number>()
@@ -144,4 +162,6 @@ export interface PlayerState {
   score: number
   rank: number | null
   podium: Standing[] | null
+  // The whole class, after each question, during a race and at the end.
+  leaderboard: BoardRow[] | null
 }
