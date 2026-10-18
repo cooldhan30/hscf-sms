@@ -7,6 +7,6 @@ export default async function GrClassicLibraryPage() {
   const t = await grcTeacherPage('/gr-classic/teacher/library')
   if (!t.ok) return <TeachersOnly message={t.error} />
   const categories = await listCategories(t.supabase, t.userId)
-  const questions = await listQuestions(t.supabase, categoryNames(categories))
+  const questions = await listQuestions(t.supabase, categoryNames(categories), t.userId)
   return <QuestionLibrary questions={questions} categories={categories} />
 }

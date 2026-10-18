@@ -8,6 +8,9 @@ export type Difficulty = 'easy' | 'medium' | 'hard'
 // Multiple choice (Classic Quiz): 2-4 options, one correct.
 export interface ChoiceQuestion {
   id: string
+  // Shared library (migration 099): written by this teacher? and by whom.
+  mine?: boolean
+  author?: string
   categoryId?: string | null
   difficulty?: Difficulty
   kind: 'choice'
@@ -23,6 +26,9 @@ export interface ChoiceQuestion {
 // Match the Pairs: each left item has exactly one right item.
 export interface MatchQuestion {
   id: string
+  // Shared library (migration 099): written by this teacher? and by whom.
+  mine?: boolean
+  author?: string
   categoryId?: string | null
   difficulty?: Difficulty
   kind: 'match'
@@ -37,6 +43,9 @@ export interface MatchQuestion {
 // Tamil-aware letter splitting (lib/grClassic/graphemes.ts).
 export interface OrderQuestion {
   id: string
+  // Shared library (migration 099): written by this teacher? and by whom.
+  mine?: boolean
+  author?: string
   categoryId?: string | null
   difficulty?: Difficulty
   kind: 'order'

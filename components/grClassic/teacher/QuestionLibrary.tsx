@@ -21,6 +21,7 @@ export function QuestionLibrary({ questions: initial, categories: initialCategor
   const [kind, setKind] = useState<QuestionKind>(() => KINDS.find((k) => initial.some((q) => q.kind === k)) ?? 'choice')
   const [search, setSearch] = useState('')
   const [topic, setTopic] = useState('')
+  const [onlyMine, setOnlyMine] = useState(false)
   const [panel, setPanel] = useState<'none' | 'add' | 'import'>('none')
   const [editing, setEditing] = useState<string | null>(null)
   const [confirmArchive, setConfirmArchive] = useState<string | null>(null)
@@ -29,13 +30,13 @@ export function QuestionLibrary({ questions: initial, categories: initialCategor
 
   const shown = useMemo(() => {
     const s = search.trim().toLocaleLowerCase()
-    return questions.filter((q) => q.kind === kind && (!topic || q.categoryId === topic) && (!s || `${summarize(q)} ${q.prompt} ${q.promptEn ?? ''} ${q.category}`.toLocaleLowerCase().includes(s)))
-  }, [questions, kind, topic, search])
+    return questions.filter((q) => q.kind === kind && (!onlyMine || q.mine !== false) && (!topic || q.categoryId === topic) && (!s || `${summarize(q)} ${q.prompt} ${q.promptEn ?? ''} ${q.category}`.toLocaleLowerCase().includes(s)))
+  }, [questions, kind, topic, search, onlyMine])
 
   const saved = (q: Question, duplicate: boolean) => {
     setQuestions((qs) => [q, ...qs.filter((x) => x.id !== q.id)])
     setEditing(null)
-    setNotice(duplicate ? 'You already had that question — nothing new was added.' : editing ? 'Saved. Games that use this question now show the new version.' : 'Question added to your library.')
+    setNotice(duplicate ? `That question is already in the shared library${q.mine ? '' : ` (by ${q.author})`} — nothing new was added.` : editing ? 'Saved. Games that use this question now show the new version.' : 'Question added to your library.')
   }
 
   const archive = async (id: string) => {
@@ -51,7 +52,7 @@ export function QuestionLibrary({ questions: initial, categories: initialCategor
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-black text-slate-900">Question Library</h1>
-          <p className="font-semibold text-slate-600">Write a question once, use it in any game.</p>
+          <p className="font-semibold text-slate-600">Shared by all teachers — write a question once, and anyone can use it in their games.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button tone="plain" onClick={() => setPanel(panel === 'import' ? 'none' : 'import')}>
@@ -120,7 +121,24 @@ export function QuestionLibrary({ questions: initial, categories: initialCategor
         </Card>
       )}
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_16rem]">
+      <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="Whose questions">
+        {[
+          { mine: false, label: 'All teachers' },
+          { mine: true, label: 'Only mine' },
+        ].map((o) => (
+          <button
+            key={o.label}
+            type="button"
+            aria-pressed={onlyMine === o.mine}
+            onClick={() => setOnlyMine(o.mine)}
+            className={`rounded-xl px-3.5 py-2 text-sm font-bold ring-2 transition ${onlyMine === o.mine ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-700 ring-slate-200 hover:ring-slate-300'}`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_16rem]">
         <input className={inputClass} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search your questions" aria-label="Search questions" />
         <select className={inputClass} value={topic} onChange={(e) => setTopic(e.target.value)} aria-label="Filter by topic">
           <option value="">All topics</option>
@@ -135,7 +153,7 @@ export function QuestionLibrary({ questions: initial, categories: initialCategor
       <ul className="mt-4 space-y-3">
         {shown.length === 0 && (
           <li className="rounded-3xl border-2 border-dashed border-slate-300 p-8 text-center font-bold text-slate-500">
-            {questions.some((q) => q.kind === kind) ? 'No questions match.' : `No ${TAB_LABEL[kind].toLowerCase()} questions yet — add one or import a spreadsheet.`}
+            {questions.some((q) => q.kind === kind) ? (onlyMine ? 'You haven’t written any of these yet — switch to “All teachers” to see everyone’s.' : 'No questions match.') : `No ${TAB_LABEL[kind].toLowerCase()} questions yet — add one or import a spreadsheet.`}
           </li>
         )}
         {shown.map((q) => (
@@ -159,6 +177,7 @@ export function QuestionLibrary({ questions: initial, categories: initialCategor
                       </p>
                     )}
                     <div className="mt-2 flex flex-wrap gap-2">
+                      {q.author && <Pill tone={q.mine ? 'green' : 'slate'}>by {q.author}</Pill>}
                       {q.category && <Pill>{q.category}</Pill>}
                       {q.difficulty && q.difficulty !== 'easy' && <Pill tone="amber">{q.difficulty}</Pill>}
                       {q.promptEn && <Pill tone="blue">English: {q.promptEn}</Pill>}
@@ -174,6 +193,8 @@ export function QuestionLibrary({ questions: initial, categories: initialCategor
                         Keep
                       </Button>
                     </div>
+                  ) : q.mine === false ? (
+                    <p className="shrink-0 text-xs font-semibold text-slate-500">Only {q.author} can edit</p>
                   ) : (
                     <div className="flex shrink-0 gap-1">
                       <Button tone="ghost" size="sm" onClick={() => setEditing(q.id)}>

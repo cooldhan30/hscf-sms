@@ -324,7 +324,7 @@ function LibraryPicker({ library, others, onSwitchType, selected, onToggle, onIm
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-lg font-extrabold text-slate-900">From your question library</h3>
+        <h3 className="text-lg font-extrabold text-slate-900">From the shared question library</h3>
         <Button tone="ghost" size="sm" onClick={onImport}>
           <FiUpload aria-hidden /> Import CSV
         </Button>
@@ -333,7 +333,7 @@ function LibraryPicker({ library, others, onSwitchType, selected, onToggle, onIm
       <div className="mt-3 max-h-80 space-y-4 overflow-y-auto pr-1">
         {library.length === 0 && (
           <div className="space-y-3">
-            <p className="text-sm font-semibold text-slate-500">Your library has no questions for this game type yet. Write one, or import a spreadsheet.</p>
+            <p className="text-sm font-semibold text-slate-500">The library has no questions for this game type yet. Write one, or import a spreadsheet.</p>
             {others.length > 0 && onSwitchType && (
               <div className="rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200">
                 <p className="text-sm font-bold text-amber-900">Each game type uses its own kind of question. You have:</p>
@@ -359,7 +359,10 @@ function LibraryPicker({ library, others, onSwitchType, selected, onToggle, onIm
                   <li key={q.id}>
                     <label className="flex cursor-pointer items-start gap-3 rounded-xl px-2 py-2 hover:bg-slate-50">
                       <input type="checkbox" className="mt-1 h-5 w-5 shrink-0 accent-teal-600" checked={selected.some((x) => x.id === q.id)} onChange={() => onToggle(q)} />
-                      <span className="font-semibold text-slate-800">{questionLabel(q)}</span>
+                      <span className="font-semibold text-slate-800">
+                        {questionLabel(q)}
+                        {q.mine === false && <span className="ml-1 text-xs font-semibold text-slate-500">· by {q.author}</span>}
+                      </span>
                     </label>
                   </li>
                 ))}

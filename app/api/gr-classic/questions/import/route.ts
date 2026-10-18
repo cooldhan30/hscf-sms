@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
 import { MAX_IMPORT_BYTES, readImport } from '@/lib/grClassic/csv'
 import { planImport } from '@/lib/grClassic/importPlan'
+import { validateQuestion } from '@/lib/grClassic/validateQuestion'
 import { dbErrorResponse, grcTeacherApi, readJson } from '@/lib/grClassic/server/auth'
 import { QUESTION_COLUMNS, categoryNames, contentHash, listCategories, questionRow, rowToQuestion, type QuestionRow } from '@/lib/grClassic/server/db'
 
 // POST /api/gr-classic/questions/import { csv, commit }
-//   commit false -> preview: what each row will do (import / skip / error)
+//   commit false -> preview: what each row will do (import / skip / error).
+//                   "Skip" includes questions any teacher already added to
+//                   the shared library.
 //   commit true  -> imports the good rows (creating any new topics) and
 //                   returns the new questions. Rows with errors or
 //                   duplicates are never imported.
@@ -22,7 +25,13 @@ export async function POST(request: Request) {
 
   const { supabase, userId } = guard
   let categories = await listCategories(supabase, userId)
-  const { data: keyRows } = await supabase.from('sms_grc_questions').select('content_key').is('archived_at', null)
+  // Only look up the fingerprints of the rows in this file (the shared
+  // library can be far bigger than one query returns).
+  const fileKeys = Array.from(new Set(parsed.rows.flatMap((r) => {
+    const v = validateQuestion({ ...r.input, categoryId: null })
+    return v.ok ? [contentHash(v.value.contentKey)] : []
+  })))
+  const { data: keyRows } = fileKeys.length ? await supabase.from('sms_grc_questions').select('content_key').in('content_key', fileKeys).is('archived_at', null) : { data: [] }
   const existing = new Set(((keyRows ?? []) as { content_key: string }[]).map((r) => r.content_key))
   const plan = planImport(parsed.rows, existing, categories, contentHash)
   const counts = { ok: plan.filter((r) => r.status === 'ok').length, duplicate: plan.filter((r) => r.status === 'duplicate').length, error: plan.filter((r) => r.status === 'error').length }
@@ -45,5 +54,5 @@ export async function POST(request: Request) {
   if (error?.code === '23505') return NextResponse.json({ error: 'Some of these questions were just added to your library. Check the file again and re-import.' }, { status: 409 })
   if (error) return dbErrorResponse(error, 'import questions')
   const names = categoryNames(categories)
-  return NextResponse.json({ imported: data.length, skipped: counts.duplicate + counts.error, questions: (data as QuestionRow[]).map((q) => rowToQuestion(q, names)), categories }, { status: 201 })
+  return NextResponse.json({ imported: data.length, skipped: counts.duplicate + counts.error, questions: (data as QuestionRow[]).map((q) => rowToQuestion(q, names, { userId })), categories }, { status: 201 })
 }

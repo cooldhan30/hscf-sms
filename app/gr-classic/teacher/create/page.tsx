@@ -14,7 +14,7 @@ export default async function GrClassicCreatePage({ searchParams }: { searchPara
   const categories = await listCategories(t.supabase, t.userId)
   const names = categoryNames(categories)
   const [library, edit] = await Promise.all([
-    listQuestions(t.supabase, names),
+    listQuestions(t.supabase, names, t.userId),
     searchParams.edit ? (isUuid(searchParams.edit) ? getGame(t.supabase, searchParams.edit, names) : Promise.resolve(null)) : Promise.resolve(undefined),
   ])
   if (edit === null) notFound()

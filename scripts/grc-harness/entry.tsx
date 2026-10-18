@@ -44,7 +44,11 @@ const empty = params.get('empty') === '1'
 // ---- sample library with topic ids, as the server would send it ----
 let categories: Category[] = STARTER_CATEGORIES.map((name, i) => ({ id: `cat-${i}`, name, own: false }))
 const catId = (name: string) => categories.find((c) => c.name === name)?.id ?? null
-const library: Question[] = empty ? [] : LIBRARY.filter((q) => params.get('onlyquiz') !== '1' || q.kind === 'choice').map((q) => ({ ...q, categoryId: catId(q.category), difficulty: 'easy' }))
+const library: Question[] = empty ? [] : LIBRARY.filter((q) => params.get('onlyquiz') !== '1' || q.kind === 'choice').map((q) => {
+  // Shared library: some questions were written by another teacher.
+  const theirs = /peyar|thinai/.test(q.id)
+  return { ...q, categoryId: catId(q.category), difficulty: 'easy' as const, mine: !theirs, author: theirs ? 'Ms. Priya' : 'You' }
+})
 const summaries: GameSummary[] = empty ? [] : GAMES.map((g, i) => ({ id: g.id, title: g.title, type: g.type, category: g.category, questionCount: g.questions.length, updatedAt: g.updatedAt, practice: i !== 1 }))
 const practiceList: PracticeGame[] = empty ? [] : GAMES.map((g, i) => ({ id: g.id, title: g.title, type: g.type, questionCount: g.questions.length, teacher: 'Ms. Vani', bestPercent: i === 0 ? 80 : i === 2 ? 45 : null, plays: i === 0 || i === 2 ? 2 : 0 }))
 
@@ -151,6 +155,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     return reply({ question: q }, 201)
   }
   const one = path.match(/^\/questions\/([^/]+)$/)
+  if (one && library.find((q) => q.id === one[1])?.mine === false) return reply({ error: 'Only the teacher who wrote this question can change it. You can still use it in your games.' }, 403)
   if (one && method === 'PATCH') {
     const v = validateQuestion(body)
     return v.ok ? reply({ question: toQuestion(v.value, one[1]) }) : reply({ error: v.errors.join(' ') }, 400)

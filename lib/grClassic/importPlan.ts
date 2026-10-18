@@ -35,7 +35,7 @@ export function planImport(rows: ImportRow[], existingKeys: Set<string>, categor
     return {
       line: row.line,
       status: dup ? 'duplicate' : 'ok',
-      errors: dup ? [existingKeys.has(key) ? 'Already in your library.' : 'Same as an earlier row in this file.'] : [],
+      errors: dup ? [existingKeys.has(key) ? 'Already in the shared library.' : 'Same as an earlier row in this file.'] : [],
       summary,
       topic: known?.name ?? topic,
       newTopic: Boolean(topic) && !known,

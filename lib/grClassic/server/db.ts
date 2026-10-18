@@ -9,10 +9,11 @@ import type { ValidQuestion } from '../validateQuestion'
 // takes the caller's RLS-scoped client, so a teacher only ever reaches
 // their own rows (plus the shared starter topics).
 
-export const QUESTION_COLUMNS = 'id, kind, category_id, prompt, prompt_en, payload, explanation, difficulty'
+export const QUESTION_COLUMNS = 'id, owner_id, kind, category_id, prompt, prompt_en, payload, explanation, difficulty'
 
 export interface QuestionRow {
   id: string
+  owner_id: string
   kind: 'choice' | 'match' | 'order'
   category_id: string | null
   prompt: string
@@ -56,9 +57,11 @@ export function categoryNames(categories: Category[]): Map<string, string> {
   return new Map(categories.map((c) => [c.id, c.name]))
 }
 
-export function rowToQuestion(row: QuestionRow, names: Map<string, string>): Question {
+// `who` (optional): the signed-in teacher and author names, for the shared library.
+export function rowToQuestion(row: QuestionRow, names: Map<string, string>, who?: { userId: string; authors?: Map<string, string> }): Question {
   const base = {
     id: row.id,
+    ...(who ? { mine: row.owner_id === who.userId, author: row.owner_id === who.userId ? 'You' : (who.authors?.get(row.owner_id) ?? 'Another teacher') } : {}),
     categoryId: row.category_id,
     category: row.category_id ? (names.get(row.category_id) ?? '') : '',
     prompt: row.prompt,
@@ -71,9 +74,25 @@ export function rowToQuestion(row: QuestionRow, names: Map<string, string>): Que
   return { ...base, kind: 'order', unit: p.unit === 'words' ? 'words' : 'letters', answer: String(p.answer ?? ''), hint: typeof p.hint === 'string' ? p.hint : undefined }
 }
 
-export async function listQuestions(supabase: SupabaseClient, names: Map<string, string>): Promise<Question[]> {
-  const { data } = await supabase.from('sms_grc_questions').select(QUESTION_COLUMNS).is('archived_at', null).order('updated_at', { ascending: false }).limit(2000)
-  return ((data ?? []) as QuestionRow[]).map((r) => rowToQuestion(r, names))
+// The shared library: every teacher's questions (migration 099), newest first.
+export async function listQuestions(supabase: SupabaseClient, names: Map<string, string>, userId: string): Promise<Question[]> {
+  // Pages of 1000 (the most one Supabase request returns), up to 5000.
+  const rows: QuestionRow[] = []
+  for (let from = 0; from < 5000; from += 1000) {
+    const { data } = await supabase.from('sms_grc_questions').select(QUESTION_COLUMNS).is('archived_at', null).order('updated_at', { ascending: false }).order('id').range(from, from + 999)
+    const page = (data ?? []) as QuestionRow[]
+    rows.push(...page)
+    if (page.length < 1000) break
+  }
+  const authors = await teacherNames(supabase, Array.from(new Set(rows.map((r) => r.owner_id).filter((id) => id !== userId))))
+  return rows.map((r) => rowToQuestion(r, names, { userId, authors }))
+}
+
+// Teacher names (readable by any signed-in user: the portal teacher directory).
+export async function teacherNames(supabase: SupabaseClient, ids: string[]): Promise<Map<string, string>> {
+  if (!ids.length) return new Map()
+  const { data } = await supabase.from('sms_profiles').select('id, first_name, last_name').in('id', ids)
+  return new Map(((data ?? []) as { id: string; first_name: string; last_name: string }[]).map((p) => [p.id, `${p.first_name} ${p.last_name}`.trim()]))
 }
 
 interface GameRow {

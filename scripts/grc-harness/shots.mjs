@@ -228,6 +228,18 @@ for (const vp of VIEWPORTS) {
     await ctx.close()
   })
 
+  await flow('shared-library', vp, async () => {
+    const { ctx, page } = await open(vp, 'library')
+    await page.getByText('by Ms. Priya').first().waitFor()
+    await page.getByText('Only Ms. Priya can edit').first().waitFor()
+    const all = await page.locator('ul.mt-4 > li').count()
+    await shot(page, vp, 'flow-shared-library')
+    await page.getByRole('button', { name: 'Only mine' }).click()
+    const mine = await page.locator('ul.mt-4 > li').count()
+    if (!(mine < all)) throw new Error(`"Only mine" did not narrow the list (${all} -> ${mine})`)
+    if ((await page.getByText('by Ms. Priya').count()) > 0) throw new Error('"Only mine" still shows another teacher')
+    await ctx.close()
+  })
   await flow('library-to-game', vp, async () => {
     const { ctx, page } = await open(vp, 'library')
     const btn = page.getByRole('link', { name: /Make a Quiz game with these \d+ questions/ })
