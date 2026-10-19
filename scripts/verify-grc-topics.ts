@@ -179,6 +179,8 @@ ok(sectionOf('வல்லினம்') === 'letters' && sectionOf('உயி�
 ok(sectionOf('பெயர்ச்சொல் வகைகள்') === 'words', 'parts of speech are together')
 ok(grouped[grouped.length - 1].items[grouped[grouped.length - 1].items.length - 1] === 'Other questions', 'questions without a topic come last')
 ok(topicPlace('ஒன்பதாம் வேற்றுமை – புதிது').section === 'cases' && topicPlace('புதிய எழுத்து வகை').section === 'letters', 'a new topic joins its section by name')
+ok(topicPlace('உயிர்மெய் உருவாக்கம்').section === 'letters', 'உயிர்மெய் உருவாக்கம் is a letters topic')
+ok(compareTopics('உயிர்மெய் எழுத்துக்கள்', 'உயிர்மெய் உருவாக்கம்') < 0 && compareTopics('உயிர்மெய் உருவாக்கம்', 'குறில் நெடில் – எழுத்துக்கள்') < 0, 'உயிர்மெய் உருவாக்கம் comes after the உயிர்மெய் letters, before குறில் நெடில்')
 ok(compareTopics('முதல் வேற்றுமை – எழுவாய்', 'இரண்டாம் வேற்றுமை – ஐ') < 0, 'முதல் comes before இரண்டாம்')
 
 console.log(failures ? `${failures} FAILURE(S) of ${checks} checks.` : `PASS: ${checks} checks.`)
