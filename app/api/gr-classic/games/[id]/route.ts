@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { dbErrorResponse, grcTeacherApi, readJson } from '@/lib/grClassic/server/auth'
+import { repeatedQuestionMessage } from '@/lib/grClassic/server/db'
 import { validateGame } from '@/lib/grClassic/validateGame'
 import { isUuid } from '@/lib/grClassic/validateQuestion'
 
@@ -15,6 +16,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const v = validateGame(body)
   if (!v.ok) return NextResponse.json({ error: v.errors.join(' '), errors: v.errors }, { status: 400 })
   const g = v.value
+  // A game never asks the same question twice.
+  const repeated = await repeatedQuestionMessage(guard.supabase, g.questionIds)
+  if (repeated) return NextResponse.json({ error: repeated }, { status: 400 })
   const { data, error } = await guard.supabase.rpc('sms_grc_save_game', {
     p_game_id: params.id,
     p_title: g.title,

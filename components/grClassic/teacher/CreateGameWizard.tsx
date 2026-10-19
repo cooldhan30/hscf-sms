@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FiArrowDown, FiArrowUp, FiBookOpen, FiCheckCircle, FiPlay, FiTrash2 } from 'react-icons/fi'
 import { summarize } from '@/lib/grClassic/csv'
+import { sameQuestionKey, withoutRepeats } from '@/lib/grClassic/sameQuestion'
 import { QUESTION_KIND_FOR_GAME, type Category, type Difficulty, type Game, type GameType, type Question } from '@/lib/grClassic/types'
 import { GamePlayer } from '../games/GamePlayer'
 import { Advanced, Button, ButtonLink, Card, Segmented, Shell, TYPE_META, countLabel } from '../ui'
@@ -25,7 +26,7 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
     const type = pick?.type ?? startType
     if (!type) return null
     const ids = pick?.type === type ? pick.ids : []
-    const chosen = ids.map((id) => initialLibrary.find((q) => q.id === id)).filter((q): q is Question => !!q && q.kind === QUESTION_KIND_FOR_GAME[type])
+    const chosen = withoutRepeats(ids.map((id) => initialLibrary.find((q) => q.id === id)).filter((q): q is Question => !!q && q.kind === QUESTION_KIND_FOR_GAME[type]))
     const topics = Array.from(new Set(chosen.map((q) => q.categoryId ?? '')))
     const topicId = topics.length === 1 ? topics[0] : ''
     return { type, chosen, topicId, title: topicId ? (initialCategories.find((c) => c.id === topicId)?.name ?? '') : '' }
@@ -51,7 +52,8 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
   const kind = QUESTION_KIND_FOR_GAME[type]
   const category = categories.find((c) => c.id === categoryId)?.name ?? ''
 
-  const poolFor = (topicId: string, t: GameType = type) => library.filter((q) => q.kind === QUESTION_KIND_FOR_GAME[t] && (!topicId || q.categoryId === topicId))
+  // A game never asks the same question twice (sameQuestion.ts).
+  const poolFor = (topicId: string, t: GameType = type) => withoutRepeats(library.filter((q) => q.kind === QUESTION_KIND_FOR_GAME[t] && (!topicId || q.categoryId === topicId)))
   const pool = poolFor(categoryId)
   const topicCounts = useMemo(() => {
     const m: Record<string, number> = {}
@@ -217,7 +219,12 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
               others={(Object.keys(TYPE_META) as GameType[]).filter((t) => t !== type).map((t) => ({ type: t, count: library.filter((q) => GAME_FOR_KIND[q.kind] === t).length })).filter((o) => o.count > 0)}
               onSwitchType={edit ? undefined : switchType}
               selected={questions}
-              onToggle={(q) => pickByHand((qs) => (qs.some((x) => x.id === q.id) ? qs.filter((x) => x.id !== q.id) : [...qs, q]))}
+              onToggle={(q) => {
+                const on = questions.some((x) => x.id === q.id)
+                if (!on && questions.some((x) => sameQuestionKey(x) === sameQuestionKey(q))) return setError(`“${q.prompt}” is already in this game.`)
+                setError('')
+                pickByHand((qs) => (on ? qs.filter((x) => x.id !== q.id) : [...qs, q]))
+              }}
             />
           </div>
 

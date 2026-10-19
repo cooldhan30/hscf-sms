@@ -3,6 +3,8 @@
 // from one or more topics, and how questions are drawn from them.
 // Run with: npx tsx scripts/verify-grc-topics.ts
 import { MAX_QUESTIONS, MAX_TOPICS, NO_TOPIC, combineTopics, mergeTopicScores, parsePlayed, parseTopicPlay, pickEvenly, tallyByTopic, topicsTitle, typesFor } from '../lib/grClassic/topicPlay'
+import { repeatsIn, sameQuestionKey, withoutRepeats } from '../lib/grClassic/sameQuestion'
+import type { Question } from '../lib/grClassic/types'
 
 let failures = 0
 let checks = 0
@@ -142,6 +144,26 @@ ok(mA.name === 'உயிர்' && mB.name === 'திணை', 'topics get thei
 const offlineOnly = mergeTopicScores([{ topic: A, plays: 1, answered: 1, correct: 1, bestPercent: 100, lastPercent: 100, lastPlayedAt: '2026-10-20 08:00:00+00' }], [{ source: 'live', at: day(7), tallies: [{ topic: A, answered: 1, correct: 0, percent: 0 }] }], () => 'x')
 ok(offlineOnly[0].lastPercent === 100, 'dates written differently (database vs browser) still compare as times')
 ok(mergeTopicScores([], [], () => 'x').length === 0, 'nothing played: an empty dashboard')
+
+// ---- No question twice in a game ----
+const base = { categoryId: null, category: '', difficulty: 'easy' as const }
+const choice = (id: string, prompt: string, options: string[], answerIndex: number): Question => ({ ...base, id, kind: 'choice', prompt, options, answerIndex })
+const nounA = choice('1', 'இவற்றில் பெயர்ச்சொல் எது?', ['நீந்து', 'மரம்', 'பார்', 'பாடு'], 1)
+const nounSameAnswer = choice('2', 'இவற்றில்  பெயர்ச்சொல் எது? ', ['மரம்', 'சமை', 'நட', 'குடி'], 0) // other wrong options, extra spaces
+const nounOtherWord = choice('3', 'இவற்றில் பெயர்ச்சொல் எது?', ['சமை', 'தூங்கு', 'நட', 'நூலகம்'], 3)
+ok(sameQuestionKey(nounA) === sameQuestionKey(nounSameAnswer), 'same wording and same right answer is the same question (wrong options, order and spacing aside)')
+ok(sameQuestionKey(nounA) !== sameQuestionKey(nounOtherWord), 'same sentence stem about a different word is a different question')
+ok(sameQuestionKey(choice('4', 'Q', ['அ', 'ஆ'], 0)) !== sameQuestionKey(choice('5', 'Q', ['அ', 'ஆ'], 1)), 'a different right answer is a different question')
+const pairs = (id: string, ps: [string, string][]): Question => ({ ...base, id, kind: 'match', prompt: 'Match', pairs: ps.map(([left, right]) => ({ left, right })) })
+ok(sameQuestionKey(pairs('6', [['பூனை', 'cat'], ['நாய்', 'dog']])) === sameQuestionKey(pairs('7', [['நாய்', 'dog'], ['பூனை', 'cat']])), 'the same pairs in another order are the same match board')
+ok(sameQuestionKey(pairs('6', [['பூனை', 'cat'], ['நாய்', 'dog']])) !== sameQuestionKey(pairs('8', [['பூனை', 'cat'], ['பசு', 'cow']])), 'different pairs are a different board')
+const word = (id: string, answer: string, prompt = 'Build the word'): Question => ({ ...base, id, kind: 'order', prompt, unit: 'letters', answer })
+ok(sameQuestionKey(word('9', 'அம்மா')) === sameQuestionKey(word('10', 'அம்மா', 'Make the word for mother')), 'the same word to build is the same question')
+ok(sameQuestionKey(word('9', 'அம்மா')) !== sameQuestionKey(word('11', 'அப்பா')), 'a different word is a different question')
+const list = [nounA, nounOtherWord, nounSameAnswer, nounA]
+ok(withoutRepeats(list).map((q) => q.id).join() === '1,3', 'repeats are left out, the first of each kept, in order')
+ok(repeatsIn(list).map((q) => q.id).join() === '2,1', 'the repeats are found')
+ok(withoutRepeats([]).length === 0 && repeatsIn([nounA, nounOtherWord]).length === 0, 'no repeats: nothing removed')
 
 console.log(failures ? `${failures} FAILURE(S) of ${checks} checks.` : `PASS: ${checks} checks.`)
 process.exit(failures ? 1 : 0)

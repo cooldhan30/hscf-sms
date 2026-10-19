@@ -3,6 +3,7 @@ import { createHash } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { STARTER_CATEGORIES } from '../categories'
 import type { Category, Difficulty, Game, GameSummary, GameType, Question } from '../types'
+import { repeatsIn, withoutRepeats } from '../sameQuestion'
 import type { ValidQuestion } from '../validateQuestion'
 
 // Reads and writes for the GameRoom Classic question library. Every call
@@ -131,10 +132,14 @@ export async function getGame(supabase: SupabaseClient, id: string, names: Map<s
     .maybeSingle()
   if (!data) return null
   const g = data as unknown as GameRow & { sms_grc_game_questions: { position: number; question: QuestionRow | null }[] }
-  const questions = (g.sms_grc_game_questions ?? [])
-    .filter((l) => l.question)
-    .sort((a, b) => a.position - b.position)
-    .map((l) => rowToQuestion(l.question!, names))
+  // A game never asks the same question twice (sameQuestion.ts): hosting,
+  // assigning, practice and preview all load games through here.
+  const questions = withoutRepeats(
+    (g.sms_grc_game_questions ?? [])
+      .filter((l) => l.question)
+      .sort((a, b) => a.position - b.position)
+      .map((l) => rowToQuestion(l.question!, names))
+  )
   return {
     id: g.id,
     title: g.title,
@@ -146,6 +151,15 @@ export async function getGame(supabase: SupabaseClient, id: string, names: Map<s
     questions,
     updatedAt: g.updated_at,
   }
+}
+
+// Saving a game: a message if two of its questions are the same question
+// (sameQuestion.ts), else null.
+export async function repeatedQuestionMessage(supabase: SupabaseClient, ids: string[]): Promise<string | null> {
+  const { data } = await supabase.from('sms_grc_questions').select(QUESTION_COLUMNS).in('id', ids)
+  const byId = new Map(((data ?? []) as QuestionRow[]).map((r) => [r.id, rowToQuestion(r, new Map())]))
+  const repeat = repeatsIn(ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])))[0]
+  return repeat ? `“${repeat.prompt}” is in this game twice. Remove one of them and save again.` : null
 }
 
 // One question, only if it belongs to the given game (and RLS lets the

@@ -1,6 +1,8 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { STARTER_CATEGORIES } from '../categories'
+import { withoutRepeats } from '../sameQuestion'
+import { shuffle } from '../shuffle'
 import { NO_TOPIC, pickEvenly, topicsTitle, type TopicPlay, type TopicSummary } from '../topicPlay'
 import { QUESTION_KIND_FOR_GAME, type GameType, type Question } from '../types'
 import { QUESTION_COLUMNS, rowToQuestion, type QuestionRow } from './db'
@@ -67,9 +69,9 @@ export async function topicCatalog(client: SupabaseClient): Promise<TopicSummary
 }
 
 // Up to `count` random questions of the chosen game type, taken evenly
-// from the chosen topics. The title names the topics ("A + B"). Every
-// matching question is a candidate: first only ids and topics are read,
-// then the chosen questions in full.
+// from the chosen topics, never the same question twice (sameQuestion.ts,
+// across topics too). The title names the topics ("A + B"). Every matching
+// question is a candidate.
 export async function pickTopicQuestions(client: SupabaseClient, play: TopicPlay): Promise<{ title: string; questions: Question[] }> {
   const kind = QUESTION_KIND_FOR_GAME[play.type]
   const ids = play.topics.filter((t) => t !== NO_TOPIC)
@@ -80,21 +82,18 @@ export async function pickTopicQuestions(client: SupabaseClient, play: TopicPlay
     if (withNone && ids.length) return k.or(`category_id.is.null,category_id.in.(${ids.join(',')})`)
     return withNone ? k.is('category_id', null) : k.in('category_id', ids)
   }
-  const candidates = await allRows<{ id: string; category_id: string | null }>(client, 'id, category_id', filter)
-  if (!candidates.length) throw new GrcError(play.topics.length > 1 ? 'These topics have no questions for that game type yet.' : 'This topic has no questions for that game type yet.', 404)
-
-  const groups = play.topics.map((t) => candidates.filter((r) => (r.category_id ?? NO_TOPIC) === t).map((r) => r.id))
-  const chosen = pickEvenly(groups, play.count)
-  const [{ data, error }, { data: cats }] = await Promise.all([
-    client.from('sms_grc_questions').select(QUESTION_COLUMNS).in('id', chosen),
+  const [rows, { data: cats }] = await Promise.all([
+    allRows<QuestionRow>(client, QUESTION_COLUMNS, filter),
     ids.length ? client.from('sms_grc_categories').select('id, name').in('id', ids) : Promise.resolve({ data: [] }),
   ])
-  if (error) throw error
+  if (!rows.length) throw new GrcError(play.topics.length > 1 ? 'These topics have no questions for that game type yet.' : 'This topic has no questions for that game type yet.', 404)
   const names = new Map(((cats ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]))
   const title = topicsTitle(play.topics.map((t) => (t === NO_TOPIC ? 'Other questions' : (names.get(t) ?? 'Topic'))))
-  // Keep the random order pickEvenly chose.
-  const byId = new Map(((data ?? []) as QuestionRow[]).map((r) => [r.id, r]))
-  return { title, questions: chosen.flatMap((id) => (byId.has(id) ? [rowToQuestion(byId.get(id)!, names)] : [])) }
+
+  // Repeats out first (a random one of each is kept), then an even draw.
+  const candidates = withoutRepeats(shuffle(rows.map((r) => rowToQuestion(r, names))))
+  const groups = play.topics.map((t) => candidates.filter((q) => (q.categoryId ?? NO_TOPIC) === t))
+  return { title, questions: pickEvenly(groups, play.count) }
 }
 
 // One library question (not archived), for checking a topic-practice answer.
