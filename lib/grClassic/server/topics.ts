@@ -49,12 +49,22 @@ async function allRows<T>(client: SupabaseClient, columns: string, filter: Filte
   return rows
 }
 
-// Every topic that has questions, with how many of each game type.
+// How many questions per topic and kind: counted in the database by the
+// sms_grc_topic_counts view (migration 103, about 40 rows), or -- until
+// that is applied -- by reading every question's topic and kind.
+async function topicKindCounts(client: SupabaseClient): Promise<{ category_id: string | null; kind: QuestionRow['kind']; questions: number }[]> {
+  const { data, error } = await client.from('sms_grc_topic_counts').select('category_id, kind, questions')
+  if (!error && data) return data as { category_id: string | null; kind: QuestionRow['kind']; questions: number }[]
+  const rows = await allRows<{ kind: QuestionRow['kind']; category_id: string | null }>(client, 'kind, category_id', (q) => q)
+  return rows.map((r) => ({ ...r, questions: 1 }))
+}
+
+// Every topic that has questions, with how many of each game type. Topic
+// names and counts aren't private: callers pass the server's own client so
+// the count doesn't run a permission check for every one of the (tens of
+// thousands of) questions.
 export async function topicCatalog(client: SupabaseClient): Promise<TopicSummary[]> {
-  const [rows, { data: cats }] = await Promise.all([
-    allRows<{ kind: QuestionRow['kind']; category_id: string | null }>(client, 'kind, category_id', (q) => q),
-    client.from('sms_grc_categories').select('id, name'),
-  ])
+  const [rows, { data: cats }] = await Promise.all([topicKindCounts(client), client.from('sms_grc_categories').select('id, name')])
   const names = new Map(((cats ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]))
 
   const byTopic = new Map<string, TopicSummary>()
@@ -62,7 +72,7 @@ export async function topicCatalog(client: SupabaseClient): Promise<TopicSummary
     const id = r.category_id && names.has(r.category_id) ? r.category_id : NO_TOPIC
     let t = byTopic.get(id)
     if (!t) byTopic.set(id, (t = { id, name: id === NO_TOPIC ? 'Other questions' : names.get(id)!, counts: { quiz: 0, match: 0, 'word-builder': 0 } }))
-    t.counts[GAME_FOR_KIND[r.kind]]++
+    t.counts[GAME_FOR_KIND[r.kind]] += r.questions
   }
   // Teaching order (topicOrder.ts); questions without a topic last.
   return Array.from(byTopic.values()).sort((a, b) => Number(a.id === NO_TOPIC) - Number(b.id === NO_TOPIC) || compareTopics(a.name, b.name))

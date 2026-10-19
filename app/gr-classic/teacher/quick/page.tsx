@@ -2,6 +2,7 @@ import { TeachersOnly } from '@/components/grClassic/TeachersOnly'
 import { TopicPicker } from '@/components/grClassic/TopicPicker'
 import { grcTeacherPage } from '@/lib/grClassic/server/auth'
 import { teacherClasses } from '@/lib/grClassic/server/teacherAssignments'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { topicCatalog } from '@/lib/grClassic/server/topics'
 
 // Quick live game: pick a topic of the shared question library, how many
@@ -9,6 +10,6 @@ import { topicCatalog } from '@/lib/grClassic/server/topics'
 export default async function GrClassicQuickGamePage() {
   const t = await grcTeacherPage('/gr-classic/teacher/quick')
   if (!t.ok) return <TeachersOnly message={t.error} />
-  const [topics, classes] = await Promise.all([topicCatalog(t.supabase), teacherClasses(t.supabase)])
+  const [topics, classes] = await Promise.all([topicCatalog(createAdminClient()), teacherClasses(t.supabase)])
   return <TopicPicker mode="host" topics={topics} classes={classes} />
 }

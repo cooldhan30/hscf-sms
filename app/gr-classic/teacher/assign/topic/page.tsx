@@ -3,6 +3,7 @@ import { AssignForm } from '@/components/grClassic/teacher/AssignForm'
 import { TeachersOnly } from '@/components/grClassic/TeachersOnly'
 import { grcTeacherPage } from '@/lib/grClassic/server/auth'
 import { teacherClasses } from '@/lib/grClassic/server/teacherAssignments'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { topicCatalog } from '@/lib/grClassic/server/topics'
 import { combineTopics, parseTopicPlay } from '@/lib/grClassic/topicPlay'
 
@@ -16,7 +17,7 @@ export default async function GrClassicAssignTopicPage({ searchParams }: { searc
   if (!t.ok) return <TeachersOnly message={t.error} />
   const parsed = parseTopicPlay(searchParams)
   if (!parsed.ok) notFound()
-  const [catalog, classes] = await Promise.all([topicCatalog(t.supabase), teacherClasses(t.supabase)])
+  const [catalog, classes] = await Promise.all([topicCatalog(createAdminClient()), teacherClasses(t.supabase)])
   const chosen = parsed.value.topics.map((id) => catalog.find((x) => x.id === id)).filter((x) => x !== undefined)
   const combined = chosen.length === parsed.value.topics.length ? combineTopics(chosen) : null
   const available = combined?.counts[parsed.value.type] ?? 0

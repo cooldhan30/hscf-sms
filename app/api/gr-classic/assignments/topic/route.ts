@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { validateAssignment } from '@/lib/grClassic/assignments'
 import { dbErrorResponse, grcTeacherApi, readJson } from '@/lib/grClassic/server/auth'
 import { GrcError } from '@/lib/grClassic/server/studentAssignments'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { publishAssignment } from '@/lib/grClassic/server/teacherAssignments'
 import { pickTopicQuestions } from '@/lib/grClassic/server/topics'
 import { parseTopicPlay } from '@/lib/grClassic/topicPlay'
@@ -22,7 +23,9 @@ export async function POST(request: Request) {
   const v = validateAssignment(body, Date.now(), true)
   if (!v.ok) return NextResponse.json({ error: v.errors.join(' '), errors: v.errors }, { status: 400 })
   try {
-    const { title, questions } = await pickTopicQuestions(guard.supabase, topic.value)
+    // Picked by the server (reading the library needs no per-question
+    // permission check); publishing below runs as the teacher.
+    const { title, questions } = await pickTopicQuestions(createAdminClient(), topic.value)
     const { data, error } = await publishAssignment(guard.supabase, { id: null, title, type: topic.value.type, questions }, v.value)
     if (error) return dbErrorResponse(error, 'publish topic assignment')
     return NextResponse.json({ id: data as string }, { status: 201 })
