@@ -12,6 +12,11 @@
 -- Questions keep their author and everything else; only their topic
 -- changes. A topic can be renamed later by the teacher who made it.
 --
+-- Part 2 then drops the number in front of topic names (01 , 02 , ...).
+-- When the name without the number is already a built-in topic (for
+-- example திணை), the questions move into that built-in topic instead, so
+-- no topic name appears twice; otherwise the topic is simply renamed.
+--
 -- ISOLATION: touches only GameRoom Classic data (sms_grc_questions,
 -- sms_grc_games, sms_grc_categories, and sms_grc_topic_progress if it
 -- exists). No table, function or policy is changed.
@@ -82,6 +87,55 @@ BEGIN
 
   RAISE NOTICE 'GameRoom Classic merge: % questions moved, % games moved, % duplicate topics removed', moved, games_moved, removed;
 END $m$;
+
+-- ---- Part 2: no numbers in front of topic names ----
+DO $r$
+DECLARE
+  cat RECORD;
+  plain TEXT;
+  target UUID;
+  n INT;
+  renamed INT := 0;
+  folded INT := 0;
+BEGIN
+  FOR cat IN SELECT id, name, owner_id FROM sms_grc_categories WHERE name ~ '^[0-9]+[.)]?\s+' LOOP
+    plain := btrim(regexp_replace(cat.name, '^[0-9]+[.)]?\s+', ''));
+    CONTINUE WHEN plain = '';
+    -- The same name already exists: a built-in topic first, else one of
+    -- the same teacher (topic names are unique per teacher).
+    SELECT id INTO target FROM sms_grc_categories
+      WHERE id <> cat.id AND lower(btrim(name)) = lower(plain) AND (owner_id IS NULL OR owner_id = cat.owner_id)
+      ORDER BY (owner_id IS NULL) DESC
+      LIMIT 1;
+
+    IF target IS NULL THEN
+      UPDATE sms_grc_categories SET name = plain WHERE id = cat.id;
+      renamed := renamed + 1;
+      CONTINUE;
+    END IF;
+
+    UPDATE sms_grc_questions SET category_id = target WHERE category_id = cat.id;
+    UPDATE sms_grc_games SET category_id = target WHERE category_id = cat.id;
+    IF to_regclass('public.sms_grc_topic_progress') IS NOT NULL THEN
+      EXECUTE format(
+        'INSERT INTO sms_grc_topic_progress AS t (student_id, topic_key, plays, answered, correct, best_percent, last_percent, last_played_at)
+         SELECT student_id, %L, plays, answered, correct, best_percent, last_percent, last_played_at FROM sms_grc_topic_progress WHERE topic_key = %L
+         ON CONFLICT (student_id, topic_key) DO UPDATE SET
+           plays = t.plays + EXCLUDED.plays,
+           answered = t.answered + EXCLUDED.answered,
+           correct = t.correct + EXCLUDED.correct,
+           best_percent = GREATEST(t.best_percent, EXCLUDED.best_percent),
+           last_played_at = GREATEST(t.last_played_at, EXCLUDED.last_played_at)',
+        target::text, cat.id::text);
+      EXECUTE format('DELETE FROM sms_grc_topic_progress WHERE topic_key = %L', cat.id::text);
+    END IF;
+    DELETE FROM sms_grc_categories WHERE id = cat.id;
+    GET DIAGNOSTICS n = ROW_COUNT;
+    folded := folded + n;
+  END LOOP;
+
+  RAISE NOTICE 'GameRoom Classic topic names: % renamed, % joined a built-in topic of the same name', renamed, folded;
+END $r$;
 
 -- The result: every topic with questions, and how many it has now.
 SELECT c.name AS topic, count(q.id) AS questions
