@@ -9,6 +9,7 @@ import { Advanced, Button, ButtonLink, Card, Segmented, Shell, TYPE_META, countL
 import { grcApi } from './api'
 import { inputClass, labelClass } from './QuestionEditor'
 import { GAME_FOR_KIND, clearPick, peekPick } from './pick'
+import { appPath } from '../appPath'
 
 // Create Game: 1. choose game type -> 2. choose questions -> 3. save or play.
 // Quick setup: pick a topic, how many questions and the time per question,
@@ -97,7 +98,7 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
       return setError(res.error)
     }
     // Same site and base path as this page (e.g. /tamizhi).
-    if (thenHost) return window.location.assign(`${window.location.pathname.split('/gr-classic')[0]}/gr-classic/host/${res.data.id}`)
+    if (thenHost) return window.location.assign(appPath(`/gr-classic/host/${res.data.id}`))
     setSaving(false)
     setSavedId(res.data.id)
     setStep(3)

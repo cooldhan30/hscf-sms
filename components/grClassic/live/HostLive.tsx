@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { FiPause, FiPlay, FiUsers, FiWifiOff, FiX } from 'react-icons/fi'
 import { AUTO_LEADERBOARD_MS, AUTO_REVEAL_MS, type HostState, type LiveStatus } from '@/lib/grClassic/live'
 import type { ChoiceQuestion } from '@/lib/grClassic/types'
+import { appPath } from '../appPath'
 import { ANSWER_STYLES } from '../games/AnswerButton'
 import { Confetti } from '../games/Confetti'
 import { grcApi } from '../teacher/api'
@@ -29,8 +30,7 @@ export function HostLive({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     if (!s) return
     // Same site and base path as this page (e.g. https://tamilschoolfl.org/tamizhi).
-    const base = window.location.pathname.split('/gr-classic')[0]
-    setJoinUrl(`${window.location.origin}${base}/gr-classic/join?pin=${s.pin}`)
+    setJoinUrl(`${window.location.origin}${appPath(`/gr-classic/join?pin=${s.pin}`)}`)
   }, [s?.pin]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const act = async (action: 'next' | 'end' | 'again', expect: { status: LiveStatus; index: number }) => {

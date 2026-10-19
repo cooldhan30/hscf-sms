@@ -2,18 +2,19 @@
 
 import { useState } from 'react'
 import { FiPlay, FiRadio, FiSend } from 'react-icons/fi'
-import { NO_TOPIC, QUESTION_COUNTS, SECONDS_PER_QUESTION, typesFor, type TopicSummary } from '@/lib/grClassic/topicPlay'
+import { MAX_TOPICS, NO_TOPIC, QUESTION_COUNTS, SECONDS_PER_QUESTION, combineTopics, typesFor, type TopicSummary } from '@/lib/grClassic/topicPlay'
 import type { GameType, TeacherClass } from '@/lib/grClassic/types'
 import { grcApi } from './teacher/api'
 import { Button, ButtonLink, Card, Segmented, Shell, TYPE_META } from './ui'
+import { appPath } from './appPath'
 
 // Play by topic: every topic in the shared question library is a ready
-// game. Pick the topic, the game type, how many questions and the time per
-// question, then start. Teachers start a live game for a class ('host');
+// game, and several topics can be combined into one. Pick the topics, the
+// game type, how many questions and the time per question, then start. Teachers start a live game for a class ('host');
 // students play on their own ('solo'). The questions are drawn at random
 // by the server.
 export function TopicPicker({ topics, mode, classes = [] }: { topics: TopicSummary[]; mode: 'host' | 'solo'; classes?: TeacherClass[] }) {
-  const [topicId, setTopicId] = useState<string | null>(null)
+  const [picked, setPicked] = useState<string[]>([])
   const [type, setType] = useState<GameType>('quiz')
   const [count, setCount] = useState(10)
   const [seconds, setSeconds] = useState(20)
@@ -21,7 +22,9 @@ export function TopicPicker({ topics, mode, classes = [] }: { topics: TopicSumma
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
 
-  const topic = topics.find((t) => t.id === topicId) ?? null
+  // The chosen topics, in the order they were picked, as one combined topic.
+  const chosen = picked.map((id) => topics.find((t) => t.id === id)).filter((t): t is TopicSummary => !!t)
+  const topic = combineTopics(chosen)
   const types = topic ? typesFor(topic) : []
   const available = topic ? topic.counts[type] : 0
   // count 0 = All
@@ -29,15 +32,20 @@ export function TopicPicker({ topics, mode, classes = [] }: { topics: TopicSumma
   const shownCount = all ? 0 : count
   const race = type !== 'quiz'
 
-  const choose = (t: TopicSummary) => {
-    setTopicId(t.id)
+  // Tap to add a topic, tap again to take it out.
+  const toggle = (t: TopicSummary) => {
     setError('')
-    if (!typesFor(t).includes(type)) setType(typesFor(t)[0])
-    // On a phone the settings are below the topics: bring them into view.
-    setTimeout(() => document.getElementById('grc-topic-settings')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+    const on = picked.includes(t.id)
+    if (!on && picked.length >= MAX_TOPICS) return setError(`Pick at most ${MAX_TOPICS} topics.`)
+    const next = on ? picked.filter((id) => id !== t.id) : [...picked, t.id]
+    setPicked(next)
+    const combined = combineTopics(next.map((id) => topics.find((x) => x.id === id)!))
+    if (combined && !typesFor(combined).includes(type)) setType(typesFor(combined)[0])
+    // On a phone the settings are below the topics: bring them into view (first pick only).
+    if (!on && picked.length === 0) setTimeout(() => document.getElementById('grc-topic-settings')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
   const n = all ? available : count
-  const query = topic ? `topic=${topic.id}&type=${type}&count=${n}&seconds=${seconds}` : ''
+  const query = topic ? `topics=${picked.join(',')}&type=${type}&count=${n}&seconds=${seconds}` : ''
   const soloHref = topic ? `/gr-classic/practice/topic?${query}` : '#'
   // Assigning uses the due date and timer set on the next screen.
   const assignHref = topic ? `/gr-classic/teacher/assign/topic?${query}` : '#'
@@ -47,20 +55,20 @@ export function TopicPicker({ topics, mode, classes = [] }: { topics: TopicSumma
     if (!classId) return setError('Choose the class that is playing.')
     setStarting(true)
     setError('')
-    const res = await grcApi<{ sessionId: string }>('/live/topic', { method: 'POST', body: { topic: topic.id, type, count: n, seconds, classId } })
+    const res = await grcApi<{ sessionId: string }>('/live/topic', { method: 'POST', body: { topics: picked, type, count: n, seconds, classId } })
     if (!res.ok) {
       setStarting(false)
       return setError(res.error)
     }
     // Same site and base path as this page (e.g. /tamizhi).
-    window.location.assign(`${window.location.pathname.split('/gr-classic')[0]}/gr-classic/live/${res.data.sessionId}`)
+    window.location.assign(appPath(`/gr-classic/live/${res.data.sessionId}`))
   }
 
   return (
     <Shell back={{ href: mode === 'host' ? '/gr-classic/teacher' : '/gr-classic/student', label: 'Back' }} width="max-w-5xl">
       <h1 className="text-3xl font-black text-slate-900">{mode === 'host' ? 'Quick live game' : 'Play by topic'}</h1>
       <p className="font-semibold text-slate-600">
-        {mode === 'host' ? 'Pick a topic, choose how many questions and the time for each, and start — the questions come from the shared library.' : 'Pick a topic, choose how many questions and the time for each, and play!'}
+        {mode === 'host' ? 'Pick one or more topics, choose how many questions and the time for each, and start — the questions come from the shared library.' : 'Pick one or more topics, choose how many questions and the time for each, and play!'}
       </p>
 
       {topics.length === 0 ? (
@@ -70,16 +78,19 @@ export function TopicPicker({ topics, mode, classes = [] }: { topics: TopicSumma
       ) : (
         <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Topics">
           {topics.map((t) => {
-            const selected = t.id === topicId
+            const selected = picked.includes(t.id)
             return (
               <li key={t.id}>
                 <button
                   type="button"
                   aria-pressed={selected}
-                  onClick={() => choose(t)}
+                  onClick={() => toggle(t)}
                   className={`flex h-full w-full flex-col items-start gap-2 rounded-3xl p-4 text-left ring-2 transition hover:-translate-y-0.5 ${selected ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-900 ring-slate-200 hover:ring-slate-400'}`}
                 >
-                  <span className={`text-lg font-extrabold leading-snug ${t.id === NO_TOPIC ? 'italic' : ''}`}>{t.name}</span>
+                  <span className="flex w-full items-start gap-2">
+                    <span className={`min-w-0 flex-1 text-lg font-extrabold leading-snug ${t.id === NO_TOPIC ? 'italic' : ''}`}>{t.name}</span>
+                    <span aria-hidden className={`grid h-6 w-6 shrink-0 place-items-center rounded-md text-sm font-black ${selected ? 'bg-white text-slate-900' : 'ring-2 ring-slate-300'}`}>{selected ? '✓' : ''}</span>
+                  </span>
                   <span className="flex flex-wrap gap-1.5">
                     {typesFor(t).map((g) => (
                       <span key={g} className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${selected ? 'bg-white/15 text-white' : TYPE_META[g].soft}`}>
@@ -96,9 +107,14 @@ export function TopicPicker({ topics, mode, classes = [] }: { topics: TopicSumma
 
       {topic && (
         <Card className="mt-6 scroll-mt-4 space-y-5 p-5 sm:p-6">
-          <h2 id="grc-topic-settings" className="scroll-mt-4 text-xl font-black text-slate-900">
-            {topic.name}
-          </h2>
+          <div>
+            <h2 id="grc-topic-settings" className="scroll-mt-4 text-xl font-black text-slate-900">
+              {topic.name}
+            </h2>
+            <p className="text-sm font-semibold text-slate-500">
+              {chosen.length > 1 ? `${chosen.length} topics combined — questions are taken evenly from each.` : 'Tap more topics above to combine them into one game.'}
+            </p>
+          </div>
           {types.length > 1 && <Segmented label="Game" value={type} onChange={setType} options={types.map((g) => ({ value: g, label: TYPE_META[g].label }))} />}
           <div className="grid gap-5 sm:grid-cols-2">
             <Segmented label="Number of questions" value={shownCount} onChange={setCount} options={[...QUESTION_COUNTS.filter((c) => c < available).map((c) => ({ value: c as number, label: String(c) })), { value: 0, label: `All ${available}` }]} />

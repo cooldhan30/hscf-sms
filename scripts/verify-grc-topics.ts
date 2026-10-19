@@ -1,7 +1,8 @@
 // Checks the "play by topic" rules (lib/grClassic/topicPlay.ts): what a
-// teacher or student may ask for when starting a game from a topic.
+// teacher or student may ask for when starting a game or an assignment
+// from one or more topics, and how questions are drawn from them.
 // Run with: npx tsx scripts/verify-grc-topics.ts
-import { MAX_QUESTIONS, NO_TOPIC, parseTopicPlay, typesFor } from '../lib/grClassic/topicPlay'
+import { MAX_QUESTIONS, MAX_TOPICS, NO_TOPIC, combineTopics, parseTopicPlay, pickEvenly, topicsTitle, typesFor } from '../lib/grClassic/topicPlay'
 
 let failures = 0
 let checks = 0
@@ -13,14 +14,35 @@ const ok = (cond: boolean, label: string) => {
   }
 }
 
-const TOPIC = '3f1c2b9a-1d2e-4f5a-8b6c-7d8e9f0a1b2c'
-const good = { topic: TOPIC, type: 'quiz', count: 10, seconds: 20 }
+const A = '3f1c2b9a-1d2e-4f5a-8b6c-7d8e9f0a1b2c'
+const B = '9a8b7c6d-5e4f-4a3b-9c2d-1e0f2a3b4c5d'
+const good = { topics: [A], type: 'quiz', count: 10, seconds: 20 }
+const topicsOf = (input: Record<string, unknown>) => {
+  const r = parseTopicPlay(input)
+  return r.ok ? r.value.topics.join(',') : 'refused'
+}
 
+// ---- One topic ----
 ok(parseTopicPlay(good).ok, 'a normal request is accepted')
-ok(parseTopicPlay({ ...good, topic: NO_TOPIC }).ok, 'questions with no topic can be played')
+ok(topicsOf({ ...good, topics: undefined, topic: A }) === A, 'an older single-topic link still works')
+ok(parseTopicPlay({ ...good, topics: [NO_TOPIC] }).ok, 'questions with no topic can be played')
 ok(parseTopicPlay({ ...good, count: '15', seconds: '30' }).ok, 'numbers from the address bar are accepted')
-ok(!parseTopicPlay({ ...good, topic: 'abc' }).ok, 'a made-up topic is refused')
-ok(!parseTopicPlay({ ...good, topic: undefined }).ok, 'a missing topic is refused')
+ok(!parseTopicPlay({ ...good, topics: ['abc'] }).ok, 'a made-up topic is refused')
+ok(!parseTopicPlay({ ...good, topics: [] }).ok, 'no topic at all is refused')
+ok(!parseTopicPlay({ ...good, topics: undefined }).ok, 'a missing topic is refused')
+
+// ---- Several topics ----
+ok(topicsOf({ ...good, topics: [A, B] }) === `${A},${B}`, 'two topics are accepted, in order')
+ok(topicsOf({ ...good, topics: `${A},${B}` }) === `${A},${B}`, 'two topics from a link (comma separated) are accepted')
+ok(topicsOf({ ...good, topics: [A, B, A] }) === `${A},${B}`, 'a topic picked twice counts once')
+ok(topicsOf({ ...good, topics: [A, NO_TOPIC] }) === `${A},${NO_TOPIC}`, 'a topic can be combined with the no-topic questions')
+ok(!parseTopicPlay({ ...good, topics: [A, 'abc'] }).ok, 'one bad topic in the list refuses the request')
+ok(!parseTopicPlay({ ...good, topics: [A, 42] }).ok, 'a topic that is not text is refused')
+const many = Array.from({ length: MAX_TOPICS + 1 }, (_, i) => `${String(i).padStart(8, '0')}-1d2e-4f5a-8b6c-7d8e9f0a1b2c`)
+ok(parseTopicPlay({ ...good, topics: many.slice(0, MAX_TOPICS) }).ok, `${MAX_TOPICS} topics are accepted`)
+ok(!parseTopicPlay({ ...good, topics: many }).ok, `more than ${MAX_TOPICS} topics are refused`)
+
+// ---- Type, count and time ----
 ok(!parseTopicPlay({ ...good, type: 'sentence' }).ok, 'an unknown game type is refused')
 ok(!parseTopicPlay({ ...good, type: 'toString' }).ok, 'an inherited property name is not a game type')
 ok(!parseTopicPlay({ ...good, count: 0 }).ok, 'zero questions is refused')
@@ -30,12 +52,34 @@ ok(parseTopicPlay({ ...good, count: MAX_QUESTIONS }).ok, 'the maximum is accepte
 ok(!parseTopicPlay({ ...good, seconds: 15 }).ok, 'only the offered times are accepted (live games allow 10/20/30/60)')
 for (const s of [10, 20, 30, 60]) ok(parseTopicPlay({ ...good, seconds: s }).ok, `${s}s per question is accepted`)
 ok(!parseTopicPlay(null).ok, 'an empty request is refused')
-
 const parsed = parseTopicPlay({ ...good, type: 'word-builder', count: '5' })
 ok(parsed.ok && parsed.value.type === 'word-builder' && parsed.value.count === 5, 'the parsed values are typed')
 
-const t = { id: TOPIC, name: 'உயிர்', counts: { quiz: 4, match: 0, 'word-builder': 2 } }
-ok(JSON.stringify(typesFor(t)) === JSON.stringify(['quiz', 'word-builder']), 'a topic offers only the game types it has questions for')
+// ---- Combining topics ----
+const tA = { id: A, name: 'உயிர்', counts: { quiz: 4, match: 0, 'word-builder': 2 } }
+const tB = { id: B, name: 'திணை', counts: { quiz: 3, match: 1, 'word-builder': 0 } }
+ok(JSON.stringify(typesFor(tA)) === JSON.stringify(['quiz', 'word-builder']), 'a topic offers only the game types it has questions for')
+const both = combineTopics([tA, tB])!
+ok(both.counts.quiz === 7 && both.counts.match === 1 && both.counts['word-builder'] === 2, 'combined topics add up their question counts')
+ok(typesFor(both).length === 3, 'combined topics offer every game type either one has')
+ok(both.name === 'உயிர் + திணை', 'combined topics are named "A + B"')
+ok(combineTopics([]) === null, 'no topics combine to nothing')
+ok(topicsTitle(['x'.repeat(80), 'y'.repeat(80)]).length === 118 && topicsTitle(['x'.repeat(80), 'y'.repeat(80)]).endsWith('…'), 'a long combined title is shortened to fit')
+
+// ---- Drawing questions evenly ----
+const keep = <U>(items: U[]) => items.slice() // no shuffling: predictable
+const big = Array.from({ length: 100 }, (_, i) => `a${i}`)
+const small = ['b0', 'b1', 'b2']
+const ten = pickEvenly([big, small], 10, keep)
+ok(ten.length === 10, 'draws the number asked for')
+ok(ten.filter((x) => x.startsWith('b')).length === 3, 'a small topic gives all it has when the other is big')
+const even = pickEvenly([big, big.map((x) => x.replace('a', 'c'))], 10, keep)
+ok(even.filter((x) => x.startsWith('a')).length === 5 && even.filter((x) => x.startsWith('c')).length === 5, 'two big topics give half each')
+ok(new Set(pickEvenly([big, small], 103, keep)).size === 103, 'asking for everything gives every question exactly once')
+ok(pickEvenly([big, small], 500, keep).length === 103, 'never more than the topics have')
+ok(pickEvenly([[], small], 2, keep).length === 2, 'an empty topic is skipped')
+const randomDraw = pickEvenly([big, small], 6)
+ok(randomDraw.length === 6 && randomDraw.filter((x) => x.startsWith('b')).length === 3, 'with shuffling, the mix is still even')
 
 console.log(failures ? `${failures} FAILURE(S) of ${checks} checks.` : `PASS: ${checks} checks.`)
 process.exit(failures ? 1 : 0)

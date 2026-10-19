@@ -334,21 +334,46 @@ for (const vp of VIEWPORTS) {
     // A quick live game: topic, number of questions, time, class, Start.
     const { ctx, page } = await open(vp, 'teacher-quick')
     const topicsList = page.getByRole('list', { name: 'Topics' })
-    await topicsList.getByRole('button').first().click()
+    const cards = topicsList.getByRole('button')
+    await cards.nth(0).click()
     await page.locator('#grc-topic-settings').waitFor()
+    const oneAll = Number((await page.getByRole('button', { name: /^All \d+$/ }).textContent()).match(/\d+/)[0])
+    // Combine a second topic: one game from both, counts added up.
+    await cards.nth(1).click()
+    await page.getByText('2 topics combined').waitFor()
+    if (!(await page.locator('#grc-topic-settings').textContent()).includes(' + ')) throw new Error('combined topics are not named "A + B"')
+    const twoAll = Number((await page.getByRole('button', { name: /^All \d+$/ }).textContent()).match(/\d+/)[0])
+    if (!(twoAll > oneAll)) throw new Error(`combining topics did not add their questions (${oneAll} -> ${twoAll})`)
     await page.getByRole('button', { name: /^All \d+$/ }).click()
     await page.getByRole('button', { name: '30s' }).click()
     await shot(page, vp, 'flow-teacher-quick')
-    let asked = null
-    page.on('request', (r) => r.url().includes('/live/topic') && (asked = r.postDataJSON()))
-    // Two classes in the sample: starting without one asks for it.
     const assignHref = await page.getByRole('link', { name: 'Assign to classes' }).getAttribute('href')
-    if (!/teacher\/assign\/topic\?topic=.+&type=quiz&count=\d+&seconds=30/.test(assignHref)) throw new Error('unexpected assign link: ' + assignHref)
+    if (!/teacher\/assign\/topic\?topics=[^&]+,[^&]+&type=quiz&count=\d+&seconds=30/.test(assignHref)) throw new Error('unexpected assign link: ' + assignHref)
+    // Starting opens the host screen; the harness has none, so serve a blank page there.
+    await page.route('**/gr-classic/live/**', (r) => r.fulfill({ contentType: 'text/html', body: '<!doctype html><title>host</title>' }))
+    // Two classes in the sample: starting without one asks for it.
     await page.getByRole('button', { name: 'Start live game' }).click()
     await page.getByText('Choose the class that is playing.').waitFor()
     await page.getByRole('group', { name: 'Class playing' }).getByRole('button').first().click()
     await page.getByRole('button', { name: 'Start live game' }).click()
-    await page.waitForURL(/\/gr-classic\/live\/live-1/, { timeout: 5000 }).catch(() => {})
+    await page.waitForURL(/\/gr-classic\/live\/live-1/, { timeout: 5000 })
+    const asked = JSON.parse(await page.evaluate(() => sessionStorage.getItem('grc-harness-topic-live')))
+    if (!asked || asked.topics?.length !== 2 || asked.count !== twoAll) throw new Error('live game sent the wrong request: ' + JSON.stringify(asked))
+    await ctx.close()
+  })
+
+  await flow('topic-untoggle', vp, async () => {
+    // Tapping a chosen topic again takes it out of the game.
+    const { ctx, page } = await open(vp, 'teacher-quick')
+    const cards = page.getByRole('list', { name: 'Topics' }).getByRole('button')
+    await cards.nth(0).click()
+    await cards.nth(1).click()
+    await page.getByText('2 topics combined').waitFor()
+    await cards.nth(0).click()
+    await page.getByText('Tap more topics above').waitFor()
+    if ((await cards.nth(0).getAttribute('aria-pressed')) !== 'false') throw new Error('topic stayed selected')
+    await cards.nth(1).click()
+    if ((await page.locator('#grc-topic-settings').count()) > 0) throw new Error('settings still shown with no topic chosen')
     await ctx.close()
   })
 
@@ -362,7 +387,7 @@ for (const vp of VIEWPORTS) {
     await page.getByRole('button', { name: /Publish Assignment/ }).click()
     await page.getByText('Assignment published!').waitFor()
     const sent = await page.evaluate(() => window.__topicAssigned)
-    if (!sent || sent.type !== 'quiz' || sent.count !== 3 || !sent.topic || !sent.classIds?.length || !sent.dueAt) throw new Error('topic assignment sent the wrong request: ' + JSON.stringify(sent))
+    if (!sent || sent.type !== 'quiz' || sent.count !== 3 || !sent.topics?.length || !sent.classIds?.length || !sent.dueAt) throw new Error('topic assignment sent the wrong request: ' + JSON.stringify(sent))
     await ctx.close()
   })
 
@@ -373,7 +398,7 @@ for (const vp of VIEWPORTS) {
     await page.getByRole('button', { name: '5', exact: true }).click().catch(() => {})
     await page.getByRole('button', { name: '20s' }).click()
     const href = await page.getByRole('link', { name: 'Start' }).getAttribute('href')
-    if (!/practice\/topic\?topic=.+&type=quiz&count=\d+&seconds=20/.test(href)) throw new Error('unexpected start link: ' + href)
+    if (!/practice\/topic\?topics=.+&type=quiz&count=\d+&seconds=20/.test(href)) throw new Error('unexpected start link: ' + href)
     // 'All' asks for every question in the topic (never 0).
     const allButton = page.getByRole('button', { name: /^All \d+$/ })
     await allButton.click()

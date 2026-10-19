@@ -1,8 +1,7 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { STARTER_CATEGORIES } from '../categories'
-import { shuffle } from '../shuffle'
-import { NO_TOPIC, type TopicPlay, type TopicSummary } from '../topicPlay'
+import { NO_TOPIC, pickEvenly, topicsTitle, type TopicPlay, type TopicSummary } from '../topicPlay'
 import { QUESTION_KIND_FOR_GAME, type GameType, type Question } from '../types'
 import { QUESTION_COLUMNS, rowToQuestion, type QuestionRow } from './db'
 import { GrcError } from './studentAssignments'
@@ -37,21 +36,25 @@ export async function topicCatalog(client: SupabaseClient): Promise<TopicSummary
   return Array.from(byTopic.values()).sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name))
 }
 
-// Up to `count` random questions of the chosen topic and game type.
+// Up to `count` random questions of the chosen game type, taken evenly
+// from the chosen topics. The title names the topics ("A + B").
 export async function pickTopicQuestions(client: SupabaseClient, play: TopicPlay): Promise<{ title: string; questions: Question[] }> {
   const kind = QUESTION_KIND_FOR_GAME[play.type]
-  let query = client.from('sms_grc_questions').select(QUESTION_COLUMNS).eq('kind', kind).is('archived_at', null).limit(1000)
-  query = play.topic === NO_TOPIC ? query.is('category_id', null) : query.eq('category_id', play.topic)
+  const ids = play.topics.filter((t) => t !== NO_TOPIC)
+  const withNone = play.topics.includes(NO_TOPIC)
+  let query = client.from('sms_grc_questions').select(QUESTION_COLUMNS).eq('kind', kind).is('archived_at', null).limit(5000)
+  // Ids are checked UUIDs (parseTopicPlay), so they are safe in the filter.
+  if (withNone && ids.length) query = query.or(`category_id.is.null,category_id.in.(${ids.join(',')})`)
+  else query = withNone ? query.is('category_id', null) : query.in('category_id', ids)
   const { data } = await query
   const rows = (data ?? []) as QuestionRow[]
-  if (!rows.length) throw new GrcError('This topic has no questions for that game type yet.', 404)
-  let title = 'Other questions'
-  if (play.topic !== NO_TOPIC) {
-    const { data: cat } = await client.from('sms_grc_categories').select('name').eq('id', play.topic).maybeSingle()
-    title = (cat as { name: string } | null)?.name ?? 'Topic game'
-  }
-  const names = new Map(play.topic === NO_TOPIC ? [] : [[play.topic, title]])
-  return { title, questions: shuffle(rows).slice(0, play.count).map((r) => rowToQuestion(r, names)) }
+  if (!rows.length) throw new GrcError(play.topics.length > 1 ? 'These topics have no questions for that game type yet.' : 'This topic has no questions for that game type yet.', 404)
+
+  const { data: cats } = ids.length ? await client.from('sms_grc_categories').select('id, name').in('id', ids) : { data: [] }
+  const names = new Map(((cats ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]))
+  const title = topicsTitle(play.topics.map((t) => (t === NO_TOPIC ? 'Other questions' : (names.get(t) ?? 'Topic'))))
+  const groups = play.topics.map((t) => rows.filter((r) => (r.category_id ?? NO_TOPIC) === t))
+  return { title, questions: pickEvenly(groups, play.count).map((r) => rowToQuestion(r, names)) }
 }
 
 // One library question (not archived), for checking a topic-practice answer.
