@@ -342,11 +342,27 @@ for (const vp of VIEWPORTS) {
     let asked = null
     page.on('request', (r) => r.url().includes('/live/topic') && (asked = r.postDataJSON()))
     // Two classes in the sample: starting without one asks for it.
+    const assignHref = await page.getByRole('link', { name: 'Assign to classes' }).getAttribute('href')
+    if (!/teacher\/assign\/topic\?topic=.+&type=quiz&count=\d+&seconds=30/.test(assignHref)) throw new Error('unexpected assign link: ' + assignHref)
     await page.getByRole('button', { name: 'Start live game' }).click()
     await page.getByText('Choose the class that is playing.').waitFor()
     await page.getByRole('group', { name: 'Class playing' }).getByRole('button').first().click()
     await page.getByRole('button', { name: 'Start live game' }).click()
     await page.waitForURL(/\/gr-classic\/live\/live-1/, { timeout: 5000 }).catch(() => {})
+    await ctx.close()
+  })
+
+  await flow('assign-topic', vp, async () => {
+    // Assign a topic: the usual classes / due date form, then publish.
+    const { ctx, page } = await open(vp, 'assign-topic')
+    await page.getByRole('heading', { name: 'Assign a topic' }).waitFor()
+    await page.getByText('picked at random from this topic when you publish').waitFor()
+    await page.getByRole('button', { name: /Grade 2/ }).click()
+    await shot(page, vp, 'flow-assign-topic')
+    await page.getByRole('button', { name: /Publish Assignment/ }).click()
+    await page.getByText('Assignment published!').waitFor()
+    const sent = await page.evaluate(() => window.__topicAssigned)
+    if (!sent || sent.type !== 'quiz' || sent.count !== 3 || !sent.topic || !sent.classIds?.length || !sent.dueAt) throw new Error('topic assignment sent the wrong request: ' + JSON.stringify(sent))
     await ctx.close()
   })
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { FiPlay, FiRadio } from 'react-icons/fi'
+import { FiPlay, FiRadio, FiSend } from 'react-icons/fi'
 import { NO_TOPIC, QUESTION_COUNTS, SECONDS_PER_QUESTION, typesFor, type TopicSummary } from '@/lib/grClassic/topicPlay'
 import type { GameType, TeacherClass } from '@/lib/grClassic/types'
 import { grcApi } from './teacher/api'
@@ -37,7 +37,10 @@ export function TopicPicker({ topics, mode, classes = [] }: { topics: TopicSumma
     setTimeout(() => document.getElementById('grc-topic-settings')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
   const n = all ? available : count
-  const soloHref = topic ? `/gr-classic/practice/topic?topic=${topic.id}&type=${type}&count=${n}&seconds=${seconds}` : '#'
+  const query = topic ? `topic=${topic.id}&type=${type}&count=${n}&seconds=${seconds}` : ''
+  const soloHref = topic ? `/gr-classic/practice/topic?${query}` : '#'
+  // Assigning uses the due date and timer set on the next screen.
+  const assignHref = topic ? `/gr-classic/teacher/assign/topic?${query}` : '#'
 
   const startLive = async () => {
     if (!topic) return
@@ -100,7 +103,7 @@ export function TopicPicker({ topics, mode, classes = [] }: { topics: TopicSumma
           <div className="grid gap-5 sm:grid-cols-2">
             <Segmented label="Number of questions" value={shownCount} onChange={setCount} options={[...QUESTION_COUNTS.filter((c) => c < available).map((c) => ({ value: c as number, label: String(c) })), { value: 0, label: `All ${available}` }]} />
             {mode === 'host' && race ? (
-              <p className="self-end text-sm font-semibold text-slate-500">{TYPE_META[type].label} is a race: everyone plays at their own pace, so there is no time per question.</p>
+              <p className="self-end text-sm font-semibold text-slate-500">{TYPE_META[type].label} is a race when played live: everyone plays at their own pace, so there is no time per question.</p>
             ) : (
               <Segmented label="Time per question" value={seconds} onChange={setSeconds} options={SECONDS_PER_QUESTION.map((s) => ({ value: s as number, label: `${s}s` }))} />
             )}
@@ -118,16 +121,21 @@ export function TopicPicker({ topics, mode, classes = [] }: { topics: TopicSumma
           )}
           <div className="flex flex-wrap items-center gap-3">
             {mode === 'host' ? (
-              <Button tone="primary" size="lg" disabled={starting || classes.length === 0} onClick={startLive}>
-                <FiRadio aria-hidden /> {starting ? 'Starting…' : 'Start live game'}
-              </Button>
+              <>
+                <Button tone="primary" size="lg" disabled={starting || classes.length === 0} onClick={startLive}>
+                  <FiRadio aria-hidden /> {starting ? 'Starting…' : 'Start live game'}
+                </Button>
+                <ButtonLink tone="teal" size="lg" href={assignHref} prefetch={false}>
+                  <FiSend aria-hidden /> Assign to classes
+                </ButtonLink>
+              </>
             ) : (
               <ButtonLink tone="primary" size="lg" href={soloHref} prefetch={false}>
                 <FiPlay aria-hidden /> Start
               </ButtonLink>
             )}
             <span className="text-sm font-semibold text-slate-500">
-              {n} {TYPE_META[type].label} {n === 1 ? 'question' : 'questions'}, picked at random{mode === 'host' && race ? '' : ` · ${seconds}s each`}
+              {n} {TYPE_META[type].label} {n === 1 ? 'question' : 'questions'}, picked at random{mode === 'host' && race ? '' : ` · ${seconds}s each${mode === 'host' ? ' when live' : ''}`}
             </span>
           </div>
         </Card>

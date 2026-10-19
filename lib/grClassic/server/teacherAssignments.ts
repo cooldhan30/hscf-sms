@@ -14,11 +14,12 @@ export async function teacherClasses(supabase: SupabaseClient): Promise<TeacherC
   return ((data ?? []) as { id: string; name: string; enrollments: { count: number }[] }[]).map((c) => ({ id: c.id, name: c.name, studentCount: c.enrollments?.[0]?.count ?? 0 }))
 }
 
-export async function publishAssignment(supabase: SupabaseClient, game: Game, v: ValidAssignment) {
+// game.id is null for an assignment made straight from a topic.
+export async function publishAssignment(supabase: SupabaseClient, game: Pick<Game, 'title' | 'type' | 'questions'> & { id: string | null }, v: ValidAssignment) {
   const questions: Question[] = game.questions
   return supabase.rpc('sms_grc_publish_assignment', {
     p_game_id: game.id,
-    p_title: game.title,
+    p_title: game.title.slice(0, 120),
     p_game_type: game.type,
     p_class_ids: v.classIds,
     p_due_at: v.dueAt,

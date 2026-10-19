@@ -111,6 +111,10 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   // Play by topic: a teacher starts a live game; a student's answers are
   // checked against the library like the real server.
   if (path === '/live/topic' && method === 'POST') return reply({ sessionId: 'live-1' }, 201)
+  if (path === '/assignments/topic' && method === 'POST') {
+    ;(window as unknown as { __topicAssigned: unknown }).__topicAssigned = body
+    return reply({ id: 'a-uyir' }, 201)
+  }
   const topicCheck = path.match(/^\/practice\/topic\/(check|hint)$/)
   if (topicCheck) {
     const q = library.find((x) => x.id === body.questionId)
@@ -260,6 +264,10 @@ export const SCREENS: Record<string, () => ReactNode> = {
   join: () => <JoinLive name="Kavin" />,
   'teacher-quick': () => <TopicPicker mode="host" topics={topics} classes={empty ? [] : CLASSES} />,
   'student-topics': () => <TopicPicker mode="solo" topics={topics} />,
+  'assign-topic': () => {
+    const t = topics.find((x) => x.counts.quiz >= 3)!
+    return <AssignForm game={{ id: '', title: t.name, type: 'quiz', category: t.name, questionCount: 3 }} classes={CLASSES} topic={{ topic: t.id, type: 'quiz', count: 3, seconds: 20 }} />
+  },
   'topic-practice': () => {
     const t = topics.find((x) => x.counts.quiz >= 3)!
     const qs = library.filter((q) => q.kind === 'choice' && (q.categoryId ?? NO_TOPIC) === t.id)

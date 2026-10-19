@@ -76,6 +76,10 @@ eq('defaults', v.ok && v.value.settings, { maxAttempts: 2, timerMinutes: null, p
 eq('classes de-duplicated', v.ok && v.value.classIds, [cid])
 const bad = validateAssignment({ gameId: 'x', classIds: [], dueAt: iso(-1), settings: { maxAttempts: 99, showAnswers: 'sometimes' } }, NOW)
 eq('rejects bad input', bad.ok ? [] : bad.errors, ['Choose a game to assign.', 'Pick at least one class.', 'Pick a due date in the future.', 'Attempts is not a valid choice.', 'Show answers is not a valid choice.'])
+// From a topic: no game needed, and none is recorded.
+const fromTopic = validateAssignment({ classIds: [cid], dueAt: iso(24) }, NOW, true)
+eq('topic assignment needs no game', fromTopic.ok && fromTopic.value.gameId, null)
+eq('a game assignment still needs a game', validateAssignment({ classIds: [cid], dueAt: iso(24) }, NOW).ok, false)
 eq('due date too far', validateAssignment({ gameId: gid, classIds: [cid], dueAt: iso(24 * 400) }, NOW).ok, false)
 eq('all settings accepted', validateAssignment({ gameId: gid, classIds: [cid], dueAt: iso(24), settings: { maxAttempts: null, timerMinutes: 20, passingPercent: 70, randomize: false, allowLate: true, showAnswers: 'never', scorePolicy: 'latest' } }, NOW).ok, true)
 

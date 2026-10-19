@@ -99,15 +99,16 @@ export const TIMER_CHOICES = [null, 10, 20, 30] as const
 export const PASSING_CHOICES = [null, 50, 70, 80] as const
 
 export interface ValidAssignment {
-  gameId: string
+  gameId: string | null // null: assigned straight from a topic of the library
   classIds: string[]
   dueAt: string
   settings: AssignmentSettings
 }
 
-export function validateAssignment(body: Record<string, unknown>, now = Date.now()): { ok: true; value: ValidAssignment } | { ok: false; errors: string[] } {
+// fromTopic: the questions come from a topic of the library, not a game.
+export function validateAssignment(body: Record<string, unknown>, now = Date.now(), fromTopic = false): { ok: true; value: ValidAssignment } | { ok: false; errors: string[] } {
   const errors: string[] = []
-  if (!isUuid(body.gameId)) errors.push('Choose a game to assign.')
+  if (!fromTopic && !isUuid(body.gameId)) errors.push('Choose a game to assign.')
   const classIds = Array.isArray(body.classIds) ? Array.from(new Set(body.classIds.filter(isUuid))) : []
   if (!classIds.length) errors.push('Pick at least one class.')
   if (classIds.length > 20) errors.push('Pick at most 20 classes.')
@@ -132,7 +133,7 @@ export function validateAssignment(body: Record<string, unknown>, now = Date.now
     scorePolicy: pick(s.scorePolicy, ['best', 'latest'] as const, 'best', 'Score policy'),
   }
   if (errors.length) return { ok: false, errors }
-  return { ok: true, value: { gameId: body.gameId as string, classIds: classIds as string[], dueAt: due!.toISOString(), settings } }
+  return { ok: true, value: { gameId: fromTopic ? null : (body.gameId as string), classIds: classIds as string[], dueAt: due!.toISOString(), settings } }
 }
 
 // Settings a teacher changes after publishing. Only the fields sent are

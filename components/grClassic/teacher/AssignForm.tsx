@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { FiCheck, FiCheckCircle, FiSend } from 'react-icons/fi'
 import { formatDue, inDays } from '@/lib/grClassic/format'
+import type { TopicPlay } from '@/lib/grClassic/topicPlay'
 import { DEFAULT_ASSIGNMENT_SETTINGS, type AssignmentSettings, type GameType, type TeacherClass } from '@/lib/grClassic/types'
 import { Advanced, Button, ButtonLink, Card, Segmented, Shell, Toggle, TypeChip, countLabel } from '../ui'
 import { grcApi } from './api'
@@ -32,8 +33,10 @@ export function settingsSummary(s: AssignmentSettings): string {
 }
 
 // Assign: pick classes, pick a due date, publish. Three decisions; the
-// rest are sensible defaults under "Advanced options".
-export function AssignForm({ game, classes }: { game: AssignableGame; classes: TeacherClass[] }) {
+// rest are sensible defaults under "Advanced options". With `topic`, the
+// questions are drawn at random from that topic of the library when the
+// assignment is published (everyone in it gets the same questions).
+export function AssignForm({ game, classes, topic }: { game: AssignableGame; classes: TeacherClass[]; topic?: TopicPlay }) {
   const [classIds, setClassIds] = useState<string[]>([])
   // Set in the browser so the default uses the teacher's own time zone.
   const [due, setDue] = useState('')
@@ -51,7 +54,8 @@ export function AssignForm({ game, classes }: { game: AssignableGame; classes: T
     if (!due || new Date(due).getTime() <= Date.now()) return setError('Pick a due date in the future.')
     setError('')
     setPublishing(true)
-    const res = await grcApi<{ id: string }>('/assignments', { method: 'POST', body: { gameId: game.id, classIds, dueAt: new Date(due).toISOString(), settings } })
+    const body = { classIds, dueAt: new Date(due).toISOString(), settings }
+    const res = topic ? await grcApi<{ id: string }>('/assignments/topic', { method: 'POST', body: { ...topic, ...body } }) : await grcApi<{ id: string }>('/assignments', { method: 'POST', body: { gameId: game.id, ...body } })
     setPublishing(false)
     if (!res.ok) return setError(res.error)
     setPublished(res.data.id)
@@ -81,14 +85,14 @@ export function AssignForm({ game, classes }: { game: AssignableGame; classes: T
   }
 
   return (
-    <Shell back={{ href: '/gr-classic/teacher', label: 'My Games' }} width="max-w-2xl">
-      <h1 className="text-3xl font-black text-slate-900">Assign a game</h1>
+    <Shell back={topic ? { href: '/gr-classic/teacher/quick', label: 'Topics' } : { href: '/gr-classic/teacher', label: 'My Games' }} width="max-w-2xl">
+      <h1 className="text-3xl font-black text-slate-900">{topic ? 'Assign a topic' : 'Assign a game'}</h1>
       <Card className="mt-4 flex items-center gap-4 p-5">
         <div className="min-w-0 flex-1">
           <p className="text-xl font-extrabold text-slate-900">{game.title}</p>
           <p className="text-sm font-semibold text-slate-500">
             {countLabel(game.questionCount, game.type)}
-            {game.category && ` · ${game.category}`}
+            {topic ? ' · picked at random from this topic when you publish' : game.category && ` · ${game.category}`}
           </p>
         </div>
         <TypeChip type={game.type} />
