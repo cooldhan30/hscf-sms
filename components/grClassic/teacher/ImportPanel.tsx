@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { FiCheckCircle, FiDownload, FiUpload } from 'react-icons/fi'
-import { MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, TEMPLATES, templateCsv } from '@/lib/grClassic/csv'
+import { MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, MAX_IMPORT_SIZE_LABEL, TEMPLATES, templateCsv } from '@/lib/grClassic/csv'
 import { downloadText } from '@/lib/grClassic/format'
 import type { Category, Question, QuestionKind } from '@/lib/grClassic/types'
 import { Button, Card, Pill } from '../ui'
@@ -27,7 +27,7 @@ export function ImportPanel({ kinds, onImported, onClose }: { kinds?: QuestionKi
     setError('')
     setDone(null)
     if (!file) return
-    if (file.size > MAX_IMPORT_BYTES) return setError('That file is too big (max 512 KB).')
+    if (file.size > MAX_IMPORT_BYTES) return setError(`That file is too big (max ${MAX_IMPORT_SIZE_LABEL}). Split it into smaller files.`)
     const text = await file.text()
     setCsv(text)
     setFileName(file.name)
@@ -62,7 +62,7 @@ export function ImportPanel({ kinds, onImported, onClose }: { kinds?: QuestionKi
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-extrabold text-slate-900">Import questions from a spreadsheet</h3>
-          <p className="text-sm text-slate-600">Download a template, fill it in (Excel or Google Sheets), save it as <b>CSV UTF-8</b>, then upload it. Up to {MAX_IMPORT_ROWS} questions per file.</p>
+          <p className="text-sm text-slate-600">Download a template, fill it in (Excel or Google Sheets), save it as <b>CSV UTF-8</b>, then upload it. Up to {MAX_IMPORT_ROWS.toLocaleString()} questions per file.</p>
         </div>
         {onClose && (
           <Button tone="ghost" size="sm" onClick={onClose}>

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { MAX_IMPORT_BYTES, readImport } from '@/lib/grClassic/csv'
+import { MAX_IMPORT_BYTES, MAX_IMPORT_SIZE_LABEL, readImport } from '@/lib/grClassic/csv'
 import { planImport } from '@/lib/grClassic/importPlan'
 import { validateQuestion } from '@/lib/grClassic/validateQuestion'
 import { dbErrorResponse, grcTeacherApi, readJson } from '@/lib/grClassic/server/auth'
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   const body = await readJson(request)
   const csv = typeof body?.csv === 'string' ? body.csv : ''
   if (!csv.trim()) return NextResponse.json({ error: 'Choose a CSV file first.' }, { status: 400 })
-  if (Buffer.byteLength(csv, 'utf8') > MAX_IMPORT_BYTES) return NextResponse.json({ error: 'That file is too big (max 512 KB).' }, { status: 400 })
+  if (Buffer.byteLength(csv, 'utf8') > MAX_IMPORT_BYTES) return NextResponse.json({ error: `That file is too big (max ${MAX_IMPORT_SIZE_LABEL}). Split it into smaller files.` }, { status: 400 })
 
   const parsed = readImport(csv)
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 })
@@ -31,8 +31,14 @@ export async function POST(request: Request) {
     const v = validateQuestion({ ...r.input, categoryId: null })
     return v.ok ? [contentHash(v.value.contentKey)] : []
   })))
-  const { data: keyRows } = fileKeys.length ? await supabase.from('sms_grc_questions').select('content_key').in('content_key', fileKeys).is('archived_at', null) : { data: [] }
-  const existing = new Set(((keyRows ?? []) as { content_key: string }[]).map((r) => r.content_key))
+  // In batches: a big file's fingerprints don't fit in one request (and a
+  // failed lookup must stop the import, not let duplicates through).
+  const existing = new Set<string>()
+  for (let i = 0; i < fileKeys.length; i += 100) {
+    const { data: keyRows, error: keyError } = await supabase.from('sms_grc_questions').select('content_key').in('content_key', fileKeys.slice(i, i + 100)).is('archived_at', null)
+    if (keyError) return dbErrorResponse(keyError, 'check for duplicates')
+    for (const r of (keyRows ?? []) as { content_key: string }[]) existing.add(r.content_key)
+  }
   const plan = planImport(parsed.rows, existing, categories, contentHash)
   const counts = { ok: plan.filter((r) => r.status === 'ok').length, duplicate: plan.filter((r) => r.status === 'duplicate').length, error: plan.filter((r) => r.status === 'error').length }
   const preview = plan.map((r) => ({ line: r.line, status: r.status, errors: r.errors, summary: r.summary, topic: r.topic, newTopic: r.newTopic }))

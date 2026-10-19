@@ -305,6 +305,20 @@ for (const vp of VIEWPORTS) {
     await ctx.close()
   })
 
+  await flow('library-import-big', vp, async () => {
+    // A whole topic bank in one file: 1000 Tamil questions (well over 512 KB).
+    const rows = Array.from({ length: 1000 }, (_, i) => `பெரிய தலைப்பு,"கேள்வி எண் ${i + 1}: இவற்றில் நெடில் எழுத்து எது? நீண்ட விளக்கத்துடன் கூடிய ஒரு மாதிரி வாக்கியம் இங்கே உள்ளது",Question ${i + 1},அ ${i},ஆ ${i},இ ${i},ஈ ${i},2,"ஆ என்பது நெடில் எழுத்து — இது ஒரு நீண்ட விளக்கம் ${i}. குறில் எழுத்துக்கள் குறுகிய ஒலி; நெடில் எழுத்துக்கள் நீண்ட ஒலி.",easy`)
+    const csv = ['topic,question,question_english,answer_1,answer_2,answer_3,answer_4,correct_answer,explanation,difficulty', ...rows].join('\n')
+    if (Buffer.byteLength(csv, 'utf8') < 512 * 1024) throw new Error('test file should be over the old 512 KB limit')
+    const { ctx, page } = await open(vp, 'library')
+    await page.getByRole('button', { name: 'Import CSV' }).click()
+    await page.setInputFiles('#grc-csv', { name: 'big-topic.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf8') })
+    await page.getByText('1000 ready').waitFor({ timeout: 20000 })
+    await page.getByRole('button', { name: /^Import 1000 question/ }).click()
+    await page.getByText(/Imported 1000 question/).waitFor({ timeout: 20000 })
+    await ctx.close()
+  })
+
   await flow('quick-setup', vp, async () => {
     const { ctx, page } = await open(vp, 'create')
     await page.getByRole('button', { name: /Classic Quiz/ }).click()

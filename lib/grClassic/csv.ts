@@ -7,8 +7,12 @@ import type { QuestionKind } from './types'
 // Files must be UTF-8 ("CSV UTF-8" in Excel, the default in Google Sheets)
 // so Tamil comes through intact.
 
-export const MAX_IMPORT_ROWS = 300
-export const MAX_IMPORT_BYTES = 512 * 1024
+// Big enough for a whole topic bank; the bytes cap keeps the upload well
+// under the hosting limit for one request (4.5 MB). Tamil is about 3 bytes
+// a letter, so a 1000-question file is often over 512 KB.
+export const MAX_IMPORT_ROWS = 2000
+export const MAX_IMPORT_BYTES = 3 * 1024 * 1024
+export const MAX_IMPORT_SIZE_LABEL = '3 MB'
 
 const PAIRS = [1, 2, 3, 4, 5, 6]
 
