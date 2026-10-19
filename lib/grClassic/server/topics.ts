@@ -80,22 +80,39 @@ export async function topicCatalog(client: SupabaseClient): Promise<TopicSummary
 
 // Up to `count` random questions of the chosen game type, taken evenly
 // from the chosen topics, never the same question twice (sameQuestion.ts,
-// across topics too). The title names the topics ("A + B"). Every matching
-// question is a candidate.
+// across topics too). The title names the topics ("A + B").
+//
+// A topic can hold thousands of questions, so each topic gives a random
+// sample, not all of them: a run of questions in id order starting at a
+// random place (ids are random, so the run is a random sample), about
+// twice its even share -- room to drop repeats and for small topics.
+// All topics are read at once.
 export async function pickTopicQuestions(client: SupabaseClient, play: TopicPlay): Promise<{ title: string; questions: Question[] }> {
   const kind = QUESTION_KIND_FOR_GAME[play.type]
   const ids = play.topics.filter((t) => t !== NO_TOPIC)
-  const withNone = play.topics.includes(NO_TOPIC)
-  // Ids are checked UUIDs (parseTopicPlay), so they are safe in the filter.
-  const filter: Filter = (q) => {
-    const k = q.eq('kind', kind)
-    if (withNone && ids.length) return k.or(`category_id.is.null,category_id.in.(${ids.join(',')})`)
-    return withNone ? k.is('category_id', null) : k.in('category_id', ids)
+  const counts = new Map<string, number>()
+  for (const r of await topicKindCounts(client)) if (r.kind === kind) counts.set(r.category_id ?? NO_TOPIC, (counts.get(r.category_id ?? NO_TOPIC) ?? 0) + r.questions)
+  // More topics than questions wanted (e.g. 10 from "any topic"): a random
+  // set of that many topics, one question each.
+  const withQuestions = play.topics.filter((t) => (counts.get(t) ?? 0) > 0)
+  const used = withQuestions.length > play.count ? shuffle(withQuestions).slice(0, play.count) : withQuestions
+  const share = Math.ceil(play.count / Math.max(used.length, 1)) * 2 + 5
+  const sample = async (topic: string): Promise<QuestionRow[]> => {
+    const size = counts.get(topic) ?? 0
+    if (!size || !used.includes(topic)) return []
+    const take = Math.min(size, share, PAGE)
+    const from = Math.floor(Math.random() * (size - take + 1))
+    const q = client.from('sms_grc_questions').select(QUESTION_COLUMNS).eq('kind', kind).is('archived_at', null)
+    // Ids are checked UUIDs (parseTopicPlay), so they are safe in the filter.
+    const { data, error } = await (topic === NO_TOPIC ? q.is('category_id', null) : q.eq('category_id', topic)).order('id').range(from, from + take - 1)
+    if (error) throw error
+    return (data ?? []) as QuestionRow[]
   }
-  const [rows, { data: cats }] = await Promise.all([
-    allRows<QuestionRow>(client, QUESTION_COLUMNS, filter),
+  const [samples, { data: cats }] = await Promise.all([
+    Promise.all(play.topics.map(sample)),
     ids.length ? client.from('sms_grc_categories').select('id, name').in('id', ids) : Promise.resolve({ data: [] }),
   ])
+  const rows = samples.flat()
   if (!rows.length) throw new GrcError(play.topics.length > 1 ? 'These topics have no questions for that game type yet.' : 'This topic has no questions for that game type yet.', 404)
   const names = new Map(((cats ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]))
   const title = topicsTitle(play.topics.map((t) => (t === NO_TOPIC ? 'Other questions' : (names.get(t) ?? 'Topic'))))

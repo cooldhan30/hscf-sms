@@ -1,10 +1,11 @@
 'use client'
 
-import type { GameType, QuestionKind } from '@/lib/grClassic/types'
+import type { GameType, Question, QuestionKind } from '@/lib/grClassic/types'
 
 // "Make a game with these questions": the Question Library hands the
-// questions it is showing to Create Game through sessionStorage (the ids
-// can be too many for a URL). The game type also travels in the URL
+// questions it is showing (at most 100) to Create Game through
+// sessionStorage -- the questions themselves, since Create Game no longer
+// loads the whole library. The game type also travels in the URL
 // (?type=), so the right type opens even if storage is unavailable.
 
 const KEY = 'grc-new-game-pick'
@@ -13,12 +14,12 @@ export const GAME_FOR_KIND: Record<QuestionKind, GameType> = { choice: 'quiz', m
 
 export interface Pick {
   type: GameType
-  ids: string[]
+  questions: Question[]
 }
 
 export function savePick(pick: Pick) {
   try {
-    sessionStorage.setItem(KEY, JSON.stringify({ type: pick.type, ids: pick.ids.slice(0, 100) }))
+    sessionStorage.setItem(KEY, JSON.stringify({ type: pick.type, questions: pick.questions.slice(0, 100) }))
   } catch {
     // Storage blocked (private mode): Create Game still opens on the right type.
   }
@@ -30,7 +31,7 @@ export function peekPick(): Pick | null {
   try {
     const raw = sessionStorage.getItem(KEY)
     const v = raw ? (JSON.parse(raw) as Pick) : null
-    return v && Array.isArray(v.ids) ? v : null
+    return v && Array.isArray(v.questions) ? v : null
   } catch {
     return null
   }

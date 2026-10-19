@@ -209,6 +209,15 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     return reply({ category: c }, 201)
   }
   if (path.startsWith('/questions?') && method === 'GET') return reply(libraryPage(new URLSearchParams(path.split('?')[1])))
+  // Create Game's quick setup: random questions of a type from a topic (or any), like questions/pick.
+  if (path.startsWith('/questions/pick?') && method === 'GET') {
+    const qp = new URLSearchParams(path.split('?')[1])
+    const kindOf = { quiz: 'choice', match: 'match', 'word-builder': 'order' } as const
+    const kind = kindOf[(qp.get('type') ?? 'quiz') as keyof typeof kindOf]
+    const topic = qp.get('topic') ?? ''
+    const pool = library.filter((q) => q.kind === kind && (!topic || (q.categoryId ?? NO_TOPIC) === topic))
+    return reply({ questions: pool.sort(() => Math.random() - 0.5).slice(0, Number(qp.get('count') ?? 10)) })
+  }
   if (path === '/questions' && method === 'POST') {
     const v = validateQuestion(body)
     if (!v.ok) return reply({ error: v.errors.join(' ') }, 400)
@@ -259,8 +268,8 @@ export const SCREENS: Record<string, () => ReactNode> = {
   'teacher-assignments': () => <TeacherDashboard games={summaries} assignments={assignmentSummaries} tab="assignments" />,
   'teachers-only': () => <TeachersOnly message="Teacher access required" />,
   library: () => <QuestionLibrary first={{ kind: 'choice', ...libraryPage(new URLSearchParams('kind=choice')) }} counts={libraryCounts} categories={categories} />,
-  create: () => <CreateGameWizard library={library} categories={categories} startType={(params.get('type') as 'quiz' | 'match' | 'word-builder' | null) ?? undefined} />,
-  edit: () => <CreateGameWizard edit={editGame} library={library} categories={categories} />,
+  create: () => <CreateGameWizard topics={topics} categories={categories} startType={(params.get('type') as 'quiz' | 'match' | 'word-builder' | null) ?? undefined} />,
+  edit: () => <CreateGameWizard edit={editGame} topics={topics} categories={categories} />,
   assign: () => <AssignForm game={{ id: 'g-uyir-quiz', title: g('g-uyir-quiz').title, type: 'quiz', category: g('g-uyir-quiz').category, questionCount: 5 }} classes={empty ? [] : CLASSES} />,
   results: () => <AssignmentResults view={sampleView('a-uyir')} />,
   'results-coteacher': () => <AssignmentResults view={sampleView('a-porul', false)} />,

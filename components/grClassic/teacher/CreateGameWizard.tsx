@@ -1,23 +1,28 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FiArrowDown, FiArrowUp, FiBookOpen, FiCheckCircle, FiPlay, FiTrash2 } from 'react-icons/fi'
 import { summarize } from '@/lib/grClassic/csv'
 import { sameQuestionKey, withoutRepeats } from '@/lib/grClassic/sameQuestion'
+import { groupTopics } from '@/lib/grClassic/topicOrder'
+import { NO_TOPIC, type TopicSummary } from '@/lib/grClassic/topicPlay'
 import { QUESTION_KIND_FOR_GAME, type Category, type Difficulty, type Game, type GameType, type Question } from '@/lib/grClassic/types'
+import { MAX_GAME_QUESTIONS } from '@/lib/grClassic/validateGame'
 import { GamePlayer } from '../games/GamePlayer'
 import { Advanced, Button, ButtonLink, Card, Segmented, Shell, TYPE_META, countLabel } from '../ui'
 import { grcApi } from './api'
 import { inputClass, labelClass } from './QuestionEditor'
-import { GAME_FOR_KIND, clearPick, peekPick } from './pick'
+import { clearPick, peekPick } from './pick'
 import { appPath } from '../appPath'
 
 // Create Game: 1. choose game type -> 2. choose questions -> 3. save or play.
 // Quick setup: pick a topic, how many questions and the time per question,
-// and the game fills itself from the shared library. Teachers can also
-// hand-pick questions. Questions are only chosen here, never written:
-// writing and importing happen in the Question Library.
-export function CreateGameWizard({ edit, library: initialLibrary, categories: initialCategories, startType }: { edit?: Game; library: Question[]; categories: Category[]; startType?: GameType }) {
+// and the server fills the game from the shared library (evenly, never the
+// same question twice). Teachers can also hand-pick questions, one page of
+// the library at a time. Questions are only chosen here, never written:
+// writing and importing happen in the Question Library. The library is far
+// too big to load at once, so the page only has every topic's counts.
+export function CreateGameWizard({ edit, topics, categories, startType }: { edit?: Game; topics: TopicSummary[]; categories: Category[]; startType?: GameType }) {
   // Opened from the Question Library ("Make a game with these questions"):
   // start on the Questions step with that type and those questions ticked.
   const [start] = useState(() => {
@@ -25,19 +30,16 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
     const pick = peekPick()
     const type = pick?.type ?? startType
     if (!type) return null
-    const ids = pick?.type === type ? pick.ids : []
-    const chosen = withoutRepeats(ids.map((id) => initialLibrary.find((q) => q.id === id)).filter((q): q is Question => !!q && q.kind === QUESTION_KIND_FOR_GAME[type]))
-    const topics = Array.from(new Set(chosen.map((q) => q.categoryId ?? '')))
-    const topicId = topics.length === 1 ? topics[0] : ''
-    return { type, chosen, topicId, title: topicId ? (initialCategories.find((c) => c.id === topicId)?.name ?? '') : '' }
+    const chosen = withoutRepeats((pick?.type === type ? pick.questions : []).filter((q) => q.kind === QUESTION_KIND_FOR_GAME[type]))
+    const ids = Array.from(new Set(chosen.map((q) => q.categoryId ?? '')))
+    const topicId = ids.length === 1 ? ids[0] : ''
+    return { type, chosen, topicId, title: topicId ? (categories.find((c) => c.id === topicId)?.name ?? '') : '' }
   })
   useEffect(() => clearPick(), [])
   const [step, setStep] = useState<1 | 2 | 3>(edit || start ? 2 : 1)
   const [type, setType] = useState<GameType>(edit?.type ?? start?.type ?? 'quiz')
   const [title, setTitle] = useState(edit?.title ?? start?.title ?? '')
-  const categories = initialCategories
   const [categoryId, setCategoryId] = useState<string>(edit?.categoryId ?? start?.topicId ?? '')
-  const library = initialLibrary
   const [questions, setQuestions] = useState<Question[]>(edit?.questions ?? start?.chosen ?? [])
   const [difficulty, setDifficulty] = useState<Difficulty>(edit?.difficulty ?? 'easy')
   const [liveSeconds, setLiveSeconds] = useState(edit?.liveSeconds ?? 20)
@@ -45,29 +47,38 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
   const [previewing, setPreviewing] = useState(false)
+  const [filling, setFilling] = useState(false)
   // Quick setup fills the game while this is on; any hand edit turns it off.
   const [autoFill, setAutoFill] = useState(!edit && !start?.chosen.length)
   const [autoTitle, setAutoTitle] = useState(!edit)
   const [count, setCount] = useState(10) // 0 = all
   const kind = QUESTION_KIND_FOR_GAME[type]
-  const category = categories.find((c) => c.id === categoryId)?.name ?? ''
+  const category = categories.find((c) => c.id === categoryId)?.name ?? (categoryId === NO_TOPIC ? 'Other questions' : '')
 
-  // A game never asks the same question twice (sameQuestion.ts).
-  const poolFor = (topicId: string, t: GameType = type) => withoutRepeats(library.filter((q) => q.kind === QUESTION_KIND_FOR_GAME[t] && (!topicId || q.categoryId === topicId)))
-  const pool = poolFor(categoryId)
-  const topicCounts = useMemo(() => {
-    const m: Record<string, number> = {}
-    for (const q of library) if (q.kind === kind && q.categoryId) m[q.categoryId] = (m[q.categoryId] ?? 0) + 1
-    return m
-  }, [library, kind])
-  const fillFrom = (topicId: string, n: number, t: GameType = type) => {
-    const qs = shuffle(poolFor(topicId, t))
-    setQuestions(n ? qs.slice(0, n) : qs)
+  // Question counts come from the topic list (the whole library).
+  const totalFor = (t: GameType) => topics.reduce((n, x) => n + x.counts[t], 0)
+  const availableFor = (topicId: string, t: GameType = type) => (topicId ? (topics.find((x) => x.id === topicId)?.counts[t] ?? 0) : totalFor(t))
+  const available = availableFor(categoryId)
+  const cap = Math.min(available, MAX_GAME_QUESTIONS)
+
+  // The server picks the questions (newest request wins).
+  const latestFill = useRef(0)
+  const fillFrom = async (topicId: string, n: number, t: GameType = type) => {
+    const ask = ++latestFill.current
+    const want = Math.min(n || availableFor(topicId, t), MAX_GAME_QUESTIONS)
     setAutoFill(true)
+    if (want < 1) return setQuestions([])
+    setFilling(true)
+    const res = await grcApi<{ questions: Question[] }>(`/questions/pick?${new URLSearchParams({ type: t, topic: topicId, count: String(want) })}`)
+    if (ask !== latestFill.current) return
+    setFilling(false)
+    if (!res.ok) return setError(res.error)
+    setError('')
+    setQuestions(res.data.questions)
   }
   const chooseTopic = (id: string) => {
     setCategoryId(id)
-    if (autoTitle) setTitle(id ? (categories.find((c) => c.id === id)?.name ?? '') : '')
+    if (autoTitle) setTitle(id ? (id === NO_TOPIC ? '' : (categories.find((c) => c.id === id)?.name ?? '')) : '')
     if (autoFill || questions.length === 0) fillFrom(id, count)
   }
   const chooseCount = (n: number) => {
@@ -81,19 +92,20 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
     if (categoryId) fillFrom(categoryId, count, t)
   }
   const pickByHand = (update: (qs: Question[]) => Question[]) => {
+    latestFill.current++ // a pick still on its way must not overwrite the teacher's choice
+    setFilling(false)
     setQuestions(update)
     setAutoFill(false)
   }
 
-  const game: Game = { id: edit?.id ?? 'draft', title: title.trim() || 'My new game', type, category, categoryId: categoryId || null, difficulty, questions, liveSeconds, updatedAt: new Date().toISOString() }
-
+  const game: Game = { id: edit?.id ?? 'draft', title: title.trim() || 'My new game', type, category, categoryId: categoryId && categoryId !== NO_TOPIC ? categoryId : null, difficulty, questions, liveSeconds, updatedAt: new Date().toISOString() }
 
   const save = async (thenHost = false) => {
     if (!title.trim()) return setError('Give your game a name.')
     if (questions.length === 0) return setError('Add at least one question.')
     setError('')
     setSaving(true)
-    const body = { title, type, categoryId: categoryId || null, difficulty, liveSeconds, questionIds: questions.map((q) => q.id) }
+    const body = { title, type, categoryId: game.categoryId, difficulty, liveSeconds, questionIds: questions.map((q) => q.id) }
     const res = edit ? await grcApi<{ id: string }>(`/games/${edit.id}`, { method: 'PATCH', body }) : await grcApi<{ id: string }>('/games', { method: 'POST', body })
     if (!res.ok) {
       setSaving(false)
@@ -127,7 +139,6 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
             {(Object.keys(TYPE_META) as GameType[]).map((t) => {
               const m = TYPE_META[t]
               const Icon = m.icon
-              const n = library.filter((q) => q.kind === QUESTION_KIND_FOR_GAME[t]).length
               return (
                 <button
                   key={t}
@@ -144,7 +155,7 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
                   <span className="text-xl font-black text-slate-900">{m.label}</span>
                   <span className="-mt-2 font-bold text-slate-500">{m.ta}</span>
                   <span className="text-sm font-semibold text-slate-600">{m.blurb}</span>
-                  <span className="text-xs font-bold text-slate-400">{n} in your library</span>
+                  <span className="text-xs font-bold text-slate-400">{totalFor(t).toLocaleString()} in the shared library</span>
                 </button>
               )
             })}
@@ -164,13 +175,7 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
           </div>
           <Card className="mt-4 space-y-5 p-5">
             <div className="grid gap-4 sm:grid-cols-2">
-              <CategoryPicker
-                value={categoryId}
-                categories={categories}
-                counts={topicCounts}
-                total={library.filter((q) => q.kind === kind).length}
-                onChange={chooseTopic}
-              />
+              <TopicSelect value={categoryId} topics={topics} type={type} total={totalFor(type)} onChange={chooseTopic} />
               <div>
                 <label htmlFor="grc-title" className={labelClass}>
                   Game name
@@ -191,16 +196,18 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
             <div className="grid gap-4 sm:grid-cols-2">
               <Segmented
                 label="Number of questions"
-                value={count === 0 || count >= pool.length ? 0 : count}
+                value={count === 0 || count >= cap ? 0 : count}
                 onChange={chooseCount}
-                options={[...[5, 10, 15, 20].filter((n) => n < pool.length).map((n) => ({ value: n, label: String(n) })), { value: 0, label: `All ${pool.length}` }]}
+                options={[...[5, 10, 15, 20].filter((n) => n < cap).map((n) => ({ value: n, label: String(n) })), { value: 0, label: available > MAX_GAME_QUESTIONS ? `${MAX_GAME_QUESTIONS} (most)` : `All ${available}` }]}
               />
               <Segmented label="Time per question (live games)" value={liveSeconds} onChange={setLiveSeconds} options={[10, 20, 30, 60].map((s) => ({ value: s, label: `${s}s` }))} />
             </div>
-            <p className="text-sm font-semibold text-slate-500">
-              {pool.length === 0
-                ? `No ${TYPE_META[type].label} questions ${category ? `in “${category}”` : 'in the library'} yet — add them in the Question Library first.`
-                : `${pool.length} ${TYPE_META[type].label} question${pool.length === 1 ? '' : 's'} ${category ? `in “${category}”` : 'across all topics'} in the shared library. Choosing a topic or a number fills the game for you.`}
+            <p className="text-sm font-semibold text-slate-500" aria-live="polite">
+              {filling
+                ? 'Picking questions…'
+                : available === 0
+                  ? `No ${TYPE_META[type].label} questions ${category ? `in “${category}”` : 'in the library'} yet — add them in the Question Library first.`
+                  : `${available.toLocaleString()} ${TYPE_META[type].label} question${available === 1 ? '' : 's'} ${category ? `in “${category}”` : 'across all topics'} in the shared library. Choosing a topic or a number fills the game for you (picked at random, never the same question twice).`}
             </p>
           </Card>
 
@@ -213,15 +220,17 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
 
           <div>
             <LibraryPicker
-              library={library.filter((q) => q.kind === kind)}
+              kind={kind}
               topicId={categoryId}
               topicName={category}
-              others={(Object.keys(TYPE_META) as GameType[]).filter((t) => t !== type).map((t) => ({ type: t, count: library.filter((q) => GAME_FOR_KIND[q.kind] === t).length })).filter((o) => o.count > 0)}
+              empty={totalFor(type) === 0}
+              others={(Object.keys(TYPE_META) as GameType[]).filter((t) => t !== type).map((t) => ({ type: t, count: totalFor(t) })).filter((o) => o.count > 0)}
               onSwitchType={edit ? undefined : switchType}
               selected={questions}
               onToggle={(q) => {
                 const on = questions.some((x) => x.id === q.id)
                 if (!on && questions.some((x) => sameQuestionKey(x) === sameQuestionKey(q))) return setError(`“${q.prompt}” is already in this game.`)
+                if (!on && questions.length >= MAX_GAME_QUESTIONS) return setError(`A game can have at most ${MAX_GAME_QUESTIONS} questions.`)
                 setError('')
                 pickByHand((qs) => (on ? qs.filter((x) => x.id !== q.id) : [...qs, q]))
               }}
@@ -243,10 +252,10 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
             <Button tone="plain" disabled={questions.length === 0} onClick={() => setPreviewing(true)}>
               Try it
             </Button>
-            <Button tone="indigo" onClick={() => save(false)} disabled={saving}>
+            <Button tone="indigo" onClick={() => save(false)} disabled={saving || filling}>
               <FiCheckCircle aria-hidden /> {saving ? 'Saving…' : 'Save game'}
             </Button>
-            <Button tone="primary" onClick={() => save(true)} disabled={saving}>
+            <Button tone="primary" onClick={() => save(true)} disabled={saving || filling}>
               <FiPlay aria-hidden /> Save &amp; host live
             </Button>
           </div>
@@ -280,19 +289,25 @@ export function CreateGameWizard({ edit, library: initialLibrary, categories: in
   )
 }
 
-// Topics that have questions for this game type, each with how many questions of this game type it has.
-function CategoryPicker({ value, categories, counts, total, onChange }: { value: string; categories: Category[]; counts: Record<string, number>; total: number; onChange: (id: string) => void }) {
+// Every topic that has questions of this game type, with how many, in
+// teaching order and grouped like the topic pages.
+function TopicSelect({ value, topics, type, total, onChange }: { value: string; topics: TopicSummary[]; type: GameType; total: number; onChange: (id: string) => void }) {
+  const shown = topics.filter((t) => t.counts[type] > 0 || t.id === value)
   return (
     <div>
       <label htmlFor="grc-category" className={labelClass}>
         Topic
       </label>
       <select id="grc-category" className={inputClass} value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Any topic ({total})</option>
-        {categories.filter((c) => counts[c.id] || c.id === value).map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name} ({counts[c.id] ?? 0})
-          </option>
+        <option value="">Any topic ({total.toLocaleString()})</option>
+        {groupTopics(shown, (t) => t.name, (t) => t.id === NO_TOPIC).map(({ section, items }) => (
+          <optgroup key={section.id} label={section.title}>
+            {items.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.counts[type].toLocaleString()})
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
     </div>
@@ -333,12 +348,37 @@ function SelectedList({ questions, onChange }: { questions: Question[]; onChange
   )
 }
 
-function LibraryPicker({ library, topicId, topicName, others, onSwitchType, selected, onToggle }: { library: Question[]; topicId: string; topicName: string; others: { type: GameType; count: number }[]; onSwitchType?: (t: GameType) => void; selected: Question[]; onToggle: (q: Question) => void }) {
+// Hand-picking: the library one page at a time (the same server search as
+// the Question Library), in the chosen topic unless "Show all topics".
+function LibraryPicker({ kind, topicId, topicName, empty, others, onSwitchType, selected, onToggle }: { kind: Question['kind']; topicId: string; topicName: string; empty: boolean; others: { type: GameType; count: number }[]; onSwitchType?: (t: GameType) => void; selected: Question[]; onToggle: (q: Question) => void }) {
   const [search, setSearch] = useState('')
   const [allTopics, setAllTopics] = useState(false)
+  const [items, setItems] = useState<Question[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const inTopic = !!topicId && !allTopics
-  const items = useMemo(() => library.filter((q) => (!inTopic || q.categoryId === topicId) && (questionLabel(q) + q.category).toLowerCase().includes(search.toLowerCase())), [library, search, inTopic, topicId])
-  const groups = useMemo(() => Array.from(new Set(items.map((q) => q.category))), [items])
+
+  const latest = useRef(0)
+  const load = async (append: boolean) => {
+    const ask = ++latest.current
+    setLoading(true)
+    setLoadError('')
+    const params = new URLSearchParams({ kind, topic: inTopic ? topicId : '', q: search.trim(), offset: String(append ? items.length : 0) })
+    const res = await grcApi<{ questions: Question[]; total: number }>(`/questions?${params}`)
+    if (ask !== latest.current) return
+    setLoading(false)
+    if (!res.ok) return setLoadError(res.error)
+    setItems((qs) => (append ? [...qs, ...res.data.questions.filter((q) => !qs.some((x) => x.id === q.id))] : res.data.questions))
+    setTotal(res.data.total)
+  }
+  useEffect(() => {
+    if (empty) return
+    const t = setTimeout(() => load(false), search ? 300 : 0)
+    return () => clearTimeout(t)
+  }, [kind, topicId, allTopics, search, empty]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const groups = Array.from(new Set(items.map((q) => q.category)))
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between gap-3">
@@ -347,7 +387,7 @@ function LibraryPicker({ library, topicId, topicName, others, onSwitchType, sele
           <FiBookOpen aria-hidden /> Question Library
         </ButtonLink>
       </div>
-      <input className={`${inputClass} mt-3`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search questions or topics" aria-label="Search the library" />
+      <input className={`${inputClass} mt-3`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search questions (Tamil or English)" aria-label="Search the library" />
       {topicId && (
         <p className="mt-2 text-sm font-semibold text-slate-500">
           {inTopic ? `Showing “${topicName}” only. ` : 'Showing every topic. '}
@@ -356,8 +396,18 @@ function LibraryPicker({ library, topicId, topicName, others, onSwitchType, sele
           </button>
         </p>
       )}
-      <div className="mt-3 max-h-[28rem] space-y-4 overflow-y-auto pr-1">
-        {library.length === 0 && (
+      {!empty && (
+        <p className="mt-2 text-xs font-semibold text-slate-500" aria-live="polite">
+          {loading && items.length === 0 ? 'Loading…' : `${total.toLocaleString()} question${total === 1 ? '' : 's'}${items.length < total ? ` · showing ${items.length.toLocaleString()}` : ''}`}
+        </p>
+      )}
+      {loadError && (
+        <p role="alert" className="mt-2 text-sm font-bold text-rose-700">
+          {loadError}
+        </p>
+      )}
+      <div className={`mt-3 max-h-[28rem] space-y-4 overflow-y-auto pr-1 transition-opacity ${loading ? 'opacity-60' : ''}`}>
+        {empty && (
           <div className="space-y-3">
             <p className="text-sm font-semibold text-slate-500">The library has no questions for this game type yet. Add them in the Question Library first.</p>
             {others.length > 0 && onSwitchType && (
@@ -366,7 +416,7 @@ function LibraryPicker({ library, topicId, topicName, others, onSwitchType, sele
                 <div className="mt-2 flex flex-wrap gap-2">
                   {others.map((o) => (
                     <Button key={o.type} tone="plain" size="sm" onClick={() => onSwitchType(o.type)}>
-                      {o.count} for {TYPE_META[o.type].label} — switch
+                      {o.count.toLocaleString()} for {TYPE_META[o.type].label} — switch
                     </Button>
                   ))}
                 </div>
@@ -374,7 +424,7 @@ function LibraryPicker({ library, topicId, topicName, others, onSwitchType, sele
             )}
           </div>
         )}
-        {library.length > 0 && groups.length === 0 && <p className="text-sm font-semibold text-slate-500">{inTopic && !search ? 'No questions in this topic yet.' : 'Nothing matches.'}</p>}
+        {!empty && !loading && items.length === 0 && <p className="text-sm font-semibold text-slate-500">{inTopic && !search ? 'No questions in this topic yet.' : 'Nothing matches.'}</p>}
         {groups.map((g) => (
           <fieldset key={g || 'none'}>
             <legend className="mb-1 text-xs font-extrabold uppercase tracking-wide text-slate-500">{g || 'No topic'}</legend>
@@ -395,16 +445,14 @@ function LibraryPicker({ library, topicId, topicName, others, onSwitchType, sele
             </ul>
           </fieldset>
         ))}
+        {items.length < total && (
+          <div className="text-center">
+            <Button tone="plain" size="sm" onClick={() => load(true)} disabled={loading}>
+              {loading ? 'Loading…' : `Load more (${(total - items.length).toLocaleString()} more)`}
+            </Button>
+          </div>
+        )}
       </div>
     </Card>
   )
-}
-
-function shuffle<T>(items: T[]): T[] {
-  const a = items.slice()
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
 }

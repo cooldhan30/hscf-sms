@@ -294,7 +294,7 @@ export function QuestionLibrary({ first, counts: initialCounts, categories: init
 function MakeGameLink({ kind, questions, label }: { kind: QuestionKind; questions: Question[]; label: string }) {
   const type = GAME_FOR_KIND[kind]
   return (
-    <ButtonLink href={`/gr-classic/teacher/create?type=${type}`} tone="primary" onClick={() => savePick({ type, ids: questions.map((q) => q.id) })}>
+    <ButtonLink href={`/gr-classic/teacher/create?type=${type}`} tone="primary" onClick={() => savePick({ type, questions })}>
       {label}
     </ButtonLink>
   )
