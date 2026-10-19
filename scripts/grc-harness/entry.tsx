@@ -52,6 +52,22 @@ const library: Question[] = empty ? [] : LIBRARY.filter((q) => params.get('onlyq
   const theirs = /peyar|thinai/.test(q.id)
   return { ...q, categoryId: catId(q.category), difficulty: 'easy' as const, mine: !theirs, author: theirs ? 'Ms. Priya' : 'You' }
 })
+// ?big=1: a library too big for one page (Load more, search).
+if (params.get('big') === '1')
+  for (let i = 1; i <= 120; i++)
+    library.push({ id: `big-${i}`, kind: 'choice', categoryId: catId('உயிர் எழுத்துக்கள்'), category: 'உயிர் எழுத்துக்கள்', difficulty: 'easy', prompt: `பெரிய கேள்வி ${i}`, options: ['அ', 'ஆ'], answerIndex: 0, mine: i % 2 === 0, author: i % 2 === 0 ? 'You' : 'Ms. Priya' })
+
+// The Question Library's server search (lib/grClassic/server/db.ts searchLibrary), one page at a time.
+const LIB_PAGE = 50
+function libraryPage(p: URLSearchParams) {
+  const kind = (p.get('kind') ?? 'choice') as Question['kind']
+  const topic = p.get('topic') ?? ''
+  const q = (p.get('q') ?? '').trim().toLocaleLowerCase()
+  const offset = Number(p.get('offset') ?? 0)
+  const all = library.filter((x) => x.kind === kind && (!topic || (topic === 'none' ? !x.categoryId : x.categoryId === topic)) && (p.get('mine') !== '1' || x.mine !== false) && (!q || `${x.prompt} ${x.promptEn ?? ''}`.toLocaleLowerCase().includes(q)))
+  return { questions: all.slice(offset, offset + LIB_PAGE), total: all.length }
+}
+const libraryCounts = { choice: library.filter((q) => q.kind === 'choice').length, match: library.filter((q) => q.kind === 'match').length, order: library.filter((q) => q.kind === 'order').length }
 // Play by topic: the library grouped by topic, as topicCatalog() sends it.
 const GAME_OF = { choice: 'quiz', match: 'match', order: 'word-builder' } as const
 const topics: TopicSummary[] = Array.from(
@@ -192,6 +208,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     categories = [...categories, c]
     return reply({ category: c }, 201)
   }
+  if (path.startsWith('/questions?') && method === 'GET') return reply(libraryPage(new URLSearchParams(path.split('?')[1])))
   if (path === '/questions' && method === 'POST') {
     const v = validateQuestion(body)
     if (!v.ok) return reply({ error: v.errors.join(' ') }, 400)
@@ -241,7 +258,7 @@ export const SCREENS: Record<string, () => ReactNode> = {
   'teacher-pick-host': () => <TeacherDashboard games={summaries} assignments={assignmentSummaries} pick="host" />,
   'teacher-assignments': () => <TeacherDashboard games={summaries} assignments={assignmentSummaries} tab="assignments" />,
   'teachers-only': () => <TeachersOnly message="Teacher access required" />,
-  library: () => <QuestionLibrary questions={library} categories={categories} />,
+  library: () => <QuestionLibrary first={{ kind: 'choice', ...libraryPage(new URLSearchParams('kind=choice')) }} counts={libraryCounts} categories={categories} />,
   create: () => <CreateGameWizard library={library} categories={categories} startType={(params.get('type') as 'quiz' | 'match' | 'word-builder' | null) ?? undefined} />,
   edit: () => <CreateGameWizard edit={editGame} library={library} categories={categories} />,
   assign: () => <AssignForm game={{ id: 'g-uyir-quiz', title: g('g-uyir-quiz').title, type: 'quiz', category: g('g-uyir-quiz').category, questionCount: 5 }} classes={empty ? [] : CLASSES} />,

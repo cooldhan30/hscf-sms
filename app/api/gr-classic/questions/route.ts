@@ -1,18 +1,34 @@
 import { NextResponse } from 'next/server'
 import { dbErrorResponse, grcTeacherApi, readJson } from '@/lib/grClassic/server/auth'
-import { QUESTION_COLUMNS, categoryNames, contentHash, listCategories, listQuestions, questionRow, rowToQuestion, teacherNames, type QuestionRow } from '@/lib/grClassic/server/db'
-import { validateQuestion } from '@/lib/grClassic/validateQuestion'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { QUESTION_COLUMNS, categoryNames, contentHash, listCategories, questionRow, rowToQuestion, searchLibrary, teacherNames, type QuestionRow } from '@/lib/grClassic/server/db'
+import { isUuid, validateQuestion } from '@/lib/grClassic/validateQuestion'
 
-// GET  /api/gr-classic/questions -- the shared library: every teacher's
-//      questions (not archived), each marked with who wrote it.
+// GET  /api/gr-classic/questions?kind=&topic=&mine=&q=&offset=
+//      one page of the shared library (newest first) for the Question
+//      Library page, with the total that matches. topic: a topic id,
+//      "none" (no topic) or empty (all); mine=1 = only my questions.
 // POST /api/gr-classic/questions -- save one question. If the same
 //      question is already in the shared library (by anyone), that one is
 //      returned ({ duplicate: true }) instead of making a copy.
-export async function GET() {
+const KINDS = ['choice', 'match', 'order'] as const
+export async function GET(request: Request) {
   const guard = await grcTeacherApi()
   if (!guard.ok) return guard.response
-  const names = categoryNames(await listCategories(guard.supabase, guard.userId))
-  return NextResponse.json({ questions: await listQuestions(guard.supabase, names, guard.userId) })
+  const p = new URL(request.url).searchParams
+  const kind = KINDS.find((k) => k === p.get('kind')) ?? 'choice'
+  const topic = p.get('topic') ?? ''
+  if (topic && topic !== 'none' && !isUuid(topic)) return NextResponse.json({ error: 'Topic not found.' }, { status: 400 })
+  const offset = Math.min(Math.max(Number.parseInt(p.get('offset') ?? '0', 10) || 0, 0), 100_000)
+  try {
+    // Read by the server: every teacher may read the whole library, and
+    // this spares a permission check on every row.
+    const admin = createAdminClient()
+    const names = categoryNames(await listCategories(admin, guard.userId))
+    return NextResponse.json(await searchLibrary(admin, names, guard.userId, { kind, topic, mine: p.get('mine') === '1', search: p.get('q') ?? '', offset }))
+  } catch (e) {
+    return dbErrorResponse(e as { code?: string; message?: string }, 'load questions')
+  }
 }
 
 export async function POST(request: Request) {

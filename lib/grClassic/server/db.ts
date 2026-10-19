@@ -84,6 +84,52 @@ export async function listQuestions(supabase: SupabaseClient, names: Map<string,
   return rows.map((r) => rowToQuestion(r, names, { userId, authors }))
 }
 
+// ---- The Question Library page: one page at a time ----
+// The library is far too big (tens of thousands of questions) to send to
+// the browser at once. These read with the server's client: the library
+// is readable by every teacher anyway, and it spares a permission check on
+// every row. Callers must have checked that a teacher is asking.
+
+export const LIBRARY_PAGE_SIZE = 50
+
+export interface LibraryQuery {
+  kind: Question['kind']
+  topic: string // '' = all topics, 'none' = questions without a topic, or a topic id
+  mine: boolean
+  search: string
+  offset: number
+}
+
+// Text a teacher typed, made safe for a PostgREST filter (no wildcards,
+// quotes or separators).
+export function cleanSearch(text: string): string {
+  return text.normalize('NFC').replace(/[%_*,()"'\\:.]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
+}
+
+export async function searchLibrary(admin: SupabaseClient, names: Map<string, string>, userId: string, q: LibraryQuery): Promise<{ questions: Question[]; total: number }> {
+  let query = admin.from('sms_grc_questions').select(QUESTION_COLUMNS, { count: 'exact' }).eq('kind', q.kind).is('archived_at', null)
+  if (q.topic === 'none') query = query.is('category_id', null)
+  else if (q.topic) query = query.eq('category_id', q.topic)
+  if (q.mine) query = query.eq('owner_id', userId)
+  const s = cleanSearch(q.search)
+  if (s) query = query.or(`prompt.ilike."%${s}%",prompt_en.ilike."%${s}%"`)
+  const { data, count, error } = await query
+    .order('updated_at', { ascending: false })
+    .order('id')
+    .range(q.offset, q.offset + LIBRARY_PAGE_SIZE - 1)
+  if (error) throw error
+  const rows = (data ?? []) as QuestionRow[]
+  const authors = await teacherNames(admin, Array.from(new Set(rows.map((r) => r.owner_id).filter((id) => id !== userId))))
+  return { questions: rows.map((r) => rowToQuestion(r, names, { userId, authors })), total: count ?? rows.length }
+}
+
+// How many questions of each kind (the library tabs).
+export async function libraryKindCounts(admin: SupabaseClient): Promise<Record<Question['kind'], number>> {
+  const kinds: Question['kind'][] = ['choice', 'match', 'order']
+  const counts = await Promise.all(kinds.map((k) => admin.from('sms_grc_questions').select('id', { count: 'exact', head: true }).eq('kind', k).is('archived_at', null)))
+  return { choice: counts[0].count ?? 0, match: counts[1].count ?? 0, order: counts[2].count ?? 0 }
+}
+
 // Teacher names (readable by any signed-in user: the portal teacher directory).
 export async function teacherNames(supabase: SupabaseClient, ids: string[]): Promise<Map<string, string>> {
   if (!ids.length) return new Map()

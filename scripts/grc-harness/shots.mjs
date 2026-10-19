@@ -231,15 +231,18 @@ for (const vp of VIEWPORTS) {
   await flow('shared-library', vp, async () => {
     const { ctx, page } = await open(vp, 'library')
     await page.getByText('by Ms. Priya').first().waitFor()
-    const all = await page.locator('ul.mt-4 > li').count()
+    const all = await page.locator('ul.mt-3 > li').count()
     await shot(page, vp, 'flow-shared-library')
     await page.getByRole('button', { name: 'Only mine' }).click()
-    const mine = await page.locator('ul.mt-4 > li').count()
+    // The server sends the narrowed list.
+    await page.getByText('by Ms. Priya').first().waitFor({ state: 'detached' })
+    const mine = await page.locator('ul.mt-3 > li').count()
     if (!(mine < all)) throw new Error(`"Only mine" did not narrow the list (${all} -> ${mine})`)
     if ((await page.getByText('by Ms. Priya').count()) > 0) throw new Error('"Only mine" still shows another teacher')
     // Any teacher can edit any question; the editor says whose it is.
     await page.getByRole('button', { name: 'All teachers' }).click()
-    const theirs = page.locator('ul.mt-4 > li').filter({ hasText: 'by Ms. Priya' }).first()
+    await page.getByText('by Ms. Priya').first().waitFor()
+    const theirs = page.locator('ul.mt-3 > li').filter({ hasText: 'by Ms. Priya' }).first()
     await theirs.getByRole('button', { name: 'Edit' }).click()
     await page.getByText('Ms. Priya wrote this question').waitFor()
     await shot(page, vp, 'flow-shared-library-edit')
@@ -302,6 +305,20 @@ for (const vp of VIEWPORTS) {
     await page.getByRole('button', { name: /^Import \d+ question/ }).click()
     await page.getByText(/Imported \d+ question/).waitFor()
     await shot(page, vp, 'flow-import-done')
+    await ctx.close()
+  })
+
+  await flow('library-paging', vp, async () => {
+    // A big library arrives one page at a time; search goes to the server.
+    const { ctx, page } = await open(vp, 'library&big=1')
+    const cards = page.locator('ul.mt-3 > li')
+    await page.getByText(/showing 50/).waitFor()
+    if ((await cards.count()) !== 50) throw new Error('first page should show 50')
+    await page.getByRole('button', { name: /^Load more/ }).click()
+    await page.getByText(/showing 100/).waitFor()
+    await page.getByLabel('Search questions').fill('பெரிய கேள்வி 120')
+    await page.getByText(/^1 question match/).waitFor()
+    if ((await cards.count()) !== 1) throw new Error('search should leave one question')
     await ctx.close()
   })
 
