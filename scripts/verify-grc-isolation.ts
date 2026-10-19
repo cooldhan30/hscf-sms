@@ -40,7 +40,7 @@ function onlyQrDependency(file: string): boolean {
 // Approved integration points in the portal (follow-ups, 2026-10-14): the
 // sidebar link, and GameRoom Classic sections on the student Assignments
 // and Grades pages and the teacher Assignments and Gradebook pages.
-const PORTAL_INTEGRATION = ['components/dashboard/roleNav.tsx', 'app/student/assignments/page.tsx', 'app/student/grades/page.tsx', 'app/teacher/assignments/page.tsx', 'app/teacher/gradebook/page.tsx']
+const PORTAL_INTEGRATION = ['components/dashboard/roleNav.tsx', 'app/student/assignments/page.tsx', 'app/student/grades/page.tsx', 'app/teacher/assignments/page.tsx', 'app/teacher/gradebook/page.tsx', 'app/games/page.tsx']
 // ...and the only GameRoom Classic modules those pages may import.
 const PORTAL_ENTRY_POINTS = ['@/components/grClassic/portal/', '@/lib/grClassic/server/portal', '@/lib/grClassic/release']
 
