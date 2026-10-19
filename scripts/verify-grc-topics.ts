@@ -4,6 +4,7 @@
 // Run with: npx tsx scripts/verify-grc-topics.ts
 import { MAX_QUESTIONS, MAX_TOPICS, NO_TOPIC, combineTopics, mergeTopicScores, parsePlayed, parseTopicPlay, pickEvenly, tallyByTopic, topicsTitle, typesFor } from '../lib/grClassic/topicPlay'
 import { repeatsIn, sameQuestionKey, withoutRepeats } from '../lib/grClassic/sameQuestion'
+import { compareTopics, groupTopics, topicPlace } from '../lib/grClassic/topicOrder'
 import type { Question } from '../lib/grClassic/types'
 
 let failures = 0
@@ -164,6 +165,21 @@ const list = [nounA, nounOtherWord, nounSameAnswer, nounA]
 ok(withoutRepeats(list).map((q) => q.id).join() === '1,3', 'repeats are left out, the first of each kept, in order')
 ok(repeatsIn(list).map((q) => q.id).join() === '2,1', 'the repeats are found')
 ok(withoutRepeats([]).length === 0 && repeatsIn([nounA, nounOtherWord]).length === 0, 'no repeats: nothing removed')
+
+// ---- Topics in teaching order ----
+const cases = ['எட்டாம் வேற்றுமை – விளி', 'ஆறாம் வேற்றுமை – அது / உடைய', 'முதல் வேற்றுமை – எழுவாய்', 'நான்காம் வேற்றுமை – கு', 'இரண்டாம் வேற்றுமை – ஐ', 'ஏழாம் வேற்றுமை – கண் / இல் / இடம்', 'மூன்றாம் வேற்றுமை – ஆல் / ஒடு / உடன்', 'ஐந்தாம் வேற்றுமை – இன் / இல் (நீங்கல், ஒப்பு)']
+const grouped = groupTopics(['சொல் பொருள்', 'காலம்', ...cases, 'வல்லினம்', 'பெயர்ச்சொல் வகைகள்', 'திணை', 'உயிர் எழுத்துக்கள்', 'Other questions'], (n) => n, (n) => n === 'Other questions')
+const sectionOf = (name: string) => grouped.find((g) => g.items.includes(name))?.section.id
+ok(grouped.map((g) => g.section.id).join() === 'letters,grammar,words,cases,other', 'sections come in teaching order (empty ones left out)')
+const caseOrder = grouped.find((g) => g.section.id === 'cases')!.items.map((n) => n.split(' ')[0])
+ok(caseOrder.join() === 'முதல்,இரண்டாம்,மூன்றாம்,நான்காம்,ஐந்தாம்,ஆறாம்,ஏழாம்,எட்டாம்', 'the eight cases are together, முதல் to எட்டாம்')
+ok(sectionOf('ஏழாம் வேற்றுமை – கண் / இல் / இடம்') === 'cases', 'a case that mentions இடம் is still a case, not the இடம் topic')
+ok(grouped.find((g) => g.section.id === 'grammar')!.items.join() === 'திணை,காலம்', 'திணை, பால், எண், இடம், காலம் keep their order')
+ok(sectionOf('வல்லினம்') === 'letters' && sectionOf('உயிர் எழுத்துக்கள்') === 'letters', 'letter topics are together')
+ok(sectionOf('பெயர்ச்சொல் வகைகள்') === 'words', 'parts of speech are together')
+ok(grouped[grouped.length - 1].items[grouped[grouped.length - 1].items.length - 1] === 'Other questions', 'questions without a topic come last')
+ok(topicPlace('ஒன்பதாம் வேற்றுமை – புதிது').section === 'cases' && topicPlace('புதிய எழுத்து வகை').section === 'letters', 'a new topic joins its section by name')
+ok(compareTopics('முதல் வேற்றுமை – எழுவாய்', 'இரண்டாம் வேற்றுமை – ஐ') < 0, 'முதல் comes before இரண்டாம்')
 
 console.log(failures ? `${failures} FAILURE(S) of ${checks} checks.` : `PASS: ${checks} checks.`)
 process.exit(failures ? 1 : 0)

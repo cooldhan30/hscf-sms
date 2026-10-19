@@ -347,7 +347,7 @@ for (const vp of VIEWPORTS) {
   await flow('teacher-quick', vp, async () => {
     // A quick live game: topic, number of questions, time, class, Start.
     const { ctx, page } = await open(vp, 'teacher-quick')
-    const topicsList = page.getByRole('list', { name: 'Topics' })
+    const topicsList = page.getByRole('group', { name: 'Topics' })
     const cards = topicsList.getByRole('button')
     await cards.nth(0).click()
     await page.locator('#grc-topic-settings').waitFor()
@@ -379,7 +379,7 @@ for (const vp of VIEWPORTS) {
   await flow('topic-untoggle', vp, async () => {
     // Tapping a chosen topic again takes it out of the game.
     const { ctx, page } = await open(vp, 'teacher-quick')
-    const cards = page.getByRole('list', { name: 'Topics' }).getByRole('button')
+    const cards = page.getByRole('group', { name: 'Topics' }).getByRole('button')
     await cards.nth(0).click()
     await cards.nth(1).click()
     await page.getByText('2 topics combined').waitFor()
@@ -407,7 +407,7 @@ for (const vp of VIEWPORTS) {
 
   await flow('student-topics', vp, async () => {
     const { ctx, page } = await open(vp, 'student-topics')
-    const topicsList = page.getByRole('list', { name: 'Topics' })
+    const topicsList = page.getByRole('group', { name: 'Topics' })
     await topicsList.getByRole('button').first().click()
     await page.getByRole('button', { name: '5', exact: true }).click().catch(() => {})
     await page.getByRole('button', { name: '20s' }).click()

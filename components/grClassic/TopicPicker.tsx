@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { FiPlay, FiRadio, FiSend } from 'react-icons/fi'
+import { groupTopics } from '@/lib/grClassic/topicOrder'
 import { MAX_TOPICS, NO_TOPIC, QUESTION_COUNTS, SECONDS_PER_QUESTION, combineTopics, typesFor, type TopicSummary } from '@/lib/grClassic/topicPlay'
 import type { GameType, TeacherClass } from '@/lib/grClassic/types'
 import { grcApi } from './teacher/api'
@@ -76,33 +77,42 @@ export function TopicPicker({ topics, mode, classes = [] }: { topics: TopicSumma
           {mode === 'host' ? 'The question library is empty — add questions in the Question Library first.' : 'No topics yet — your teachers are adding questions.'}
         </p>
       ) : (
-        <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Topics">
-          {topics.map((t) => {
-            const selected = picked.includes(t.id)
-            return (
-              <li key={t.id}>
-                <button
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => toggle(t)}
-                  className={`flex h-full w-full flex-col items-start gap-2 rounded-3xl p-4 text-left ring-2 transition hover:-translate-y-0.5 ${selected ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-900 ring-slate-200 hover:ring-slate-400'}`}
-                >
-                  <span className="flex w-full items-start gap-2">
-                    <span className={`min-w-0 flex-1 text-lg font-extrabold leading-snug ${t.id === NO_TOPIC ? 'italic' : ''}`}>{t.name}</span>
-                    <span aria-hidden className={`grid h-6 w-6 shrink-0 place-items-center rounded-md text-sm font-black ${selected ? 'bg-white text-slate-900' : 'ring-2 ring-slate-300'}`}>{selected ? '✓' : ''}</span>
-                  </span>
-                  <span className="flex flex-wrap gap-1.5">
-                    {typesFor(t).map((g) => (
-                      <span key={g} className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${selected ? 'bg-white/15 text-white' : TYPE_META[g].soft}`}>
-                        {t.counts[g]} · {TYPE_META[g].label}
-                      </span>
-                    ))}
-                  </span>
-                </button>
-              </li>
-            )
-          })}
-        </ul>
+        <div role="group" aria-label="Topics" className="mt-6 space-y-6">
+          {groupTopics(topics, (t) => t.name, (t) => t.id === NO_TOPIC).map(({ section, items }) => (
+            <section key={section.id} aria-labelledby={`grc-topics-${section.id}`}>
+              <h2 id={`grc-topics-${section.id}`} className="mb-2 text-sm font-extrabold uppercase tracking-wide text-slate-500">
+                {section.title}
+              </h2>
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {items.map((t) => {
+                  const selected = picked.includes(t.id)
+                  return (
+                    <li key={t.id}>
+                      <button
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => toggle(t)}
+                        className={`flex h-full w-full flex-col items-start gap-2 rounded-3xl p-4 text-left ring-2 transition hover:-translate-y-0.5 ${selected ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-900 ring-slate-200 hover:ring-slate-400'}`}
+                      >
+                        <span className="flex w-full items-start gap-2">
+                          <span className={`min-w-0 flex-1 text-lg font-extrabold leading-snug ${t.id === NO_TOPIC ? 'italic' : ''}`}>{t.name}</span>
+                          <span aria-hidden className={`grid h-6 w-6 shrink-0 place-items-center rounded-md text-sm font-black ${selected ? 'bg-white text-slate-900' : 'ring-2 ring-slate-300'}`}>{selected ? '✓' : ''}</span>
+                        </span>
+                        <span className="flex flex-wrap gap-1.5">
+                          {typesFor(t).map((g) => (
+                            <span key={g} className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${selected ? 'bg-white/15 text-white' : TYPE_META[g].soft}`}>
+                              {t.counts[g]} · {TYPE_META[g].label}
+                            </span>
+                          ))}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
       )}
 
       {topic && (

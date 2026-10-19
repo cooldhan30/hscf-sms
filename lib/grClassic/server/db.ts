@@ -1,9 +1,9 @@
 import 'server-only'
 import { createHash } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { STARTER_CATEGORIES } from '../categories'
 import type { Category, Difficulty, Game, GameSummary, GameType, Question } from '../types'
 import { repeatsIn, withoutRepeats } from '../sameQuestion'
+import { compareTopics } from '../topicOrder'
 import type { ValidQuestion } from '../validateQuestion'
 
 // Reads and writes for the GameRoom Classic question library. Every call
@@ -45,13 +45,8 @@ export function questionRow(ownerId: string, q: ValidQuestion) {
 export async function listCategories(supabase: SupabaseClient, userId: string): Promise<Category[]> {
   const { data } = await supabase.from('sms_grc_categories').select('id, name, owner_id')
   const rows = (data ?? []) as { id: string; name: string; owner_id: string | null }[]
-  const starterOrder = (name: string) => {
-    const i = STARTER_CATEGORIES.indexOf(name)
-    return i === -1 ? STARTER_CATEGORIES.length : i
-  }
-  return rows
-    .map((r) => ({ id: r.id, name: r.name, own: r.owner_id === userId }))
-    .sort((a, b) => Number(a.own) - Number(b.own) || starterOrder(a.name) - starterOrder(b.name) || a.name.localeCompare(b.name))
+  // Teaching order (topicOrder.ts), the same everywhere topics are listed.
+  return rows.map((r) => ({ id: r.id, name: r.name, own: r.owner_id === userId })).sort((a, b) => compareTopics(a.name, b.name))
 }
 
 export function categoryNames(categories: Category[]): Map<string, string> {

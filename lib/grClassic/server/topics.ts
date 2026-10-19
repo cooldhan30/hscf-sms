@@ -1,7 +1,7 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { STARTER_CATEGORIES } from '../categories'
 import { withoutRepeats } from '../sameQuestion'
+import { compareTopics } from '../topicOrder'
 import { shuffle } from '../shuffle'
 import { NO_TOPIC, pickEvenly, topicsTitle, type TopicPlay, type TopicSummary } from '../topicPlay'
 import { QUESTION_KIND_FOR_GAME, type GameType, type Question } from '../types'
@@ -64,8 +64,8 @@ export async function topicCatalog(client: SupabaseClient): Promise<TopicSummary
     if (!t) byTopic.set(id, (t = { id, name: id === NO_TOPIC ? 'Other questions' : names.get(id)!, counts: { quiz: 0, match: 0, 'word-builder': 0 } }))
     t.counts[GAME_FOR_KIND[r.kind]]++
   }
-  const order = (t: TopicSummary) => (t.id === NO_TOPIC ? 1e6 : STARTER_CATEGORIES.indexOf(t.name) === -1 ? 1e3 : STARTER_CATEGORIES.indexOf(t.name))
-  return Array.from(byTopic.values()).sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name))
+  // Teaching order (topicOrder.ts); questions without a topic last.
+  return Array.from(byTopic.values()).sort((a, b) => Number(a.id === NO_TOPIC) - Number(b.id === NO_TOPIC) || compareTopics(a.name, b.name))
 }
 
 // Up to `count` random questions of the chosen game type, taken evenly
