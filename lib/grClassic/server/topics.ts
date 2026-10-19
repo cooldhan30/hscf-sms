@@ -13,16 +13,46 @@ import { GrcError } from './studentAssignments'
 
 const GAME_FOR_KIND: Record<QuestionRow['kind'], GameType> = { choice: 'quiz', match: 'match', order: 'word-builder' }
 
+// Supabase returns at most 1000 rows per request, so a whole library (many
+// thousands of questions) is read in pages of 1000, all at once. Only the
+// small columns asked for are read. Up to 100 000 rows.
+const PAGE = 1000
+// The few query-builder methods a filter uses (Supabase's own types are too
+// deep to pass around generically).
+interface Query {
+  eq(column: string, value: unknown): Query
+  is(column: string, value: null): Query
+  in(column: string, values: readonly unknown[]): Query
+  or(filters: string): Query
+}
+type Filter = (q: Query) => Query
+type Page = PromiseLike<{ data: unknown[] | null; error: { message: string } | null; count?: number | null }>
+
+async function allRows<T>(client: SupabaseClient, columns: string, filter: Filter): Promise<T[]> {
+  const counted = filter(client.from('sms_grc_questions').select('id', { count: 'exact', head: true }).is('archived_at', null) as unknown as Query) as unknown as Page
+  const { count, error } = await counted
+  if (error) throw error
+  const pages = Math.min(Math.ceil((count ?? 0) / PAGE), 100)
+  const results = await Promise.all(
+    Array.from({ length: pages }, (_, p) => {
+      const q = filter(client.from('sms_grc_questions').select(columns).is('archived_at', null) as unknown as Query) as unknown as { order(c: string): { range(a: number, b: number): Page } }
+      return q.order('id').range(p * PAGE, p * PAGE + PAGE - 1)
+    })
+  )
+  const rows: T[] = []
+  for (const r of results) {
+    if (r.error) throw r.error
+    rows.push(...((r.data ?? []) as T[]))
+  }
+  return rows
+}
+
 // Every topic that has questions, with how many of each game type.
 export async function topicCatalog(client: SupabaseClient): Promise<TopicSummary[]> {
-  const rows: { kind: QuestionRow['kind']; category_id: string | null }[] = []
-  for (let from = 0; from < 5000; from += 1000) {
-    const { data } = await client.from('sms_grc_questions').select('kind, category_id').is('archived_at', null).order('id').range(from, from + 999)
-    const page = (data ?? []) as typeof rows
-    rows.push(...page)
-    if (page.length < 1000) break
-  }
-  const { data: cats } = await client.from('sms_grc_categories').select('id, name')
+  const [rows, { data: cats }] = await Promise.all([
+    allRows<{ kind: QuestionRow['kind']; category_id: string | null }>(client, 'kind, category_id', (q) => q),
+    client.from('sms_grc_categories').select('id, name'),
+  ])
   const names = new Map(((cats ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]))
 
   const byTopic = new Map<string, TopicSummary>()
@@ -37,24 +67,34 @@ export async function topicCatalog(client: SupabaseClient): Promise<TopicSummary
 }
 
 // Up to `count` random questions of the chosen game type, taken evenly
-// from the chosen topics. The title names the topics ("A + B").
+// from the chosen topics. The title names the topics ("A + B"). Every
+// matching question is a candidate: first only ids and topics are read,
+// then the chosen questions in full.
 export async function pickTopicQuestions(client: SupabaseClient, play: TopicPlay): Promise<{ title: string; questions: Question[] }> {
   const kind = QUESTION_KIND_FOR_GAME[play.type]
   const ids = play.topics.filter((t) => t !== NO_TOPIC)
   const withNone = play.topics.includes(NO_TOPIC)
-  let query = client.from('sms_grc_questions').select(QUESTION_COLUMNS).eq('kind', kind).is('archived_at', null).limit(5000)
   // Ids are checked UUIDs (parseTopicPlay), so they are safe in the filter.
-  if (withNone && ids.length) query = query.or(`category_id.is.null,category_id.in.(${ids.join(',')})`)
-  else query = withNone ? query.is('category_id', null) : query.in('category_id', ids)
-  const { data } = await query
-  const rows = (data ?? []) as QuestionRow[]
-  if (!rows.length) throw new GrcError(play.topics.length > 1 ? 'These topics have no questions for that game type yet.' : 'This topic has no questions for that game type yet.', 404)
+  const filter: Filter = (q) => {
+    const k = q.eq('kind', kind)
+    if (withNone && ids.length) return k.or(`category_id.is.null,category_id.in.(${ids.join(',')})`)
+    return withNone ? k.is('category_id', null) : k.in('category_id', ids)
+  }
+  const candidates = await allRows<{ id: string; category_id: string | null }>(client, 'id, category_id', filter)
+  if (!candidates.length) throw new GrcError(play.topics.length > 1 ? 'These topics have no questions for that game type yet.' : 'This topic has no questions for that game type yet.', 404)
 
-  const { data: cats } = ids.length ? await client.from('sms_grc_categories').select('id, name').in('id', ids) : { data: [] }
+  const groups = play.topics.map((t) => candidates.filter((r) => (r.category_id ?? NO_TOPIC) === t).map((r) => r.id))
+  const chosen = pickEvenly(groups, play.count)
+  const [{ data, error }, { data: cats }] = await Promise.all([
+    client.from('sms_grc_questions').select(QUESTION_COLUMNS).in('id', chosen),
+    ids.length ? client.from('sms_grc_categories').select('id, name').in('id', ids) : Promise.resolve({ data: [] }),
+  ])
+  if (error) throw error
   const names = new Map(((cats ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]))
   const title = topicsTitle(play.topics.map((t) => (t === NO_TOPIC ? 'Other questions' : (names.get(t) ?? 'Topic'))))
-  const groups = play.topics.map((t) => rows.filter((r) => (r.category_id ?? NO_TOPIC) === t))
-  return { title, questions: pickEvenly(groups, play.count).map((r) => rowToQuestion(r, names)) }
+  // Keep the random order pickEvenly chose.
+  const byId = new Map(((data ?? []) as QuestionRow[]).map((r) => [r.id, r]))
+  return { title, questions: chosen.flatMap((id) => (byId.has(id) ? [rowToQuestion(byId.get(id)!, names)] : [])) }
 }
 
 // One library question (not archived), for checking a topic-practice answer.
