@@ -16,7 +16,7 @@ export function PracticeRunner({ gameId, title, type, questions }: { gameId: str
       game={{ title, type }}
       play={{ source: 'remote', base: `/practice/${gameId}`, questions }}
       mode="practice"
-      exit={{ href: '/gr-classic/student#practice' }}
+      exit={{ href: '/gr-classic/student' }}
       onFinished={(results) => {
         // Best effort: a lost progress update never interrupts the child.
         grcApi(`/practice/${gameId}/finish`, { method: 'POST', body: { percent: totals(results).percent } })

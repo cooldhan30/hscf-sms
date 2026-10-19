@@ -35,7 +35,7 @@ export function TeacherDashboard({ games: initialGames, assignments, pick, tab: 
   }
 
   return (
-    <Shell back={{ href: '/gr-classic', label: 'Home' }}>
+    <Shell>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-900">வணக்கம்! 👋</h1>

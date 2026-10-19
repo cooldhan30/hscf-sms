@@ -76,3 +76,63 @@ export function pickEvenly<T>(groups: T[][], n: number, mix: <U>(items: U[]) => 
   }
   return mix(out)
 }
+
+// ---- Play Offline scores per topic ----
+
+// One finished question, as the student's browser reports it (practice
+// only -- never a grade).
+export interface PlayedQuestion {
+  questionId: string
+  correct: number // units right first time
+  total: number // units in the question (1, or the pairs of a match board)
+}
+
+export interface TopicTally {
+  topic: string // a topic id, or NO_TOPIC
+  answered: number
+  correct: number
+  percent: number
+}
+
+// A finished game added up per topic: each question counts towards its
+// own topic (a game can combine topics). topicOf: question id -> topic
+// id or null; questions it doesn't know are left out.
+export function tallyByTopic(played: PlayedQuestion[], topicOf: Map<string, string | null>): TopicTally[] {
+  const by = new Map<string, { answered: number; correct: number }>()
+  for (const p of played) {
+    if (!topicOf.has(p.questionId)) continue
+    const key = topicOf.get(p.questionId) ?? NO_TOPIC
+    const t = by.get(key) ?? { answered: 0, correct: 0 }
+    t.answered += p.total
+    t.correct += Math.min(p.correct, p.total)
+    by.set(key, t)
+  }
+  return Array.from(by, ([topic, t]) => ({ topic, ...t, percent: t.answered ? Math.round((100 * t.correct) / t.answered) : 0 }))
+}
+
+// One topic on the student's dashboard (sms_grc_topic_progress).
+export interface TopicScore {
+  topic: string // a topic id, or NO_TOPIC
+  name: string
+  plays: number
+  answered: number
+  correct: number
+  bestPercent: number
+  lastPercent: number
+  lastPlayedAt: string
+}
+
+// What the student's browser may send when a game ends.
+export function parsePlayed(input: unknown): PlayedQuestion[] | null {
+  if (!Array.isArray(input) || input.length === 0 || input.length > MAX_QUESTIONS) return null
+  const out: PlayedQuestion[] = []
+  for (const r of input) {
+    const q = r as Record<string, unknown>
+    if (typeof q?.questionId !== 'string' || !UUID.test(q.questionId)) return null
+    const total = Number(q.total)
+    const correct = Number(q.correct)
+    if (!Number.isInteger(total) || total < 1 || total > 20 || !Number.isInteger(correct) || correct < 0 || correct > total) return null
+    out.push({ questionId: q.questionId, correct, total })
+  }
+  return out
+}

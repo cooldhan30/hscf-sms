@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { FiCheckCircle, FiX, FiXCircle } from 'react-icons/fi'
 import { formatDate } from '@/lib/grClassic/format'
 import { encouragement, starsFor, totals } from '@/lib/grClassic/scoring'
@@ -118,12 +118,21 @@ function Player({ game, play, mode, assignment, exit, onFinished }: { game: Game
     document.getElementById('grc-question')?.focus()
   }, [index, round])
 
+  // Next acts once per answer. The feedback bar's button stays tappable for
+  // a moment while it animates away; a second tap must not record the
+  // same answer again and skip the next question. So it reads the live
+  // answer (ref), not the one from when the button was drawn.
+  const live = useRef({ pending, results })
+  live.current = { pending, results }
   const next = () => {
-    if (!pending) return
-    const all = [...results, pending]
+    const { pending: p, results: done } = live.current
+    if (!p) return
+    live.current = { pending: null, results: [...done, p] }
+    const all = live.current.results
     setResults(all)
     setPending(null)
-    if (!last) setIndex((i) => i + 1)
+    const at = questions.findIndex((x) => x.id === p.questionId)
+    if (at < questions.length - 1) setIndex(at + 1)
     else {
       setPhase(graded ? 'confirm' : 'done')
       if (!graded) onFinished?.(all)
@@ -197,13 +206,13 @@ function Player({ game, play, mode, assignment, exit, onFinished }: { game: Game
           <Card className={`mt-5 p-5 sm:p-8 ${pending?.timedOut ? 'pointer-events-none opacity-50' : ''}`}>
             <QuestionView key={`${round}-${q.id}`} question={q} session={session} reveal={!graded} hints={mode === 'practice'} onAnswered={answered} />
           </Card>
-          <AnimatePresence>
-            {pending && (
-              <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="sticky bottom-3 z-30 mt-5">
-                <Feedback result={pending} graded={graded} explanation={pending.explanation} onNext={next} last={last} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Slides in for each answer and goes at once on Next: no fading
+              copy of the button lingers to be tapped by mistake. */}
+          {pending && (
+            <motion.div key={`${round}-${pending.questionId}`} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="sticky bottom-3 z-30 mt-5">
+              <Feedback result={pending} graded={graded} explanation={pending.explanation} onNext={next} last={last} />
+            </motion.div>
+          )}
         </>
       )}
 

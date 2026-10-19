@@ -32,11 +32,11 @@ import { ASSIGNMENTS, CLASSES, GAMES, LIBRARY, assignmentById, className, gameBy
 import { AssignmentRunner } from '@/components/grClassic/student/AssignmentRunner'
 import { totals } from '@/lib/grClassic/scoring'
 import { validateQuestion, type QuestionInput, type ValidQuestion } from '@/lib/grClassic/validateQuestion'
-import type { AssignmentSummary, Category, GameSummary, PracticeGame, Question, QuestionResult } from '@/lib/grClassic/types'
+import type { AssignmentSummary, Category, GameSummary, Question, QuestionResult } from '@/lib/grClassic/types'
 import { PracticeRunner } from '@/components/grClassic/student/PracticeRunner'
 import { TopicPracticeRunner } from '@/components/grClassic/student/TopicPracticeRunner'
 import { TopicPicker } from '@/components/grClassic/TopicPicker'
-import { NO_TOPIC, type TopicSummary } from '@/lib/grClassic/topicPlay'
+import { NO_TOPIC, type TopicScore, type TopicSummary } from '@/lib/grClassic/topicPlay'
 import { PracticeStatsView } from '@/components/grClassic/teacher/PracticeStatsView'
 import { StudentGameScores, StudentGamesSection, TeacherGamesSection } from '@/components/grClassic/portal/PortalGames'
 
@@ -64,8 +64,18 @@ const topics: TopicSummary[] = Array.from(
     }, new Map<string, TopicSummary>())
     .values()
 )
+// A student's Play Offline scores per topic, as topicScores() sends them.
+const topicScoresSample: TopicScore[] = topics.slice(0, 4).map((t, i) => ({
+  topic: t.id,
+  name: t.name,
+  plays: 4 - i,
+  answered: 20 - 3 * i,
+  correct: [19, 13, 7, 3][i],
+  bestPercent: [100, 80, 50, 20][i],
+  lastPercent: [90, 80, 40, 20][i],
+  lastPlayedAt: new Date(Date.now() - i * 86400_000).toISOString(),
+}))
 const summaries: GameSummary[] = empty ? [] : GAMES.map((g, i) => ({ id: g.id, title: g.title, type: g.type, category: g.category, questionCount: g.questions.length, updatedAt: g.updatedAt, practice: i !== 1 }))
-const practiceList: PracticeGame[] = empty ? [] : GAMES.map((g, i) => ({ id: g.id, title: g.title, type: g.type, questionCount: g.questions.length, teacher: 'Ms. Vani', bestPercent: i === 0 ? 80 : i === 2 ? 45 : null, plays: i === 0 || i === 2 ? 2 : 0 }))
 
 function toQuestion(v: ValidQuestion, id: string): Question {
   const base = { id, categoryId: v.categoryId, category: categories.find((c) => c.id === v.categoryId)?.name ?? '', prompt: v.prompt, promptEn: v.promptEn ?? undefined, difficulty: v.difficulty }
@@ -118,6 +128,10 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (path === '/assignments/topic' && method === 'POST') {
     ;(window as unknown as { __topicAssigned: unknown }).__topicAssigned = body
     return reply({ id: 'a-uyir' }, 201)
+  }
+  if (path === '/practice/topic/finish' && method === 'POST') {
+    ;(window as unknown as { __topicFinished: unknown }).__topicFinished = body
+    return reply({ saved: true })
   }
   const topicCheck = path.match(/^\/practice\/topic\/(check|hint)$/)
   if (topicCheck) {
@@ -252,7 +266,7 @@ export const SCREENS: Record<string, () => ReactNode> = {
       <TeacherGamesSection items={assignmentSummaries} />
     </div>
   ),
-  student: () => <StudentHome name="Kavin" assignments={empty ? [] : studentAssignments()} practice={practiceList} />,
+  student: () => <StudentHome name="Kavin" assignments={empty ? [] : studentAssignments()} scores={empty ? [] : topicScoresSample} />,
   practice: () => <PracticeRunner gameId="g-uyir-quiz" title={g('g-uyir-quiz').title} type="quiz" questions={g('g-uyir-quiz').questions.map(toPlayQuestion)} />,
   'student-assignments': () => <AssignmentsBoard items={empty ? [] : studentAssignments()} />,
   runner: () => <AssignmentRunner assignmentId="a-run" />,

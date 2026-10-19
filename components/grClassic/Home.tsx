@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { FiArrowRight, FiBookOpen, FiClipboard, FiEdit3, FiGrid, FiPlayCircle, FiPlusCircle, FiRadio, FiSend, FiBarChart2, FiUser, FiUsers } from 'react-icons/fi'
+import { FiArrowRight, FiBookOpen, FiClipboard, FiGrid, FiPlayCircle, FiPlusCircle, FiRadio, FiSend, FiBarChart2, FiUser, FiUsers } from 'react-icons/fi'
 import type { IconType } from 'react-icons'
 import { Logo, Shell } from './ui'
 
@@ -19,7 +19,7 @@ const TEACHER: Action[] = [
 const STUDENT: Action[] = [
   { href: '/gr-classic/join', label: 'Join Live Game', icon: FiPlayCircle },
   { href: '/gr-classic/student/assignments', label: 'My Assignments', icon: FiBookOpen },
-  { href: '/gr-classic/student#practice', label: 'Practice Games', icon: FiEdit3 },
+  { href: '/gr-classic/student/topics', label: 'Play Offline', icon: FiGrid },
 ]
 
 export function Home() {

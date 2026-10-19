@@ -66,9 +66,9 @@ export function TopicPicker({ topics, mode, classes = [] }: { topics: TopicSumma
 
   return (
     <Shell back={{ href: mode === 'host' ? '/gr-classic/teacher' : '/gr-classic/student', label: 'Back' }} width="max-w-5xl">
-      <h1 className="text-3xl font-black text-slate-900">{mode === 'host' ? 'Quick live game' : 'Play by topic'}</h1>
+      <h1 className="text-3xl font-black text-slate-900">{mode === 'host' ? 'Quick live game' : 'Play offline'}</h1>
       <p className="font-semibold text-slate-600">
-        {mode === 'host' ? 'Pick one or more topics, choose how many questions and the time for each, and start — the questions come from the shared library.' : 'Pick one or more topics, choose how many questions and the time for each, and play!'}
+        {mode === 'host' ? 'Pick one or more topics, choose how many questions and the time for each, and start — the questions come from the shared library.' : 'Play on your own: pick one or more topics, choose how many questions and the time for each, and play!'}
       </p>
 
       {topics.length === 0 ? (

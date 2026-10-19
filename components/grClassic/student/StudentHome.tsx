@@ -1,25 +1,28 @@
 'use client'
 
 import Link from 'next/link'
-import { FiBookOpen, FiEdit3, FiGrid, FiPlayCircle } from 'react-icons/fi'
+import { FiBookOpen, FiGrid, FiPlayCircle } from 'react-icons/fi'
 import type { IconType } from 'react-icons'
-import { starsFor } from '@/lib/grClassic/scoring'
-import type { PracticeGame, StudentAssignment } from '@/lib/grClassic/types'
-import { Card, SectionTitle, Shell, TYPE_META, buttonClass } from '../ui'
+import type { TopicScore } from '@/lib/grClassic/topicPlay'
+import type { StudentAssignment } from '@/lib/grClassic/types'
+import { SectionTitle, Shell } from '../ui'
 import { AssignmentCard } from './AssignmentsBoard'
+import { TopicScores } from './TopicScores'
 
-export function StudentHome({ name, assignments, practice }: { name: string; assignments: StudentAssignment[]; practice: PracticeGame[] }) {
+// The student home. Play Offline: any topics of the question library, on
+// your own (not a teacher's live game), with your own number of questions
+// and time; the dashboard below shows the scores per topic.
+export function StudentHome({ name, assignments, scores }: { name: string; assignments: StudentAssignment[]; scores: TopicScore[] }) {
   const open = assignments.filter((a) => a.status === 'todo' || a.status === 'in-progress')
   return (
-    <Shell back={{ href: '/gr-classic', label: 'Home' }}>
+    <Shell>
       <h1 className="text-3xl font-black text-slate-900">வணக்கம், {name}! 👋</h1>
       <p className="font-semibold text-slate-600">What do you want to do?</p>
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-5 grid gap-4 sm:grid-cols-3">
         <BigTile href="/gr-classic/join" icon={FiPlayCircle} title="Join Live Game" ta="நேரலை விளையாட்டு" cls="from-indigo-600 to-violet-500 shadow-[0_8px_0_0_#3730a3]" />
-        <BigTile href="/gr-classic/student/topics" icon={FiGrid} title="Play by Topic" ta="தலைப்பு விளையாட்டு" cls="from-fuchsia-700 to-pink-600 shadow-[0_8px_0_0_#701a75]" />
         <BigTile href="/gr-classic/student/assignments" icon={FiBookOpen} title="My Assignments" ta="என் பணிகள்" cls="from-teal-600 to-emerald-500 shadow-[0_8px_0_0_#115e59]" badge={open.length ? `${open.length} to do` : undefined} />
-        <BigTile href="#practice" icon={FiEdit3} title="Practice Games" ta="பயிற்சி" cls="from-rose-600 to-orange-500 shadow-[0_8px_0_0_#9f1239]" />
+        <BigTile href="/gr-classic/student/topics" icon={FiGrid} title="Play Offline" ta="தனியாக விளையாடு" cls="from-rose-600 to-orange-500 shadow-[0_8px_0_0_#9f1239]" />
       </div>
 
       {open.length > 0 && (
@@ -43,45 +46,7 @@ export function StudentHome({ name, assignments, practice }: { name: string; ass
         </>
       )}
 
-      <section id="practice" className="scroll-mt-4">
-        <SectionTitle>Practice games</SectionTitle>
-        <p className="-mt-2 mb-3 text-sm font-semibold text-slate-500">Play any time, as often as you like. Practice scores are just for you.</p>
-        {practice.length === 0 && <p className="rounded-3xl border-2 border-dashed border-slate-300 p-8 text-center font-bold text-slate-500">No practice games yet — your teachers’ games will appear here.</p>}
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {practice.map((g) => {
-            const m = TYPE_META[g.type]
-            const Icon = m.icon
-            return (
-              <li key={g.id}>
-                <Card className="flex h-full items-center gap-4 p-4">
-                  <span className={`grid h-14 w-14 shrink-0 place-items-center rounded-2xl ${m.band} ${m.bandText}`}>
-                    <Icon aria-hidden className="h-7 w-7" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-extrabold leading-snug text-slate-900">{g.title}</p>
-                    <p className="text-xs font-semibold text-slate-500">
-                      {m.label} · {g.teacher}
-                    </p>
-                    {g.bestPercent !== null && (
-                      <p className="mt-0.5 text-sm" aria-label={`Best score ${g.bestPercent} percent, ${starsFor(g.bestPercent)} of 3 stars`}>
-                        {[0, 1, 2].map((i) => (
-                          <span key={i} aria-hidden className={i < starsFor(g.bestPercent!) ? '' : 'opacity-20 grayscale'}>
-                            ⭐
-                          </span>
-                        ))}
-                        <span className="ml-1 font-bold text-slate-600">{g.bestPercent}%</span>
-                      </p>
-                    )}
-                  </div>
-                  <Link href={`/gr-classic/practice/${g.id}`} className={buttonClass('primary', 'sm')} aria-label={`${g.plays ? 'Play again' : 'Play'}: ${g.title}`}>
-                    {g.plays ? 'Again' : 'Play'}
-                  </Link>
-                </Card>
-              </li>
-            )
-          })}
-        </ul>
-      </section>
+      <TopicScores scores={scores} />
     </Shell>
   )
 }

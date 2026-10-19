@@ -409,6 +409,41 @@ for (const vp of VIEWPORTS) {
     await ctx.close()
   })
 
+  await flow('student-home', vp, async () => {
+    // No more practice games: Play Offline, and the scores per topic.
+    const { ctx, page } = await open(vp, 'student')
+    if ((await page.getByText(/Practice games/i).count()) > 0) throw new Error('student home still shows Practice games')
+    const offline = await page.getByRole('link', { name: /Play Offline/ }).getAttribute('href')
+    if (!offline.endsWith('/gr-classic/student/topics')) throw new Error('Play Offline goes to ' + offline)
+    const cards = page.getByRole('list', { name: 'Scores by topic' }).getByRole('listitem')
+    if ((await cards.count()) !== 4) throw new Error('expected 4 topics on the dashboard')
+    await page.getByText('Topics played').waitFor()
+    await page.getByRole('progressbar').first().waitFor()
+    await shot(page, vp, 'flow-student-home')
+    await ctx.close()
+    const empty = await open(vp, 'student&empty=1')
+    await empty.page.getByText('and your scores will show here').waitFor()
+    await empty.ctx.close()
+  })
+
+  await flow('topic-finish', vp, async () => {
+    // Finishing a Play Offline game saves the score per question for the dashboard.
+    const { ctx, page } = await open(vp, 'topic-practice&seconds=60')
+    const total = Number((await page.getByText(/^\d+ \/ \d+$/).first().textContent()).split('/')[1])
+    for (let i = 0; i < total; i++) {
+      await page.getByRole('button', { name: /^Answer 1/ }).click()
+      // A double tap on Next moves on once: no question is skipped or counted twice.
+      const nextButton = page.getByRole('button', { name: /Next →|See my score/ })
+      if (i === 0) await nextButton.dblclick()
+      else await nextButton.click()
+    }
+    await page.getByRole('button', { name: 'Play again' }).waitFor()
+    await page.waitForTimeout(400)
+    const sent = await page.evaluate(() => window.__topicFinished)
+    if (!sent || sent.results?.length !== total || sent.results.some((r) => !r.questionId || r.total !== 1 || ![0, 1].includes(r.correct))) throw new Error(`finish sent the wrong results (expected ${total}): ` + JSON.stringify(sent))
+    await ctx.close()
+  })
+
   await flow('topic-practice-timer', vp, async () => {
     // Time per question: answering in time scores; running out moves on.
     const { ctx, page } = await open(vp, 'topic-practice&seconds=10')

@@ -2,7 +2,7 @@
 // teacher or student may ask for when starting a game or an assignment
 // from one or more topics, and how questions are drawn from them.
 // Run with: npx tsx scripts/verify-grc-topics.ts
-import { MAX_QUESTIONS, MAX_TOPICS, NO_TOPIC, combineTopics, parseTopicPlay, pickEvenly, topicsTitle, typesFor } from '../lib/grClassic/topicPlay'
+import { MAX_QUESTIONS, MAX_TOPICS, NO_TOPIC, combineTopics, parsePlayed, parseTopicPlay, pickEvenly, tallyByTopic, topicsTitle, typesFor } from '../lib/grClassic/topicPlay'
 
 let failures = 0
 let checks = 0
@@ -80,6 +80,42 @@ ok(pickEvenly([big, small], 500, keep).length === 103, 'never more than the topi
 ok(pickEvenly([[], small], 2, keep).length === 2, 'an empty topic is skipped')
 const randomDraw = pickEvenly([big, small], 6)
 ok(randomDraw.length === 6 && randomDraw.filter((x) => x.startsWith('b')).length === 3, 'with shuffling, the mix is still even')
+
+// ---- Play Offline scores per topic ----
+const q = (n: number) => `${String(n).padStart(8, '0')}-aaaa-4bbb-8ccc-dddddddddddd`
+const topicOf = new Map<string, string | null>([
+  [q(1), A],
+  [q(2), A],
+  [q(3), B],
+  [q(4), null],
+])
+const tally = tallyByTopic(
+  [
+    { questionId: q(1), correct: 1, total: 1 },
+    { questionId: q(2), correct: 0, total: 1 },
+    { questionId: q(3), correct: 3, total: 4 }, // a match board: 3 of 4 pairs
+    { questionId: q(4), correct: 1, total: 1 },
+    { questionId: q(9), correct: 1, total: 1 }, // not in the library: left out
+  ],
+  topicOf
+)
+const byTopic = new Map(tally.map((t) => [t.topic, t]))
+ok(tally.length === 3, 'a combined game is added up per topic')
+ok(byTopic.get(A)?.answered === 2 && byTopic.get(A)?.correct === 1 && byTopic.get(A)?.percent === 50, 'each topic gets its own score')
+ok(byTopic.get(B)?.answered === 4 && byTopic.get(B)?.percent === 75, 'match pairs count one by one')
+ok(byTopic.get(NO_TOPIC)?.percent === 100, 'questions with no topic count as their own topic')
+ok(!tally.some((t) => t.answered === 0), 'questions not in the library are left out')
+ok(tallyByTopic([{ questionId: q(1), correct: 5, total: 1 }], topicOf)[0].correct === 1, 'never more right than asked')
+ok(tallyByTopic([], topicOf).length === 0, 'an empty game adds nothing')
+
+ok(parsePlayed([{ questionId: q(1), correct: 1, total: 1 }])?.length === 1, 'a finished game is accepted')
+ok(parsePlayed([]) === null, 'an empty game is refused')
+ok(parsePlayed('x') === null, 'not a list is refused')
+ok(parsePlayed([{ questionId: 'x', correct: 1, total: 1 }]) === null, 'a made-up question is refused')
+ok(parsePlayed([{ questionId: q(1), correct: 2, total: 1 }]) === null, 'more right than the question has is refused')
+ok(parsePlayed([{ questionId: q(1), correct: -1, total: 1 }]) === null, 'a negative score is refused')
+ok(parsePlayed([{ questionId: q(1), correct: 1, total: 0 }]) === null, 'a question with nothing in it is refused')
+ok(parsePlayed(Array.from({ length: MAX_QUESTIONS + 1 }, () => ({ questionId: q(1), correct: 1, total: 1 }))) === null, 'more questions than a game can have is refused')
 
 console.log(failures ? `${failures} FAILURE(S) of ${checks} checks.` : `PASS: ${checks} checks.`)
 process.exit(failures ? 1 : 0)
