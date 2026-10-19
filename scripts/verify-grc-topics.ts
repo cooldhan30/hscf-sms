@@ -2,7 +2,7 @@
 // teacher or student may ask for when starting a game or an assignment
 // from one or more topics, and how questions are drawn from them.
 // Run with: npx tsx scripts/verify-grc-topics.ts
-import { MAX_QUESTIONS, MAX_TOPICS, NO_TOPIC, combineTopics, parsePlayed, parseTopicPlay, pickEvenly, tallyByTopic, topicsTitle, typesFor } from '../lib/grClassic/topicPlay'
+import { MAX_QUESTIONS, MAX_TOPICS, NO_TOPIC, combineTopics, mergeTopicScores, parsePlayed, parseTopicPlay, pickEvenly, tallyByTopic, topicsTitle, typesFor } from '../lib/grClassic/topicPlay'
 
 let failures = 0
 let checks = 0
@@ -116,6 +116,32 @@ ok(parsePlayed([{ questionId: q(1), correct: 2, total: 1 }]) === null, 'more rig
 ok(parsePlayed([{ questionId: q(1), correct: -1, total: 1 }]) === null, 'a negative score is refused')
 ok(parsePlayed([{ questionId: q(1), correct: 1, total: 0 }]) === null, 'a question with nothing in it is refused')
 ok(parsePlayed(Array.from({ length: MAX_QUESTIONS + 1 }, () => ({ questionId: q(1), correct: 1, total: 1 }))) === null, 'more questions than a game can have is refused')
+
+// ---- The dashboard: Play Offline + live games + assignments ----
+const day = (d: number) => new Date(Date.UTC(2026, 9, d, 12)).toISOString()
+const merged = mergeTopicScores(
+  // Play Offline, as stored (already per topic); the database writes dates its own way.
+  [{ topic: A, plays: 3, answered: 10, correct: 6, bestPercent: 80, lastPercent: 60, lastPlayedAt: '2026-10-05 12:00:00+00' }],
+  [
+    { source: 'live', at: day(7), tallies: [{ topic: A, answered: 5, correct: 5, percent: 100 }, { topic: B, answered: 4, correct: 1, percent: 25 }] },
+    { source: 'assignment', at: day(9), tallies: [{ topic: A, answered: 5, correct: 2, percent: 40 }] },
+    { source: 'assignment', at: day(8), tallies: [{ topic: B, answered: 0, correct: 0, percent: 0 }] }, // nothing answered: ignored
+  ],
+  (t) => (t === A ? 'உயிர்' : 'திணை')
+)
+const mA = merged.find((m) => m.topic === A)!
+const mB = merged.find((m) => m.topic === B)!
+ok(merged.length === 2, 'one row per topic, whatever the source')
+ok(mA.answered === 20 && mA.correct === 13, 'right / answered add up across offline, live and assignments')
+ok(mA.plays === 5 && mA.playsBy.offline === 3 && mA.playsBy.live === 1 && mA.playsBy.assignment === 1, 'plays are counted per source')
+ok(mA.bestPercent === 100, 'best is the best single game, from any source')
+ok(mA.lastPercent === 40 && mA.lastPlayedAt === day(9), 'last is the most recent game (an assignment here)')
+ok(mB.plays === 1 && mB.playsBy.assignment === 0, 'a game with nothing answered in a topic does not count')
+ok(merged[0].topic === A, 'the most recently played topic comes first')
+ok(mA.name === 'உயிர்' && mB.name === 'திணை', 'topics get their names')
+const offlineOnly = mergeTopicScores([{ topic: A, plays: 1, answered: 1, correct: 1, bestPercent: 100, lastPercent: 100, lastPlayedAt: '2026-10-20 08:00:00+00' }], [{ source: 'live', at: day(7), tallies: [{ topic: A, answered: 1, correct: 0, percent: 0 }] }], () => 'x')
+ok(offlineOnly[0].lastPercent === 100, 'dates written differently (database vs browser) still compare as times')
+ok(mergeTopicScores([], [], () => 'x').length === 0, 'nothing played: an empty dashboard')
 
 console.log(failures ? `${failures} FAILURE(S) of ${checks} checks.` : `PASS: ${checks} checks.`)
 process.exit(failures ? 1 : 0)

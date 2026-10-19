@@ -6,8 +6,8 @@ import { starsFor } from '@/lib/grClassic/scoring'
 import type { TopicScore } from '@/lib/grClassic/topicPlay'
 import { Card, ProgressBar, SectionTitle } from '../ui'
 
-// The student's own dashboard: how they are doing in each topic they have
-// played in Play Offline. Practice only -- just for them, never a grade.
+// The student's own dashboard: how they are doing in each topic, from
+// everything they played -- Play Offline, live games and assignments.
 export function TopicScores({ scores }: { scores: TopicScore[] }) {
   const answered = scores.reduce((n, s) => n + s.answered, 0)
   const correct = scores.reduce((n, s) => n + s.correct, 0)
@@ -27,7 +27,7 @@ export function TopicScores({ scores }: { scores: TopicScore[] }) {
 
       {scores.length === 0 ? (
         <p className="rounded-3xl border-2 border-dashed border-slate-300 p-8 text-center font-bold text-slate-500">
-          Play a topic in{' '}
+          Play a live game, an assignment or a topic in{' '}
           <Link href="/gr-classic/student/topics" className="text-rose-700 underline underline-offset-2">
             Play Offline
           </Link>{' '}
@@ -70,7 +70,10 @@ export function TopicScores({ scores }: { scores: TopicScore[] }) {
                     <div>
                       <ProgressBar value={accuracy} max={100} label={`${s.name}: ${accuracy}% right overall`} />
                       <p className="mt-1 text-xs font-semibold text-slate-500">
-                        {s.correct} of {s.answered} right · played {s.plays} {s.plays === 1 ? 'time' : 'times'} · {formatDate(s.lastPlayedAt)}
+                        {s.correct} of {s.answered} right · {formatDate(s.lastPlayedAt)}
+                      </p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                        Played {s.plays} {s.plays === 1 ? 'time' : 'times'}: {sources(s)}
                       </p>
                     </div>
                   </Card>
@@ -82,6 +85,19 @@ export function TopicScores({ scores }: { scores: TopicScore[] }) {
       )}
     </section>
   )
+}
+
+// "2 offline · 1 live · 1 assignment"
+function sources(s: TopicScore): string {
+  const parts = [
+    [s.playsBy.offline, 'offline'],
+    [s.playsBy.live, 'live'],
+    [s.playsBy.assignment, s.playsBy.assignment === 1 ? 'assignment' : 'assignments'],
+  ] as const
+  return parts
+    .filter(([n]) => n > 0)
+    .map(([n, label]) => `${n} ${label}`)
+    .join(' · ')
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

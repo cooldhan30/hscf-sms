@@ -115,11 +115,62 @@ export interface TopicScore {
   topic: string // a topic id, or NO_TOPIC
   name: string
   plays: number
+  playsBy: Record<ScoreSource, number>
   answered: number
   correct: number
   bestPercent: number
   lastPercent: number
   lastPlayedAt: string
+}
+
+// Where a score came from: Play Offline, a live game, or an assignment.
+export type ScoreSource = 'offline' | 'live' | 'assignment'
+
+// Play Offline scores as stored (already added up per topic).
+export interface OfflineTopicRow {
+  topic: string
+  plays: number
+  answered: number
+  correct: number
+  bestPercent: number
+  lastPercent: number
+  lastPlayedAt: string
+}
+
+// One live game or one submitted assignment attempt, added up per topic.
+export interface GameTally {
+  source: 'live' | 'assignment'
+  at: string // when it was played (last answer, or submitted)
+  tallies: TopicTally[]
+}
+
+// The dashboard: Play Offline, live games and assignments together, per
+// topic. Right / answered add up; best is the best single game; last is
+// the most recent game. Topics come back most recently played first.
+export function mergeTopicScores(offline: OfflineTopicRow[], games: GameTally[], nameOf: (topic: string) => string): TopicScore[] {
+  const by = new Map<string, Omit<TopicScore, 'name'>>()
+  const get = (topic: string) => {
+    let s = by.get(topic)
+    if (!s) by.set(topic, (s = { topic, plays: 0, playsBy: { offline: 0, live: 0, assignment: 0 }, answered: 0, correct: 0, bestPercent: 0, lastPercent: 0, lastPlayedAt: '' }))
+    return s
+  }
+  const add = (s: Omit<TopicScore, 'name'>, source: ScoreSource, plays: number, answered: number, correct: number, best: number, last: number, at: string) => {
+    s.plays += plays
+    s.playsBy[source] += plays
+    s.answered += answered
+    s.correct += correct
+    s.bestPercent = Math.max(s.bestPercent, best)
+    // Compared as times: the database and the browser write dates differently.
+    if (!s.lastPlayedAt || Date.parse(at) > Date.parse(s.lastPlayedAt)) {
+      s.lastPlayedAt = new Date(at).toISOString()
+      s.lastPercent = last
+    }
+  }
+  for (const r of offline) add(get(r.topic), 'offline', r.plays, r.answered, r.correct, r.bestPercent, r.lastPercent, r.lastPlayedAt)
+  for (const g of games) for (const t of g.tallies) if (t.answered > 0) add(get(t.topic), g.source, 1, t.answered, t.correct, t.percent, t.percent, g.at)
+  return Array.from(by.values())
+    .map((s) => ({ ...s, name: nameOf(s.topic) }))
+    .sort((a, b) => Date.parse(b.lastPlayedAt) - Date.parse(a.lastPlayedAt))
 }
 
 // What the student's browser may send when a game ends.

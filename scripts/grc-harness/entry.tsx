@@ -69,6 +69,7 @@ const topicScoresSample: TopicScore[] = topics.slice(0, 4).map((t, i) => ({
   topic: t.id,
   name: t.name,
   plays: 4 - i,
+  playsBy: [{ offline: 2, live: 1, assignment: 1 }, { offline: 3, live: 0, assignment: 0 }, { offline: 0, live: 2, assignment: 0 }, { offline: 0, live: 0, assignment: 1 }][i],
   answered: 20 - 3 * i,
   correct: [19, 13, 7, 3][i],
   bestPercent: [100, 80, 50, 20][i],

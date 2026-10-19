@@ -1,8 +1,9 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { NO_TOPIC, tallyByTopic, type PlayedQuestion, type TopicScore } from '../topicPlay'
+import { NO_TOPIC, mergeTopicScores, tallyByTopic, type GameTally, type OfflineTopicRow, type PlayedQuestion, type TopicScore } from '../topicPlay'
 
-// Play Offline scores per topic (migration 101, sms_grc_topic_progress).
+// Scores per topic for the student dashboard: Play Offline (migration 101,
+// sms_grc_topic_progress), live games and assignments.
 // Service-role client, always scoped to the signed-in student. Practice
 // only -- encouragement, never a grade -- so the browser's own count of
 // right answers is used (as for practice games).
@@ -45,23 +46,45 @@ export async function recordTopicPlay(admin: SupabaseClient, studentId: string, 
   if (error) throw error
 }
 
-// The student's dashboard: every topic they have played, most recent first.
-// Empty (not an error) if the table isn't there yet (migration 101).
+// The student's dashboard: every topic they have played -- in Play Offline,
+// live games and (submitted) assignments -- most recent first. Each answer
+// counts towards its question's topic in the library. Play Offline rows
+// are skipped (not an error) if migration 101 isn't applied yet.
 export async function topicScores(admin: SupabaseClient, studentId: string): Promise<TopicScore[]> {
-  const { data, error } = await admin.from('sms_grc_topic_progress').select('topic_key, plays, answered, correct, best_percent, last_percent, last_played_at').eq('student_id', studentId).order('last_played_at', { ascending: false })
-  if (error || !data?.length) return []
-  const rows = data as Row[]
-  const ids = rows.map((r) => r.topic_key).filter((k) => k !== NO_TOPIC)
-  const { data: cats } = ids.length ? await admin.from('sms_grc_categories').select('id, name').in('id', ids) : { data: [] }
+  const [{ data: off }, { data: live }, { data: attempts }] = await Promise.all([
+    admin.from('sms_grc_topic_progress').select('topic_key, plays, answered, correct, best_percent, last_percent, last_played_at').eq('student_id', studentId),
+    admin.from('sms_grc_live_answers').select('session_id, question_id, correct_units, total_units, answered_at').eq('student_id', studentId).order('answered_at', { ascending: false }).limit(5000),
+    admin.from('sms_grc_attempts').select('id, submitted_at').eq('student_id', studentId).eq('status', 'submitted').order('submitted_at', { ascending: false }).limit(500),
+  ])
+  const offline: OfflineTopicRow[] = ((off ?? []) as Row[]).map((r) => ({ topic: r.topic_key, plays: r.plays, answered: r.answered, correct: r.correct, bestPercent: r.best_percent, lastPercent: r.last_percent, lastPlayedAt: r.last_played_at }))
+
+  type Answer = { question_id: string; correct_units: number; total_units: number }
+  const liveRows = (live ?? []) as (Answer & { session_id: string; answered_at: string })[]
+  const tries = (attempts ?? []) as { id: string; submitted_at: string }[]
+  const responses: (Answer & { attempt_id: string })[] = []
+  for (let i = 0; i < tries.length; i += 100) {
+    const { data } = await admin.from('sms_grc_responses').select('attempt_id, question_id, correct_units, total_units').in('attempt_id', tries.slice(i, i + 100).map((t) => t.id)).limit(5000)
+    responses.push(...((data ?? []) as (Answer & { attempt_id: string })[]))
+  }
+
+  // Each question's topic, from the library (archived questions included).
+  const qids = Array.from(new Set([...liveRows, ...responses].map((r) => r.question_id)))
+  const topicOf = new Map<string, string | null>()
+  for (let i = 0; i < qids.length; i += 200) {
+    const { data } = await admin.from('sms_grc_questions').select('id, category_id').in('id', qids.slice(i, i + 200))
+    for (const q of (data ?? []) as { id: string; category_id: string | null }[]) topicOf.set(q.id, q.category_id)
+  }
+  const played = (rows: Answer[]): PlayedQuestion[] => rows.filter((r) => r.total_units > 0).map((r) => ({ questionId: r.question_id, correct: r.correct_units, total: r.total_units }))
+
+  const games: GameTally[] = []
+  const bySession = new Map<string, typeof liveRows>()
+  for (const r of liveRows) bySession.set(r.session_id, [...(bySession.get(r.session_id) ?? []), r])
+  for (const rows of Array.from(bySession.values())) games.push({ source: 'live', at: rows.reduce((m, r) => (Date.parse(r.answered_at) > Date.parse(m) ? r.answered_at : m), rows[0].answered_at), tallies: tallyByTopic(played(rows), topicOf) })
+  for (const t of tries) games.push({ source: 'assignment', at: t.submitted_at, tallies: tallyByTopic(played(responses.filter((r) => r.attempt_id === t.id)), topicOf) })
+
+  const topicIds = new Set<string>([...offline.map((r) => r.topic), ...games.flatMap((g) => g.tallies.map((t) => t.topic))])
+  topicIds.delete(NO_TOPIC)
+  const { data: cats } = topicIds.size ? await admin.from('sms_grc_categories').select('id, name').in('id', Array.from(topicIds)) : { data: [] }
   const names = new Map(((cats ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]))
-  return rows.map((r) => ({
-    topic: r.topic_key,
-    name: r.topic_key === NO_TOPIC ? 'Other questions' : (names.get(r.topic_key) ?? 'A removed topic'),
-    plays: r.plays,
-    answered: r.answered,
-    correct: r.correct,
-    bestPercent: r.best_percent,
-    lastPercent: r.last_percent,
-    lastPlayedAt: r.last_played_at,
-  }))
+  return mergeTopicScores(offline, games, (topic) => (topic === NO_TOPIC ? 'Other questions' : (names.get(topic) ?? 'A removed topic')))
 }
