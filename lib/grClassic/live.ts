@@ -42,6 +42,32 @@ export function nextStep(type: GameType, status: LiveStatus, index: number, coun
   return null
 }
 
+// When the game should move on by itself from the step it is on (a time on
+// the server's clock, possibly already past), or null = wait for the
+// teacher. The server checks this on every poll -- the teacher's or any
+// student's -- so once the teacher presses Start the game flows on its own,
+// even if the teacher's tab is in the background.
+//   question:    time is up, or every connected player has answered
+//                (this happens even while auto-play is paused).
+//   reveal:      the answer stays up AUTO_REVEAL_MS, then the leaderboard
+//   leaderboard: stays up AUTO_LEADERBOARD_MS, then the next question
+//   race:        AUTO_REVEAL_MS after the last player finishes, the winners
+// `stepStartedAt` = when the current step began (or auto-play resumed).
+export function autoMoveAt(
+  s: { type: GameType; status: LiveStatus; autoPlay: boolean; stepStartedAt: number; questionEndsAt: number | null },
+  info: { connected: number; answered: number; allFinishedAt: number | null }
+): number | null {
+  if (s.status === 'question') {
+    if (info.connected > 0 && info.answered >= info.connected) return s.stepStartedAt
+    return s.questionEndsAt
+  }
+  if (!s.autoPlay) return null
+  if (s.status === 'reveal') return s.stepStartedAt + AUTO_REVEAL_MS
+  if (s.status === 'leaderboard') return s.stepStartedAt + AUTO_LEADERBOARD_MS
+  if (s.status === 'race' && info.allFinishedAt !== null) return Math.max(s.stepStartedAt, info.allFinishedAt) + AUTO_REVEAL_MS
+  return null
+}
+
 export function isExpired(updatedAt: string, now = Date.now()): boolean {
   return now - new Date(updatedAt).getTime() > LIVE_EXPIRY_MS
 }
@@ -140,6 +166,10 @@ export interface HostState {
   standings: Standing[]
   gained: Record<string, number>
   race: { studentId: string; nickname: string; done: number; score: number; finished: boolean }[] | null
+  // Auto-play is on (the teacher can pause it), and when the game will move
+  // on by itself from a reveal / leaderboard / finished race.
+  autoPlay: boolean
+  autoAt: string | null
 }
 
 // To one student's phone. Never contains answer keys; the right option

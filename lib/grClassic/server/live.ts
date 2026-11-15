@@ -1,6 +1,6 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { CONNECTED_MS, canAnswerLive, isExpired, isRace, makePin, nextStep, nicknameFor, playerBoard, rankPlayers, RACE_POINTS_PER_UNIT, type HostState, type LiveStatus, type PlayerState } from '../live'
+import { CONNECTED_MS, autoMoveAt, canAnswerLive, isExpired, isRace, makePin, nextStep, nicknameFor, playerBoard, rankPlayers, RACE_POINTS_PER_UNIT, type HostState, type LiveStatus, type PlayerState } from '../live'
 import { checkResponse, toPlayQuestion, type CheckResult, type PlayQuestion, type PlayResponse } from '../play'
 import { livePoints } from '../scoring'
 import type { Game, Question } from '../types'
@@ -12,7 +12,9 @@ import { GrcError } from './studentAssignments'
 // service-role client, scoped explicitly to the signed-in student (their
 // player row is found by their own profile id). Answer keys stay here.
 
-const SESSION_COLUMNS = 'id, owner_id, class_id, title, game_type, pin, status, current_index, question_started_at, question_ends_at, live_seconds, question_count, updated_at'
+// '*' so auto_play (migration 105) is read when present; before that
+// migration runs it is simply missing and auto-play counts as on.
+const SESSION_COLUMNS = '*'
 
 interface SessionRow {
   id: string
@@ -28,6 +30,7 @@ interface SessionRow {
   live_seconds: number
   question_count: number
   updated_at: string
+  auto_play?: boolean
 }
 
 interface PlayerRow {
@@ -48,6 +51,58 @@ interface AnswerRow {
 }
 
 const effectiveStatus = (s: SessionRow): LiveStatus => (s.status !== 'ended' && isExpired(s.updated_at) ? 'ended' : s.status)
+
+// The row changes that take a game from its current step to `step`.
+function stepChanges(s: SessionRow, step: { status: LiveStatus; index: number }, now: Date): Record<string, unknown> {
+  const changes: Record<string, unknown> = { status: step.status, current_index: step.index }
+  if (step.status === 'question') {
+    changes.question_started_at = now.toISOString()
+    changes.question_ends_at = new Date(now.getTime() + s.live_seconds * 1000).toISOString()
+  }
+  if (step.status === 'ended') changes.ended_at = now.toISOString()
+  return changes
+}
+
+// When this game moves on by itself (ms, server clock), or null. The
+// current step began at updated_at: only step changes and pause/resume
+// update the session row.
+function autoDue(s: SessionRow, play: PlayQuestion[], ps: PlayerRow[], as: AnswerRow[], now: number): number | null {
+  const status = effectiveStatus(s)
+  if (status === 'lobby' || status === 'ended') return null
+  const currentId = status === 'question' ? play[s.current_index]?.id : undefined
+  const finished = ps.map((p) => p.finished_at)
+  return autoMoveAt(
+    { type: s.game_type, status, autoPlay: s.auto_play !== false, stepStartedAt: new Date(s.updated_at).getTime(), questionEndsAt: s.question_ends_at ? new Date(s.question_ends_at).getTime() : null },
+    {
+      connected: ps.filter((p) => now - new Date(p.last_seen_at).getTime() < CONNECTED_MS).length,
+      answered: currentId ? as.filter((a) => a.question_id === currentId).length : 0,
+      allFinishedAt: ps.length > 0 && finished.every(Boolean) ? Math.max(...finished.map((f) => new Date(f!).getTime())) : null,
+    }
+  )
+}
+
+// Called on every poll (teacher's or student's): if the step's time is up,
+// move the game on one step. The update only applies if nobody moved it
+// first, so many phones polling at once still move it exactly once.
+async function moveOnIfDue(admin: SupabaseClient, s: SessionRow, play: PlayQuestion[], ps: PlayerRow[], as: AnswerRow[]): Promise<SessionRow> {
+  const now = Date.now()
+  const due = autoDue(s, play, ps, as, now)
+  if (due === null || now < due) return s
+  const step = nextStep(s.game_type, s.status, s.current_index, s.question_count)
+  if (!step) return s
+  const { data, error } = await admin
+    .from('sms_grc_live_sessions')
+    .update(stepChanges(s, step, new Date(now)))
+    .eq('id', s.id)
+    .eq('status', s.status)
+    .eq('current_index', s.current_index)
+    .select(SESSION_COLUMNS)
+    .maybeSingle()
+  if (error) throw error
+  if (data) return data as SessionRow
+  const { data: fresh } = await admin.from('sms_grc_live_sessions').select(SESSION_COLUMNS).eq('id', s.id).maybeSingle()
+  return (fresh as SessionRow | null) ?? s
+}
 
 // ---------- Teacher ----------
 
@@ -90,10 +145,12 @@ export async function createLiveSession(supabase: SupabaseClient, g: { gameId: s
   throw new GrcError('Could not create a game PIN. Please try again.', 503)
 }
 
-export async function hostState(supabase: SupabaseClient, sessionId: string): Promise<HostState | null> {
+// `admin` (server only) is used just to move the game on when a step's
+// time is up; everything read here goes through the teacher's own client.
+export async function hostState(supabase: SupabaseClient, admin: SupabaseClient, sessionId: string): Promise<HostState | null> {
   const { data } = await supabase.from('sms_grc_live_sessions').select(SESSION_COLUMNS).eq('id', sessionId).maybeSingle()
   if (!data) return null
-  const s = data as SessionRow
+  let s = data as SessionRow
   const [{ data: content }, { data: players }, { data: answers }, { data: cls }] = await Promise.all([
     supabase.from('sms_grc_live_content').select('questions, play').eq('session_id', sessionId).single(),
     supabase.from('sms_grc_live_players').select('student_id, nickname, finished_at, last_seen_at').eq('session_id', sessionId).order('joined_at'),
@@ -103,9 +160,11 @@ export async function hostState(supabase: SupabaseClient, sessionId: string): Pr
   const c = content as { questions: Question[]; play: PlayQuestion[] }
   const ps = (players ?? []) as PlayerRow[]
   const as = (answers ?? []) as AnswerRow[]
+  s = await moveOnIfDue(admin, s, c.play, ps, as)
   const status = effectiveStatus(s)
   const race = isRace(s.game_type)
   const now = Date.now()
+  const due = status === 'question' ? null : autoDue(s, c.play, ps, as, now)
   const currentId = !race && s.current_index >= 0 ? c.play[s.current_index]?.id : undefined
   const question = currentId ? (c.questions.find((q) => q.id === currentId) ?? null) : null
   const current = currentId ? as.filter((a) => a.question_id === currentId) : []
@@ -135,10 +194,12 @@ export async function hostState(supabase: SupabaseClient, sessionId: string): Pr
           return { studentId: st.studentId, nickname: st.nickname, done: as.filter((a) => a.student_id === st.studentId && a.done).length, score: st.score, finished: Boolean(p.finished_at) }
         })
       : null,
+    autoPlay: s.auto_play !== false,
+    autoAt: due === null ? null : new Date(due).toISOString(),
   }
 }
 
-export type HostAction = 'next' | 'end' | 'again'
+export type HostAction = 'next' | 'end' | 'again' | 'pause' | 'resume'
 
 // The teacher presses Next / End / Play again. `expect` is the step the
 // teacher's screen was showing, so a double click never skips a question.
@@ -146,6 +207,13 @@ export async function hostAction(supabase: SupabaseClient, admin: SupabaseClient
   const { data } = await supabase.from('sms_grc_live_sessions').select(SESSION_COLUMNS).eq('id', sessionId).maybeSingle()
   if (!data) throw new GrcError('Live game not found.', 404)
   const s = data as SessionRow
+  if (action === 'pause' || action === 'resume') {
+    // Also restarts the current step's timer (updated_at), so resuming
+    // gives the class the full few seconds on this screen.
+    const { error } = await supabase.from('sms_grc_live_sessions').update({ auto_play: action === 'resume' }).eq('id', sessionId)
+    if (error) throw error
+    return
+  }
   if (s.status !== expect.status || s.current_index !== expect.index) return // someone already moved on
   const now = new Date()
   let changes: Record<string, unknown>
@@ -162,12 +230,7 @@ export async function hostAction(supabase: SupabaseClient, admin: SupabaseClient
   } else {
     const step = nextStep(s.game_type, s.status, s.current_index, s.question_count)
     if (!step) return
-    changes = { status: step.status, current_index: step.index }
-    if (step.status === 'question') {
-      changes.question_started_at = now.toISOString()
-      changes.question_ends_at = new Date(now.getTime() + s.live_seconds * 1000).toISOString()
-    }
-    if (step.status === 'ended') changes.ended_at = now.toISOString()
+    changes = stepChanges(s, step, now)
   }
   let { error } = await supabase.from('sms_grc_live_sessions').update(changes).eq('id', sessionId).eq('status', s.status).eq('current_index', s.current_index)
   // Re-opening: the old PIN may now belong to another game.
@@ -212,7 +275,9 @@ async function playerContext(admin: SupabaseClient, sessionId: string, profileId
 }
 
 export async function playerState(admin: SupabaseClient, sessionId: string, profileId: string): Promise<PlayerState> {
-  const { s, me } = await playerContext(admin, sessionId, profileId)
+  const ctx = await playerContext(admin, sessionId, profileId)
+  const me = ctx.me
+  let s = ctx.s
   const now = Date.now()
   if (now - new Date(me.last_seen_at).getTime() > 8000) await admin.from('sms_grc_live_players').update({ last_seen_at: new Date(now).toISOString() }).eq('session_id', sessionId).eq('student_id', me.student_id)
 
@@ -224,6 +289,7 @@ export async function playerState(admin: SupabaseClient, sessionId: string, prof
   const c = content as { questions: Question[]; play: PlayQuestion[] }
   const ps = (players ?? []) as PlayerRow[]
   const as = (answers ?? []) as AnswerRow[]
+  s = await moveOnIfDue(admin, s, c.play, ps, as)
   const status = effectiveStatus(s)
   const race = isRace(s.game_type)
   const revealed = status === 'reveal' || status === 'leaderboard' || status === 'ended'

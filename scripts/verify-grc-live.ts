@@ -1,7 +1,7 @@
 // GameRoom Classic Phase 5: live-game rules (lib/grClassic/live.ts).
 // Run with: npx tsx scripts/verify-grc-live.ts
 import qrcode from 'qrcode-generator'
-import { ANSWER_GRACE_MS, LIVE_EXPIRY_MS, canAnswerLive, isExpired, isRace, makePin, nextStep, nicknameFor, normalizePin, raceBonus, rankPlayers } from '../lib/grClassic/live'
+import { ANSWER_GRACE_MS, AUTO_LEADERBOARD_MS, AUTO_REVEAL_MS, LIVE_EXPIRY_MS, autoMoveAt, canAnswerLive, isExpired, isRace, makePin, nextStep, nicknameFor, normalizePin, raceBonus, rankPlayers } from '../lib/grClassic/live'
 import { livePoints } from '../lib/grClassic/scoring'
 
 let failures = 0
@@ -29,6 +29,25 @@ eq('nothing after ended', nextStep('quiz', 'ended', 1, 2), null)
 // --- Steps: race games ---
 eq('match is a race', [isRace('match'), isRace('word-builder'), isRace('quiz')], [true, true, false])
 eq('race walk', [nextStep('match', 'lobby', -1, 3), nextStep('match', 'race', 0, 3), nextStep('match', 'ended', 0, 3)], [{ status: 'race', index: 0 }, { status: 'ended', index: 0 }, null])
+
+// --- The game flows on its own after Start (server-side auto-play) ---
+{
+  const T0 = 1_000_000
+  const base = { type: 'quiz' as const, autoPlay: true, stepStartedAt: T0, questionEndsAt: T0 + 20_000 }
+  const nobody = { connected: 3, answered: 1, allFinishedAt: null }
+  eq('question: time up', autoMoveAt({ ...base, status: 'question' }, nobody), T0 + 20_000)
+  eq('question: everyone answered', autoMoveAt({ ...base, status: 'question' }, { connected: 3, answered: 3, allFinishedAt: null }), T0)
+  eq('question: nobody connected waits for time', autoMoveAt({ ...base, status: 'question' }, { connected: 0, answered: 0, allFinishedAt: null }), T0 + 20_000)
+  eq('question: time up even when paused', autoMoveAt({ ...base, autoPlay: false, status: 'question' }, nobody), T0 + 20_000)
+  eq('reveal', autoMoveAt({ ...base, status: 'reveal' }, nobody), T0 + AUTO_REVEAL_MS)
+  eq('leaderboard', autoMoveAt({ ...base, status: 'leaderboard' }, nobody), T0 + AUTO_LEADERBOARD_MS)
+  eq('paused reveal waits', autoMoveAt({ ...base, autoPlay: false, status: 'reveal' }, nobody), null)
+  eq('paused leaderboard waits', autoMoveAt({ ...base, autoPlay: false, status: 'leaderboard' }, nobody), null)
+  eq('lobby waits for Start', autoMoveAt({ ...base, status: 'lobby' }, nobody), null)
+  eq('ended stays', autoMoveAt({ ...base, status: 'ended' }, nobody), null)
+  eq('race still playing', autoMoveAt({ ...base, type: 'match', status: 'race' }, nobody), null)
+  eq('race all finished', autoMoveAt({ ...base, type: 'match', status: 'race' }, { connected: 2, answered: 0, allFinishedAt: T0 + 9000 }), T0 + 9000 + AUTO_REVEAL_MS)
+}
 
 // --- Answering windows (server clock) ---
 const T = new Date('2026-10-13T10:00:00Z').getTime()

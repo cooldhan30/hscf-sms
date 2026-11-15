@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import { FiPause, FiPlay, FiUsers, FiWifiOff, FiX } from 'react-icons/fi'
-import { AUTO_LEADERBOARD_MS, AUTO_REVEAL_MS, type HostState, type LiveStatus } from '@/lib/grClassic/live'
+import type { HostState, LiveStatus } from '@/lib/grClassic/live'
 import type { ChoiceQuestion } from '@/lib/grClassic/types'
 import { appPath } from '../appPath'
 import { ANSWER_STYLES } from '../games/AnswerButton'
@@ -17,13 +17,15 @@ import { usePoll, useServerCountdown } from './usePoll'
 // The teacher's projector view of a live game. The server owns the clock,
 // the answers and the scores; this screen shows them and sends the
 // teacher's Next / End / Play again. Classic Quiz runs question by
-// question; Match and Word Builder run as a race. After Start, auto-play
-// moves the game on by itself (Pause hands control back to the teacher).
+// question; Match and Word Builder run as a race. After Start, the SERVER
+// moves the game on by itself (time up -> answer -> leaderboard -> next
+// question) on every poll from this screen or any student's phone, so it
+// keeps flowing even if this tab is in the background. Pause hands control
+// back to the teacher; Next still skips ahead at any time.
 export function HostLive({ sessionId }: { sessionId: string }) {
   const { data: s, setData, error, offset, refresh } = usePoll<HostState>(`/live/${sessionId}/host`, 1000)
   const [busy, setBusy] = useState(false)
   const [joinUrl, setJoinUrl] = useState('')
-  const autoRevealed = useRef(-1)
   const left = useServerCountdown(s?.status === 'question' ? s.endsAt : null, offset)
   const connected = s?.players.filter((p) => p.connected).length ?? 0
 
@@ -33,7 +35,7 @@ export function HostLive({ sessionId }: { sessionId: string }) {
     setJoinUrl(`${window.location.origin}${appPath(`/gr-classic/join?pin=${s.pin}`)}`)
   }, [s?.pin]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const act = async (action: 'next' | 'end' | 'again', expect: { status: LiveStatus; index: number }) => {
+  const act = async (action: 'next' | 'end' | 'again' | 'pause' | 'resume', expect: { status: LiveStatus; index: number }) => {
     setBusy(true)
     const res = await grcApi<HostState>(`/live/${sessionId}/host`, { method: 'POST', body: { action, expect } })
     setBusy(false)
@@ -41,38 +43,15 @@ export function HostLive({ sessionId }: { sessionId: string }) {
     else refresh()
   }
 
-  // Time up, or everyone connected has answered: show the answer.
+  // The server's countdown to the next automatic step (reveal, leaderboard
+  // or finished race). When it runs out, ask straight away for the new step.
+  const auto = s?.autoPlay ?? true
+  const autoSecs = useServerCountdown(s?.autoAt, offset)
+  const autoDone = (autoSecs !== null && autoSecs <= 0) || (left !== null && left <= 0)
   useEffect(() => {
-    if (!s || s.status !== 'question' || autoRevealed.current === s.index) return
-    if ((left !== null && left <= 0) || (connected > 0 && s.answered >= connected)) {
-      autoRevealed.current = s.index
-      act('next', { status: 'question', index: s.index })
-    }
-  }) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-play: after Start, the answer and then the leaderboard stay up for
-  // a few seconds and the game moves on by itself (Pause stops it). In a
-  // race, the game ends once every player has finished.
-  const [auto, setAuto] = useState(true)
-  const [autoAt, setAutoAt] = useState<number | null>(null)
-  const [now, setNow] = useState(() => Date.now())
-  const stepKey = s ? `${s.status}:${s.index}` : ''
-  const allFinished = !!s?.race && s.race.length > 0 && s.race.every((p) => p.finished)
-  useEffect(() => {
-    if (!s || !auto) return setAutoAt(null)
-    const wait = s.status === 'reveal' ? AUTO_REVEAL_MS : s.status === 'leaderboard' ? AUTO_LEADERBOARD_MS : s.status === 'race' && allFinished ? AUTO_REVEAL_MS : null
-    if (wait === null) return setAutoAt(null)
-    const expectNow = { status: s.status, index: s.index }
-    setAutoAt(Date.now() + wait)
-    const t = setTimeout(() => act('next', expectNow), wait)
-    return () => clearTimeout(t)
-  }, [stepKey, auto, allFinished]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (autoAt === null) return
-    const t = setInterval(() => setNow(Date.now()), 250)
-    return () => clearInterval(t)
-  }, [autoAt])
-  const autoLeft = autoAt === null ? null : Math.max(0, Math.ceil((autoAt - now) / 1000))
+    if (autoDone) refresh()
+  }, [autoDone, s?.status, s?.index]) // eslint-disable-line react-hooks/exhaustive-deps
+  const autoLeft = autoSecs === null ? null : Math.ceil(autoSecs)
 
   if (!s) {
     return (
@@ -101,7 +80,7 @@ export function HostLive({ sessionId }: { sessionId: string }) {
           </span>
         )}
         {s.status !== 'lobby' && s.status !== 'ended' && (
-          <button type="button" onClick={() => setAuto((a) => !a)} aria-pressed={!auto} className="flex items-center gap-1 rounded-xl bg-white/10 px-3 py-1.5 font-bold hover:bg-white/20">
+          <button type="button" disabled={busy} onClick={() => act(auto ? 'pause' : 'resume', expect)} aria-pressed={!auto} className="flex items-center gap-1 rounded-xl bg-white/10 px-3 py-1.5 font-bold hover:bg-white/20">
             {auto ? (
               <>
                 <FiPause aria-hidden /> Pause

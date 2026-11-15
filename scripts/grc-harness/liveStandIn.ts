@@ -1,15 +1,16 @@
 // In-browser stand-in for the live-game API (development harness only).
 // It reuses the real rule functions (lib/grClassic/live, play, scoring)
 // and simulates a class: classmates join, answer at random times, and --
-// with ?auto=1 -- a "teacher" presses Next on a timer, so a student's
-// phone can be watched through a whole game. It mimics the API's shape
+// with ?auto=1 -- a "teacher" presses Start, and the game then flows on
+// its own like the real server's (autoMoveAt), so a student's phone can be
+// watched through a whole game. It mimics the API's shape
 // only; the real server also checks enrollment, PINs and the clock.
 // ?switch=1: once the first question opens, the browser "is signed in as
 // someone else" -- the game tab must stop instead of playing as them.
 import { LIVE_ROSTER, gameById } from '@/lib/grClassic/sampleData'
 import { checkResponse, toPlayQuestion } from '@/lib/grClassic/play'
 import { livePoints } from '@/lib/grClassic/scoring'
-import { isRace, nextStep, playerBoard, rankPlayers, PLAYER_HEADER, RACE_POINTS_PER_UNIT, WRONG_ACCOUNT, type HostState, type LiveStatus, type PlayerState } from '@/lib/grClassic/live'
+import { autoMoveAt, isRace, nextStep, playerBoard, rankPlayers, PLAYER_HEADER, RACE_POINTS_PER_UNIT, WRONG_ACCOUNT, type HostState, type LiveStatus, type PlayerState } from '@/lib/grClassic/live'
 
 type Ans = { student_id: string; question_id: string; points: number; correct: boolean; done: boolean; choice: number | null }
 
@@ -18,7 +19,7 @@ export function liveStandIn(params: URLSearchParams) {
   const race = isRace(game.type)
   const play = game.questions.map(toPlayQuestion)
   const SECONDS = 8
-  const s = { status: 'lobby' as LiveStatus, index: -1, startedAt: 0, endsAt: 0, enteredAt: Date.now() }
+  const s = { status: 'lobby' as LiveStatus, index: -1, startedAt: 0, endsAt: 0, enteredAt: Date.now(), autoPlay: true }
   const players: { student_id: string; nickname: string; finished_at: string | null; seen: number }[] = []
   const answers: Ans[] = []
   const ME = 'me'
@@ -78,12 +79,24 @@ export function liveStandIn(params: URLSearchParams) {
       // Like a real teacher: wait a moment in the lobby after the student joins.
       const me = players.find((p) => p.student_id === ME)
       if (s.status === 'lobby' && me && now() - me.seen > 2500 && players.length >= 3) go(nextStep(game.type, s.status, s.index, play.length)!)
-      else if (s.status === 'question' && now() > s.endsAt) go(nextStep(game.type, s.status, s.index, play.length)!)
     }, 300)
-    setInterval(() => {
-      // Each answer and leaderboard stays up for 3 seconds.
-      if ((s.status === 'reveal' || s.status === 'leaderboard') && now() - s.enteredAt > 3000) go(nextStep(game.type, s.status, s.index, play.length)!)
-    }, 300)
+  }
+
+  // Like the real server: every request moves the game on if its step's time is up.
+  const autoDue = () => {
+    const q = !race && s.index >= 0 ? game.questions[s.index] : null
+    const fin = players.map((p) => p.finished_at)
+    return s.status === 'lobby' || s.status === 'ended'
+      ? null
+      : autoMoveAt(
+          { type: game.type, status: s.status, autoPlay: s.autoPlay, stepStartedAt: s.enteredAt, questionEndsAt: s.status === 'question' ? s.endsAt : null },
+          { connected: players.length, answered: q ? answers.filter((a) => a.question_id === q.id).length : 0, allFinishedAt: players.length && fin.every(Boolean) ? Math.max(...fin.map((f) => new Date(f!).getTime())) : null }
+        )
+  }
+  const moveOnIfDue = () => {
+    const due = autoDue()
+    const step = due !== null && now() >= due ? nextStep(game.type, s.status, s.index, play.length) : null
+    if (step) go(step)
   }
 
   const standings = () => rankPlayers(players, answers, race)
@@ -110,6 +123,11 @@ export function liveStandIn(params: URLSearchParams) {
       standings: standings(),
       gained: Object.fromEntries(current.map((a) => [a.student_id, a.points])),
       race: race ? standings().map((st) => ({ studentId: st.studentId, nickname: st.nickname, done: answers.filter((a) => a.student_id === st.studentId && a.done).length, score: st.score, finished: Boolean(players.find((p) => p.student_id === st.studentId)?.finished_at) })) : null,
+      autoPlay: s.autoPlay,
+      autoAt: (() => {
+        const due = s.status === 'question' ? null : autoDue()
+        return due === null ? null : new Date(due).toISOString()
+      })(),
     }
   }
 
@@ -152,6 +170,7 @@ export function liveStandIn(params: URLSearchParams) {
   }
 
   return (path: string, method: string, body: Record<string, unknown> | null, headers: Headers = new Headers()): { data: unknown; status: number } | null => {
+    if (path.startsWith('/live/live-1/')) moveOnIfDue()
     if (path === '/live/join') {
       if (body?.pin !== '482913') return { data: { error: 'We couldn’t find a live game with that PIN. Check the big screen and try again.' }, status: 404 }
       if (!players.some((p) => p.student_id === ME)) addPlayer(ME, 'Kavin')
@@ -160,7 +179,10 @@ export function liveStandIn(params: URLSearchParams) {
     if (path === '/live/live-1/host') {
       if (method === 'POST') {
         const expect = body?.expect as { status: LiveStatus; index: number }
-        if (expect.status === s.status && expect.index === s.index) {
+        if (body?.action === 'pause' || body?.action === 'resume') {
+          s.autoPlay = body.action === 'resume'
+          s.enteredAt = now()
+        } else if (expect.status === s.status && expect.index === s.index) {
           if (body?.action === 'end') go({ status: 'ended', index: s.index })
           else if (body?.action === 'again') {
             answers.length = 0
