@@ -66,7 +66,25 @@ export function buildQuestion(raw: RawWord): BuiltQuestion {
     )
   }
 
-  const blankedWord = clusters.map((c, i) => (i === targetIndex ? '___' : c)).join('')
+  // Confirmed as a real bug: blanking ONLY the category consonant left
+  // the very next grapheme cluster visible, and by the adjacency rule
+  // above that next cluster ALWAYS starts with this category's fixed
+  // series letter (ண் -> ட, ந் -> த, ன் -> ற) -- across the whole
+  // 180-word bank, every ண் question showed "___ட...", every ந்
+  // question showed "___த...", every ன் question showed "___ற...".
+  // A student never needed to know டண்ணகரம்/தந்நகரம்/றன்னகரம் at all;
+  // the letter right after the blank WAS the answer. Masking the next
+  // cluster together with the target consonant, as one combined blank,
+  // removes that giveaway while the rest of the word still tests real
+  // recall of which word this is and which rule it follows.
+  // Keep masking while the next visible cluster still starts with any
+  // series letter (ட/த/ற): in words like கொண்டாட்டம் a second ட would
+  // otherwise sit right after the blank and give the answer away again,
+  // and in words like மன்றத்தில் a த there would point at the wrong rule.
+  const SERIES_LETTERS = Object.values(SERIES_MAP)
+  let maskEnd = targetIndex + 2
+  while (maskEnd < clusters.length && SERIES_LETTERS.some((s) => clusters[maskEnd].startsWith(s))) maskEnd++
+  const blankedWord = [...clusters.slice(0, targetIndex), '___', ...clusters.slice(maskEnd)].join('')
   const reconstructed = clusters.map((c, i) => (i === targetIndex ? raw.category : c)).join('')
 
   if (reconstructed !== raw.word) {
