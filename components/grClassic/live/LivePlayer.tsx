@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { FiAlertTriangle, FiCheckCircle, FiWifiOff, FiXCircle } from 'react-icons/fi'
 import { PLAYER_HEADER, RACE_POINTS_PER_UNIT, WRONG_ACCOUNT, type PlayerState } from '@/lib/grClassic/live'
@@ -240,16 +240,37 @@ function ChoiceRound({ question, position, seconds, session, onAnswered }: { que
   const [result, setResult] = useState<CheckResult | null>(null)
   const [sendError, setSendError] = useState('')
 
+  // Stops a retry once this question has left the screen.
+  const live = useRef(true)
+  useEffect(() => {
+    live.current = true
+    return () => {
+      live.current = false
+    }
+  }, [])
+
   const pick = async (choice: number) => {
     if (picked !== null) return
     setPicked(choice)
     setSendError('')
-    try {
-      setResult(await session.check(question.id, { kind: 'choice', choice }))
-      onAnswered()
-    } catch (e) {
-      setPicked(null)
-      setSendError(e instanceof Error ? e.message : 'Could not send your answer. Try again.')
+    for (;;) {
+      try {
+        const r = await session.check(question.id, { kind: 'choice', choice })
+        if (!live.current) return
+        setSendError('')
+        setResult(r)
+        onAnswered()
+        return
+      } catch (e) {
+        if (!live.current) return
+        setSendError(e instanceof Error ? e.message : 'Could not send your answer. Try again.')
+        // A tapped answer: unlock so the student can tap again. Time ran
+        // out: keep the buttons locked and quietly try again (unlocking
+        // would time out again at once and make the screen flicker).
+        if (choice !== -1) return setPicked(null)
+        await new Promise((r) => setTimeout(r, 2000))
+        if (!live.current) return
+      }
     }
   }
 
