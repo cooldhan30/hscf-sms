@@ -3,6 +3,8 @@ import { requireTeacher } from '@/lib/require-teacher'
 import { requireString, optionalString } from '@/lib/validation'
 import { getB2ReadUrl } from '@/lib/storage/b2'
 import { isWorksheetContent, renderWorksheetAsPlainText } from '@/lib/worksheetTypes'
+import { parseSubmissionTypes } from '@/lib/submissionTypes'
+import { isResourcesBucketUrl } from '@/lib/storage/resourcesUrl'
 
 // POST /api/teacher/assignments -- create an assignment for one of the
 // teacher's own classes. RLS ("assignments: teacher manage own class")
@@ -48,6 +50,11 @@ export async function POST(request: Request) {
   const published = Boolean(body.published)
   let imageUrl = optionalString(body.imageUrl)
   const imageSize = typeof body.imageSize === 'number' && body.imageSize > 0 ? body.imageSize : null
+  const audioUrl = optionalString(body.audioUrl)
+  const audioSize = typeof body.audioSize === 'number' && body.audioSize > 0 ? body.audioSize : null
+  if (audioUrl && !isResourcesBucketUrl(audioUrl)) errors.push('Audio must be uploaded here')
+  const submissionTypes = body.submissionTypes === undefined ? null : parseSubmissionTypes(body.submissionTypes)
+  if (body.submissionTypes !== undefined && !submissionTypes) errors.push('Choose how students submit')
   const resourceId = optionalString(body.resourceId)
   const storyImageKey = optionalString(body.storyImageKey)
   const storyId = optionalString(body.storyId)
@@ -187,6 +194,8 @@ export async function POST(request: Request) {
         published,
         image_url: imageUrl,
         image_size: imageSize,
+        audio_url: audioUrl,
+        audio_size: audioUrl ? audioSize : null,
         resource_id: resourceId,
         // A shared story assigned from Resources keeps its story link, so
         // My Stories and later duplicate checks see it too
@@ -196,7 +205,7 @@ export async function POST(request: Request) {
         // recording themselves reading it, but a text box is also useful
         // for written notes/answers about the resource -- SubmissionForm
         // already renders exactly the right inputs based on this list.
-        ...(resourceId ? { allow_submission_types: ['audio', 'text'] } : {}),
+        ...(resourceId ? { allow_submission_types: ['audio', 'text'] } : submissionTypes ? { allow_submission_types: submissionTypes } : {}),
         created_by: profile.id,
       },
     ])

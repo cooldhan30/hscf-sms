@@ -8,6 +8,8 @@ import { Modal } from '@/components/dashboard/Modal'
 import { Button } from '@/components/ui/Button'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { AssignmentImageUpload } from '@/components/assignments/AssignmentImageUpload'
+import { AssignmentAudioUpload } from '@/components/assignments/AssignmentAudioUpload'
+import { DEFAULT_SUBMISSION_TYPES, PHOTO_SUBMISSION_TYPES, isPhotoOnly } from '@/lib/submissionTypes'
 import { formatDateOnly } from '@/lib/dates'
 import { toast } from '@/lib/toast'
 import type { SmsAssignment, SmsClass } from '@/types/database'
@@ -26,6 +28,11 @@ interface FormState {
   published: boolean
   imageUrl: string
   imageSize: number
+  audioUrl: string
+  audioSize: number
+  // What students hand in -- kept as the row's own list so editing an
+  // assignment with a custom list (e.g. a reading resource's) keeps it.
+  submissionTypes: string[]
   assignmentType: 'assignment' | 'exam'
 }
 
@@ -40,6 +47,9 @@ function emptyForm(defaultClassId: string): FormState {
     published: false,
     imageUrl: '',
     imageSize: 0,
+    audioUrl: '',
+    audioSize: 0,
+    submissionTypes: DEFAULT_SUBMISSION_TYPES,
     assignmentType: 'assignment',
   }
 }
@@ -86,6 +96,9 @@ export function AssignmentsClient({
       published: a.published,
       imageUrl: a.image_url ?? '',
       imageSize: a.image_size ?? 0,
+      audioUrl: a.audio_url ?? '',
+      audioSize: a.audio_size ?? 0,
+      submissionTypes: a.allow_submission_types ?? DEFAULT_SUBMISSION_TYPES,
       assignmentType: a.assignment_type ?? 'assignment',
     })
     setError(null)
@@ -114,6 +127,9 @@ export function AssignmentsClient({
         published: form.published,
         imageUrl: form.imageUrl,
         imageSize: form.imageSize,
+        audioUrl: form.audioUrl,
+        audioSize: form.audioSize,
+        submissionTypes: form.submissionTypes,
         assignmentType: form.assignmentType,
       }),
     })
@@ -168,7 +184,11 @@ export function AssignmentsClient({
       accessor: (a) => (
         <div>
           <p className="font-semibold text-stone-800 dark:text-stone-100">{a.title}</p>
-          <p className="text-xs text-stone-500 dark:text-stone-400">{a.class.name}</p>
+          <p className="text-xs text-stone-500 dark:text-stone-400">
+            {a.class.name}
+            {a.audio_url && ' · 🎧 Audio'}
+            {isPhotoOnly(a.allow_submission_types) && ' · 📷 Photo submission'}
+          </p>
         </div>
       ),
     },
@@ -325,6 +345,42 @@ export function AssignmentsClient({
             currentUrl={form.imageUrl}
             onUploaded={(url, size) => setForm({ ...form, imageUrl: url, imageSize: size })}
           />
+
+          <AssignmentAudioUpload
+            currentUrl={form.audioUrl}
+            // Audio homework usually means "listen, then hand in a photo
+            // of your work" -- suggest that when a clip is first added.
+            onUploaded={(url, size) =>
+              setForm((f) => ({
+                ...f,
+                audioUrl: url,
+                audioSize: size,
+                submissionTypes: url && !f.audioUrl ? PHOTO_SUBMISSION_TYPES : f.submissionTypes,
+              }))
+            }
+          />
+
+          <div>
+            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-1.5">Students submit</label>
+            <select
+              value={isPhotoOnly(form.submissionTypes) ? 'photo' : 'default'}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  submissionTypes:
+                    e.target.value === 'photo'
+                      ? PHOTO_SUBMISSION_TYPES
+                      : isPhotoOnly(form.submissionTypes)
+                        ? DEFAULT_SUBMISSION_TYPES
+                        : form.submissionTypes,
+                })
+              }
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+            >
+              <option value="default">Written answer, file or voice recording</option>
+              <option value="photo">A photo of their homework</option>
+            </select>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>

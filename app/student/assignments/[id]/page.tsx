@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { FiArrowLeft, FiCalendar, FiExternalLink } from 'react-icons/fi'
+import { FiArrowLeft, FiCalendar, FiExternalLink, FiHeadphones } from 'react-icons/fi'
 import { createClient } from '@/lib/supabase/server'
 import { auth } from '@clerk/nextjs/server'
 import { getSubmissionSignedUrl } from '@/lib/storage/submissionUrl'
@@ -86,6 +86,14 @@ export default async function StudentAssignmentDetailPage({ params }: { params: 
         {assignment.image_url && (
           // eslint-disable-next-line @next/next/no-img-element -- teacher-uploaded Storage URL
           <img src={assignment.image_url} alt="" className="max-w-full rounded-xl border border-stone-200 dark:border-stone-800 mt-3" />
+        )}
+        {assignment.audio_url && (
+          <div className="mt-3 p-4 rounded-xl border border-primary-200 dark:border-primary-900 bg-primary-50 dark:bg-primary-950/40">
+            <p className="flex items-center gap-1.5 text-sm font-bold text-primary-800 dark:text-primary-300 mb-2">
+              <FiHeadphones className="w-4 h-4" /> Listen to this
+            </p>
+            <AudioPlayer src={assignment.audio_url} />
+          </div>
         )}
 
         {resource && (

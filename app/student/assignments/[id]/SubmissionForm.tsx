@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
-import { FiUpload, FiPaperclip } from 'react-icons/fi'
+import { FiUpload, FiPaperclip, FiCamera } from 'react-icons/fi'
 import { Button } from '@/components/ui/Button'
 import { AudioRecorder } from '@/components/submissions/AudioRecorder'
 import { AudioPlayer } from '@/components/submissions/AudioPlayer'
@@ -12,6 +12,8 @@ import { uploadFile } from '@/lib/storage/uploadFile'
 import { previewMaxPoints } from '@/lib/points'
 import { isPastDueDate } from '@/lib/dates'
 import { toast } from '@/lib/toast'
+
+const MAX_PHOTO_BYTES = 20 * 1024 * 1024
 
 interface ExistingSubmission {
   content: string | null
@@ -43,6 +45,26 @@ export function SubmissionForm({
   const [file, setFile] = useState<File | null>(null)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // A photo of the homework ('photo' type) is uploaded as the submission's
+  // file, so it shares `file` -- this is just its on-screen preview.
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  useEffect(() => () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
+  }, [photoPreview])
+  const photoOnly = allowedTypes.length === 1 && allowedTypes[0] === 'photo'
+
+  function choosePhoto(picked: File | null) {
+    if (picked && !picked.type.startsWith('image/')) {
+      toast.error('Please choose a photo.')
+      return
+    }
+    if (picked && picked.size > MAX_PHOTO_BYTES) {
+      toast.error('That photo is too big (over 20MB). Try taking it again.')
+      return
+    }
+    setFile(picked)
+    setPhotoPreview(picked ? URL.createObjectURL(picked) : null)
+  }
 
   const now = new Date()
   const isOverdue = dueDate ? isPastDueDate(dueDate, now) : false
@@ -54,7 +76,7 @@ export function SubmissionForm({
   async function handleSubmit() {
     if (!userId) return
     if (!content.trim() && !file && !audioBlob && !existingSubmission?.fileSignedUrl && !existingSubmission?.audioSignedUrl) {
-      toast.error('Add some text, a file, or a recording before submitting.')
+      toast.error(photoOnly ? 'Add a photo of your homework before submitting.' : 'Add some text, a file, or a recording before submitting.')
       return
     }
 
@@ -150,6 +172,25 @@ export function SubmissionForm({
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="block w-full text-sm text-stone-600 dark:text-stone-300"
           />
+        </div>
+      )}
+
+      {allowedTypes.includes('photo') && (
+        <div className="space-y-3">
+          <p className="text-sm text-stone-600 dark:text-stone-300">Take a clear photo of your finished homework and upload it here.</p>
+          {(photoPreview || existingSubmission?.fileSignedUrl) && (
+            // eslint-disable-next-line @next/next/no-img-element -- local preview / signed Storage URL
+            <img
+              src={photoPreview ?? existingSubmission!.fileSignedUrl!}
+              alt={photoPreview ? 'Photo you are about to submit' : 'Photo you submitted'}
+              className="max-h-80 rounded-xl border border-stone-200 dark:border-stone-800"
+            />
+          )}
+          <label className="inline-flex cursor-pointer items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-primary-700 dark:text-primary-400 border border-dashed border-primary-300 dark:border-primary-800 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors">
+            <FiCamera className="w-4 h-4" />
+            {photoPreview || existingSubmission?.fileSignedUrl ? 'Choose a different photo' : 'Add photo'}
+            <input type="file" accept="image/*" onChange={(e) => choosePhoto(e.target.files?.[0] ?? null)} className="sr-only" />
+          </label>
         </div>
       )}
 

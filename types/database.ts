@@ -160,6 +160,9 @@ export interface SmsAssignment {
   assignment_type: 'assignment' | 'exam'
   image_url: string | null
   image_size: number | null
+  // Audio homework clip (migration 106), a public 'resources' bucket URL
+  audio_url: string | null
+  audio_size: number | null
   resource_id: string | null
   created_by: string | null
   created_at: string
