@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { FiAlertTriangle, FiCheckCircle, FiWifiOff, FiXCircle } from 'react-icons/fi'
-import { PLAYER_HEADER, WRONG_ACCOUNT, type PlayerState } from '@/lib/grClassic/live'
+import { PLAYER_HEADER, RACE_POINTS_PER_UNIT, WRONG_ACCOUNT, type PlayerState } from '@/lib/grClassic/live'
 import type { CheckResult, PlayQuestion, PlayResponse, PlaySession } from '@/lib/grClassic/play'
 import { AnswerButton } from '../games/AnswerButton'
 import { MatchBoard } from '../games/MatchBoard'
@@ -88,15 +88,7 @@ export function LivePlayer({ sessionId, playerId, name, onLeft }: { sessionId: s
             <FiWifiOff aria-hidden /> Reconnecting…
           </span>
         )}
-        <span className="flex shrink-0 items-center gap-2 tabular-nums">
-          {s.rank !== null && (
-            <span className="rounded-xl bg-amber-300 px-3 py-1 text-indigo-950" aria-label={`Rank ${s.rank} of ${s.playersCount}`}>
-              #{s.rank}
-              <span className="font-bold text-indigo-950/70"> / {s.playersCount}</span>
-            </span>
-          )}
-          <span className="rounded-xl bg-white/10 px-3 py-1">{s.score} pts</span>
-        </span>
+        <span className="shrink-0 rounded-xl bg-white/10 px-3 py-1 tabular-nums">{s.score} pts</span>
       </header>
 
       {s.status === 'lobby' && (
@@ -158,7 +150,7 @@ export function LivePlayer({ sessionId, playerId, name, onLeft }: { sessionId: s
         </section>
       )}
 
-      {s.status === 'race' && s.questions && <Race sessionId={sessionId} playerId={playerId} onWrongAccount={markWrongAccount} questions={s.questions} doneIds={s.doneIds} score={s.score} rank={s.rank} />}
+      {s.status === 'race' && s.questions && <Race sessionId={sessionId} playerId={playerId} onWrongAccount={markWrongAccount} questions={s.questions} doneIds={s.doneIds} score={s.score} seconds={s.seconds} />}
 
       {s.status === 'ended' && (
         <section className="flex flex-1 flex-col items-center justify-center text-center">
@@ -185,9 +177,9 @@ function Screen({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Match the Pairs / Word Builder: everyone plays every question at their
-// own pace; each answer is checked (right/wrong only) by the server.
-function Race({ sessionId, playerId, onWrongAccount, questions, doneIds, score, rank }: { sessionId: string; playerId: string; onWrongAccount: () => void; questions: PlayQuestion[]; doneIds: string[]; score: number; rank: number | null }) {
+// Every live game: each student plays every question at their own pace;
+// each answer is checked by the server. Nobody waits for anyone.
+function Race({ sessionId, playerId, onWrongAccount, questions, doneIds, score, seconds }: { sessionId: string; playerId: string; onWrongAccount: () => void; questions: PlayQuestion[]; doneIds: string[]; score: number; seconds: number }) {
   const [finished, setFinished] = useState<string[]>(doneIds)
   const current = questions.find((q) => !finished.includes(q.id)) ?? null
   const session: PlaySession = useMemo(
@@ -206,7 +198,7 @@ function Race({ sessionId, playerId, onWrongAccount, questions, doneIds, score, 
     }),
     [sessionId, playerId, onWrongAccount]
   )
-  const done = () => current && setTimeout(() => setFinished((f) => [...f, current.id]), 900)
+  const done = (delay = 900) => current && setTimeout(() => setFinished((f) => [...f, current.id]), delay)
 
   if (!current) {
     return (
@@ -215,22 +207,96 @@ function Race({ sessionId, playerId, onWrongAccount, questions, doneIds, score, 
           🏁
         </p>
         <h1 className="mt-4 text-3xl font-black">You finished!</h1>
-        <p className="mt-2 text-2xl font-extrabold tabular-nums text-amber-300">
-          {score} points{rank ? ` · number ${rank}` : ''}
-        </p>
+        <p className="mt-2 text-2xl font-extrabold tabular-nums text-amber-300">{score} points</p>
         <p className="mt-6 animate-pulse font-bold text-white/70">Waiting for your teacher…</p>
       </section>
     )
   }
   return (
     <section className="py-4">
-      <p className="mb-3 text-center font-bold text-white/80">
-        {finished.length + 1} / {questions.length}
-      </p>
-      <Card className="p-4 text-slate-900 sm:p-6">
-        {current.kind === 'match' && <MatchBoard key={current.id} question={current} session={session} hints={false} onAnswered={done} />}
-        {current.kind === 'order' && <WordBuilder key={current.id} question={current} session={session} reveal={false} hints={false} onAnswered={done} />}
-      </Card>
+      {current.kind === 'choice' ? (
+        <ChoiceRound key={current.id} question={current} position={`${finished.length + 1} / ${questions.length}`} seconds={seconds} session={session} onAnswered={() => done(1800)} />
+      ) : (
+        <p className="mb-3 text-center font-bold text-white/80">
+          {finished.length + 1} / {questions.length}
+        </p>
+      )}
+      {current.kind !== 'choice' && <Card className="p-4 text-slate-900 sm:p-6">
+        {current.kind === 'match' && <MatchBoard key={current.id} question={current} session={session} hints={false} onAnswered={() => done()} />}
+        {current.kind === 'order' && <WordBuilder key={current.id} question={current} session={session} reveal={false} hints={false} onAnswered={() => done()} />}
+      </Card>}
     </section>
+  )
+}
+
+// One Classic Quiz question in a live game: tap an answer and see straight
+// away if it was right (and the right one if not). The countdown is this
+// student's own; when it runs out the question counts as unanswered
+// (choice -1 is never right) and the next one comes up.
+function ChoiceRound({ question, position, seconds, session, onAnswered }: { question: Extract<PlayQuestion, { kind: 'choice' }>; position: string; seconds: number; session: PlaySession; onAnswered: () => void }) {
+  const [endsAt] = useState(() => Date.now() + seconds * 1000)
+  const [left, setLeft] = useState(seconds)
+  const [picked, setPicked] = useState<number | null>(null)
+  const [result, setResult] = useState<CheckResult | null>(null)
+  const [sendError, setSendError] = useState('')
+
+  const pick = async (choice: number) => {
+    if (picked !== null) return
+    setPicked(choice)
+    setSendError('')
+    try {
+      setResult(await session.check(question.id, { kind: 'choice', choice }))
+      onAnswered()
+    } catch (e) {
+      setPicked(null)
+      setSendError(e instanceof Error ? e.message : 'Could not send your answer. Try again.')
+    }
+  }
+
+  useEffect(() => {
+    if (picked !== null) return
+    const t = setInterval(() => {
+      const l = Math.max(0, (endsAt - Date.now()) / 1000)
+      setLeft(l)
+      if (l <= 0) {
+        clearInterval(t)
+        void pick(-1)
+      }
+    }, 250)
+    return () => clearInterval(t)
+  }, [picked]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (result) {
+    const timedOut = picked === -1
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center text-center" role="status">
+        {result.correct ? <FiCheckCircle aria-hidden className="h-24 w-24 text-emerald-400" /> : <FiXCircle aria-hidden className="h-24 w-24 text-rose-400" />}
+        <h1 className="mt-4 text-4xl font-black">{result.correct ? 'சரி! Correct!' : timedOut ? 'Time’s up! ⏰' : 'Not this time'}</h1>
+        {!result.correct && result.correctIndex !== undefined && <p className="mt-2 text-xl font-bold">Answer: {question.options[result.correctIndex]}</p>}
+        {result.correct && <p className="mt-3 rounded-2xl bg-white/15 px-5 py-2 text-3xl font-black text-amber-300">+{RACE_POINTS_PER_UNIT}</p>}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex min-h-[70vh] flex-col">
+      <div className="flex items-center justify-between font-bold text-white/80">
+        <span>{position}</span>
+        <span role="timer" aria-label={`${Math.ceil(left)} seconds left`} className={`grid h-12 w-12 place-items-center rounded-full text-xl font-black text-white ${left <= 5 ? 'bg-rose-500' : 'bg-white/15'}`}>
+          {Math.ceil(left)}
+        </span>
+      </div>
+      <h1 className="mt-4 text-center text-2xl font-black leading-[1.4] sm:text-3xl">{question.prompt}</h1>
+      <div className="mt-6 grid flex-1 content-center gap-4">
+        {question.options.map((o, i) => (
+          <AnswerButton key={i} index={i} text={o} size="xl" disabled={picked !== null} onClick={() => pick(i)} />
+        ))}
+      </div>
+      {sendError && (
+        <p role="alert" className="mt-3 text-center font-bold text-rose-300">
+          {sendError}
+        </p>
+      )}
+    </div>
   )
 }

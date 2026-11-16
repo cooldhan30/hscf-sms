@@ -598,16 +598,18 @@ for (const vp of VIEWPORTS) {
     await shot(page, vp, 'flow-live-lobby-phone')
     await page.getByRole('button', { name: 'Answer 2: 12' }).waitFor({ timeout: 15000 })
     await shot(page, vp, 'flow-live-question-phone')
+    // Own pace: the result shows straight away (no "Answer locked in"),
+    // then the next question -- and no rank until the very end.
     await page.getByRole('button', { name: 'Answer 2: 12' }).click()
-    await page.getByText('Answer locked in!').waitFor()
-    await shot(page, vp, 'flow-live-locked-phone')
-    await page.getByText('சரி! Correct!').waitFor({ timeout: 15000 })
-    await shot(page, vp, 'flow-live-reveal-phone')
-    await page.getByText('You’re number').waitFor({ timeout: 10000 })
-    // Students see the whole class leaderboard, their own row marked.
-    await page.getByRole('region', { name: 'Leaderboard' }).getByText('Kavin (you)').waitFor()
-    if ((await page.getByRole('region', { name: 'Leaderboard' }).locator('li').count()) < 3) throw new Error('phone leaderboard does not list the class')
-    await shot(page, vp, 'flow-live-leaderboard-phone')
+    await page.getByText('சரி! Correct!').waitFor({ timeout: 3000 })
+    await shot(page, vp, 'flow-live-result-phone')
+    await page.getByText('2 / 5').waitFor({ timeout: 4000 })
+    if ((await page.getByText(/^#\d/).count()) > 0) throw new Error('rank shown during the game')
+    await shot(page, vp, 'flow-live-next-phone')
+    // Let this one run out: it counts as unanswered and the game moves on.
+    await page.getByText('Time’s up! ⏰').waitFor({ timeout: 12000 })
+    await shot(page, vp, 'flow-live-timeout-phone')
+    await page.getByText('3 / 5').waitFor({ timeout: 4000 })
     await ctx.close()
   })
 
@@ -641,29 +643,11 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(3500)
       await shot(page, vp, 'flow-host-lobby')
       await page.getByRole('button', { name: 'Start game ▶' }).click()
-      await page.getByRole('timer').waitFor()
-      await page.waitForTimeout(2500)
-      await shot(page, vp, 'flow-host-question')
-      // Auto-play: revealed when everyone has answered or time is up, then
-      // the leaderboard and the next question follow with no clicks.
-      await page.getByRole('button', { name: /Leaderboard in \d/ }).waitFor({ timeout: 15000 })
-      await page.waitForTimeout(600)
-      await shot(page, vp, 'flow-host-reveal')
-      await page.getByRole('heading', { name: 'Leaderboard' }).waitFor({ timeout: 8000 })
-      await page.getByRole('button', { name: /Next question in \d/ }).waitFor()
-      await page.waitForTimeout(400)
-      await shot(page, vp, 'flow-host-leaderboard')
-      await page.getByText('2 / 5').waitFor({ timeout: 9000 })
-      // Paused: the teacher moves on by hand again.
-      await page.getByRole('button', { name: 'Pause' }).click()
-      await page.getByRole('button', { name: /Stop timer/ }).click()
-      await page.getByRole('button', { name: 'Next ▶' }).click()
-      for (let i = 2; i < 5; i++) {
-        await page.getByRole('button', { name: 'Next question ▶' }).click()
-        await page.getByRole('button', { name: /Stop timer/ }).click()
-        await page.getByRole('button', { name: 'Next ▶' }).click()
-      }
-      await page.getByRole('button', { name: /Show winners/ }).click()
+      // Classic Quiz runs at each student's own pace: a progress board.
+      await page.getByText(/finished · 5 questions each/).waitFor({ timeout: 5000 })
+      await page.waitForTimeout(4000)
+      await shot(page, vp, 'flow-host-quiz-race')
+      await page.getByRole('button', { name: /End game & show winners/ }).click()
       await page.waitForTimeout(2200)
       await shot(page, vp, 'flow-host-podium')
       await page.getByRole('button', { name: 'Play again' }).click()

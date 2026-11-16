@@ -148,13 +148,14 @@ export function liveStandIn(params: URLSearchParams) {
       endsAt: s.status === 'question' ? new Date(s.endsAt).toISOString() : null,
       nickname: 'Kavin',
       playersCount: players.length,
+      seconds: SECONDS,
       question: s.status === 'question' || revealed ? current : null,
       questions: race && s.status === 'race' ? play : null,
       doneIds: answers.filter((a) => a.student_id === ME && a.done).map((a) => a.question_id),
       myAnswer: current ? (mine ? { choice: mine.choice, correct: revealed ? mine.correct : null, points: revealed ? mine.points : null } : { choice: null, correct: null, points: null }) : null,
       correctIndex: revealed && full?.kind === 'choice' ? full.answerIndex : null,
       score: me?.score ?? 0,
-      rank: s.status === 'lobby' ? null : (me?.rank ?? null),
+      rank: s.status === 'ended' ? (me?.rank ?? null) : null,
       podium: s.status === 'ended' ? st.slice(0, 3) : null,
       leaderboard: s.status === 'leaderboard' || s.status === 'ended' || (race && s.status === 'race') ? playerBoard(st, ME, s.status === 'leaderboard' && current ? Object.fromEntries(answers.filter((a) => a.question_id === current.id).map((a) => [a.student_id, a.points])) : {}) : null,
     }
@@ -207,7 +208,7 @@ export function liveStandIn(params: URLSearchParams) {
     if (path === '/live/live-1/answer') {
       const q = game.questions.find((x) => x.id === body?.questionId)!
       const r = body?.response as Parameters<typeof checkResponse>[1]
-      const res = checkResponse(q, r, false)
+      const res = checkResponse(q, r, race && q.kind === 'choice')
       if (!race) {
         if (s.status !== 'question' || now() > s.endsAt + 1500) return { data: { error: 'Too late — time is up for this question.' }, status: 409 }
         if (!answers.some((a) => a.student_id === ME && a.question_id === q.id)) answers.push({ student_id: ME, question_id: q.id, choice: (r as { choice: number }).choice, correct: res.correct, points: livePoints(res.correct, now() - s.startedAt, SECONDS * 1000), done: true })

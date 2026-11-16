@@ -16,8 +16,10 @@ import { usePoll, useServerCountdown } from './usePoll'
 
 // The teacher's projector view of a live game. The server owns the clock,
 // the answers and the scores; this screen shows them and sends the
-// teacher's Next / End / Play again. Classic Quiz runs question by
-// question; Match and Word Builder run as a race. After Start, the SERVER
+// teacher's Next / End / Play again. Every game runs as a race: each
+// student plays at their own pace and this screen shows everyone's
+// progress (the question-by-question screens below are no longer used,
+// see isRace in lib/grClassic/live.ts). After Start, the SERVER
 // moves the game on by itself (time up -> answer -> leaderboard -> next
 // question) on every poll from this screen or any student's phone, so it
 // keeps flowing even if this tab is in the background. Pause hands control

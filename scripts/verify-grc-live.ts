@@ -14,20 +14,11 @@ function eq(name: string, got: unknown, want: unknown) {
   }
 }
 
-// --- Steps: Classic Quiz, question by question ---
-const walk: string[] = []
-let st = { status: 'lobby' as const as Parameters<typeof nextStep>[1], index: -1 }
-for (let i = 0; i < 20; i++) {
-  const n = nextStep('quiz', st.status, st.index, 2)
-  if (!n) break
-  st = n
-  walk.push(`${n.status}${n.status === 'ended' ? '' : n.index}`)
-}
-eq('quiz walk', walk, ['question0', 'reveal0', 'leaderboard0', 'question1', 'reveal1', 'leaderboard1', 'ended'])
-eq('nothing after ended', nextStep('quiz', 'ended', 1, 2), null)
+// --- Steps: every live game is a race (Classic Quiz too, since 2026-11-16) ---
+eq('quiz walk', [nextStep('quiz', 'lobby', -1, 2), nextStep('quiz', 'race', 0, 2), nextStep('quiz', 'ended', 0, 2)], [{ status: 'race', index: 0 }, { status: 'ended', index: 0 }, null])
 
 // --- Steps: race games ---
-eq('match is a race', [isRace('match'), isRace('word-builder'), isRace('quiz')], [true, true, false])
+eq('all games race', [isRace('match'), isRace('word-builder'), isRace('quiz')], [true, true, true])
 eq('race walk', [nextStep('match', 'lobby', -1, 3), nextStep('match', 'race', 0, 3), nextStep('match', 'ended', 0, 3)], [{ status: 'race', index: 0 }, { status: 'ended', index: 0 }, null])
 
 // --- The game flows on its own after Start (server-side auto-play) ---

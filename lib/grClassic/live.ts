@@ -22,10 +22,13 @@ export const AUTO_LEADERBOARD_MS = 6000
 // A player counts as "connected" if their phone checked in recently.
 export const CONNECTED_MS = 15_000
 
-// Classic Quiz is played question by question; Match the Pairs and Word
-// Builder are a race where everyone plays every question at their own pace.
+// Every live game is a race: each student plays every question at their own
+// pace (student feedback 2026-11-16: nobody should wait for the others).
+// The older question-by-question steps (question / reveal / leaderboard)
+// are kept so they can be brought back if wanted.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function isRace(type: GameType): boolean {
-  return type !== 'quiz'
+  return true
 }
 
 // What the teacher's "Next" button does from each step.
@@ -184,6 +187,8 @@ export interface PlayerState {
   endsAt: string | null
   nickname: string
   playersCount: number
+  // Seconds a student gets for each Classic Quiz question.
+  seconds: number
   question: import('./play').PlayQuestion | null
   questions: import('./play').PlayQuestion[] | null
   doneIds: string[]

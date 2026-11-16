@@ -311,6 +311,7 @@ export async function playerState(admin: SupabaseClient, sessionId: string, prof
     endsAt: s.question_ends_at,
     nickname: me.nickname,
     playersCount: ps.length,
+    seconds: s.live_seconds,
     question: status === 'question' || revealed ? current : null,
     questions: race && status === 'race' ? c.play : null,
     doneIds: race ? as.filter((a) => a.student_id === me.student_id && a.done).map((a) => a.question_id) : [],
@@ -322,9 +323,9 @@ export async function playerState(admin: SupabaseClient, sessionId: string, prof
     // The right option only once the teacher has revealed it.
     correctIndex: revealed && fullCurrent?.kind === 'choice' ? fullCurrent.answerIndex : null,
     score: mine?.score ?? 0,
-    // Shown at the top of every phone once the game starts (in the lobby
-    // everyone would tie at number 1).
-    rank: status === 'lobby' ? null : (mine?.rank ?? null),
+    // Only on the final screen: students found their position during the
+    // game distracting (feedback 2026-11-16).
+    rank: status === 'ended' ? (mine?.rank ?? null) : null,
     podium: status === 'ended' ? standings.slice(0, 3) : null,
     leaderboard:
       status === 'leaderboard' || status === 'ended' || (race && status === 'race')
@@ -385,13 +386,16 @@ export async function answerLive(admin: SupabaseClient, sessionId: string, profi
     result = { correct }
   } else {
     if (prev) return { correct: prev.correct_units >= prev.total_units }
-    const correct = checkResponse(question, response, false).correct
+    // A quiz question shows the right option straight after the student's
+    // own (first, final) answer, so they learn from a wrong one.
+    const checked = checkResponse(question, response, question.kind === 'choice')
+    const correct = checked.correct
     const { error } = await admin.from('sms_grc_live_answers').upsert(
       { session_id: sessionId, student_id: me.student_id, question_id: questionId, response, correct_units: correct ? 1 : 0, total_units: 1, points: correct ? RACE_POINTS_PER_UNIT : 0 },
       { onConflict: 'session_id,student_id,question_id', ignoreDuplicates: true }
     )
     if (error) throw error
-    result = { correct }
+    result = checked
   }
 
   // Finished every question? Record when, for the finishing bonus.
