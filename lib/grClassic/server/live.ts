@@ -322,7 +322,9 @@ export async function playerState(admin: SupabaseClient, sessionId: string, prof
     // The right option only once the teacher has revealed it.
     correctIndex: revealed && fullCurrent?.kind === 'choice' ? fullCurrent.answerIndex : null,
     score: mine?.score ?? 0,
-    rank: status === 'leaderboard' || status === 'ended' || race ? (mine?.rank ?? null) : null,
+    // Shown at the top of every phone once the game starts (in the lobby
+    // everyone would tie at number 1).
+    rank: status === 'lobby' ? null : (mine?.rank ?? null),
     podium: status === 'ended' ? standings.slice(0, 3) : null,
     leaderboard:
       status === 'leaderboard' || status === 'ended' || (race && status === 'race')

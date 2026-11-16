@@ -154,7 +154,7 @@ export function liveStandIn(params: URLSearchParams) {
       myAnswer: current ? (mine ? { choice: mine.choice, correct: revealed ? mine.correct : null, points: revealed ? mine.points : null } : { choice: null, correct: null, points: null }) : null,
       correctIndex: revealed && full?.kind === 'choice' ? full.answerIndex : null,
       score: me?.score ?? 0,
-      rank: s.status === 'leaderboard' || s.status === 'ended' || race ? (me?.rank ?? null) : null,
+      rank: s.status === 'lobby' ? null : (me?.rank ?? null),
       podium: s.status === 'ended' ? st.slice(0, 3) : null,
       leaderboard: s.status === 'leaderboard' || s.status === 'ended' || (race && s.status === 'race') ? playerBoard(st, ME, s.status === 'leaderboard' && current ? Object.fromEntries(answers.filter((a) => a.question_id === current.id).map((a) => [a.student_id, a.points])) : {}) : null,
     }

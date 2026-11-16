@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { FiAlertTriangle, FiCheckCircle, FiWifiOff, FiXCircle } from 'react-icons/fi'
-import { PLAYER_HEADER, WRONG_ACCOUNT, type BoardRow, type PlayerState } from '@/lib/grClassic/live'
+import { PLAYER_HEADER, WRONG_ACCOUNT, type PlayerState } from '@/lib/grClassic/live'
 import type { CheckResult, PlayQuestion, PlayResponse, PlaySession } from '@/lib/grClassic/play'
 import { AnswerButton } from '../games/AnswerButton'
 import { MatchBoard } from '../games/MatchBoard'
@@ -88,7 +88,15 @@ export function LivePlayer({ sessionId, playerId, name, onLeft }: { sessionId: s
             <FiWifiOff aria-hidden /> Reconnecting…
           </span>
         )}
-        <span className="rounded-xl bg-white/10 px-3 py-1 tabular-nums">{s.score} pts</span>
+        <span className="flex shrink-0 items-center gap-2 tabular-nums">
+          {s.rank !== null && (
+            <span className="rounded-xl bg-amber-300 px-3 py-1 text-indigo-950" aria-label={`Rank ${s.rank} of ${s.playersCount}`}>
+              #{s.rank}
+              <span className="font-bold text-indigo-950/70"> / {s.playersCount}</span>
+            </span>
+          )}
+          <span className="rounded-xl bg-white/10 px-3 py-1">{s.score} pts</span>
+        </span>
       </header>
 
       {s.status === 'lobby' && (
@@ -140,29 +148,17 @@ export function LivePlayer({ sessionId, playerId, name, onLeft }: { sessionId: s
         </section>
       )}
 
-      {s.status === 'reveal' && q && (
+      {(s.status === 'reveal' || s.status === 'leaderboard') && q && (
         <section className="flex flex-1 flex-col items-center justify-center text-center" role="status">
           {s.myAnswer?.correct ? <FiCheckCircle aria-hidden className="h-24 w-24 text-emerald-400" /> : <FiXCircle aria-hidden className="h-24 w-24 text-rose-400" />}
           <h1 className="mt-4 text-4xl font-black">{chosen === null ? 'No answer this time' : s.myAnswer?.correct ? 'சரி! Correct!' : 'Not this time'}</h1>
           {!s.myAnswer?.correct && s.correctIndex !== null && <p className="mt-2 text-xl font-bold">Answer: {q.options[s.correctIndex]}</p>}
           {(s.myAnswer?.points ?? 0) > 0 && <p className="mt-3 rounded-2xl bg-white/15 px-5 py-2 text-3xl font-black text-amber-300">+{s.myAnswer?.points}</p>}
-        </section>
-      )}
-
-      {s.status === 'leaderboard' && (
-        <section className="flex flex-1 flex-col items-center justify-center text-center">
-          <p className="text-6xl" aria-hidden>
-            📊
-          </p>
-          <h1 className="mt-4 text-4xl font-black">You’re number {s.rank ?? '—'}</h1>
-          <p className="mt-2 text-2xl font-extrabold tabular-nums text-amber-300">{s.score} points</p>
-          {s.leaderboard && <Board rows={s.leaderboard} />}
-          <p className="mt-4 font-bold text-white/70">{s.index + 1 < s.count ? 'Next question coming up…' : 'Winners coming up…'}</p>
+          {s.status === 'leaderboard' && <p className="mt-6 animate-pulse font-bold text-white/70">{s.index + 1 < s.count ? 'Next question coming up…' : 'Winners coming up…'}</p>}
         </section>
       )}
 
       {s.status === 'race' && s.questions && <Race sessionId={sessionId} playerId={playerId} onWrongAccount={markWrongAccount} questions={s.questions} doneIds={s.doneIds} score={s.score} rank={s.rank} />}
-      {s.status === 'race' && s.leaderboard && <Board rows={s.leaderboard} max={5} title="Live scores" />}
 
       {s.status === 'ended' && (
         <section className="flex flex-1 flex-col items-center justify-center text-center">
@@ -172,46 +168,12 @@ export function LivePlayer({ sessionId, playerId, name, onLeft }: { sessionId: s
           <h1 className="mt-4 text-4xl font-black">{s.rank ? `You came number ${s.rank}!` : 'Game over!'}</h1>
           <p className="mt-2 text-2xl font-extrabold tabular-nums text-amber-300">{s.score} points</p>
           <p className="mt-2 font-bold text-white/80">அருமை! Great playing.</p>
-          {s.leaderboard && <Board rows={s.leaderboard} max={50} />}
           <ButtonLink href="/gr-classic/student" tone="plain" size="lg" className="mt-10">
             Back to GameRoom
           </ButtonLink>
         </section>
       )}
     </Screen>
-  )
-}
-
-// The class leaderboard on a phone: the top players, plus this student's
-// own row (highlighted) if they are further down.
-function Board({ rows, max = 10, title = 'Leaderboard' }: { rows: BoardRow[]; max?: number; title?: string }) {
-  const top = rows.slice(0, max)
-  const me = rows.find((r) => r.me)
-  const extra = me && !top.includes(me) ? me : null
-  const row = (r: BoardRow) => (
-    <motion.li key={r.nickname} layout className={`flex items-center gap-3 rounded-2xl px-3 py-2 ${r.me ? 'bg-amber-300 text-indigo-950' : 'bg-white/10'}`}>
-      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full font-black ${r.rank <= 3 ? 'text-lg' : 'text-sm'} ${r.me ? 'bg-indigo-950 text-amber-300' : 'bg-white/20'}`}>{r.rank <= 3 ? ['🥇', '🥈', '🥉'][r.rank - 1] : r.rank}</span>
-      <span className="min-w-0 flex-1 truncate text-left font-extrabold">
-        {r.nickname}
-        {r.me && ' (you)'}
-      </span>
-      {r.gained > 0 && <span className={`text-sm font-bold ${r.me ? 'text-emerald-800' : 'text-emerald-300'}`}>+{r.gained}</span>}
-      <span className="font-black tabular-nums">{r.score}</span>
-    </motion.li>
-  )
-  return (
-    <section className="mt-6 w-full max-w-md" aria-label={title}>
-      <h2 className="mb-2 text-sm font-extrabold uppercase tracking-wide text-white/70">{title}</h2>
-      <ol className="space-y-1.5">
-        {top.map(row)}
-        {extra && (
-          <>
-            <li aria-hidden className="text-center font-black text-white/50">⋯</li>
-            {row(extra)}
-          </>
-        )}
-      </ol>
-    </section>
   )
 }
 
