@@ -54,7 +54,9 @@ export function SubmissionForm({
   const photoOnly = allowedTypes.length === 1 && allowedTypes[0] === 'photo'
 
   function choosePhoto(picked: File | null) {
-    if (picked && !picked.type.startsWith('image/')) {
+    // Phones sometimes report a saved photo with no type, so the
+    // extension counts too.
+    if (picked && !picked.type.startsWith('image/') && !/\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(picked.name)) {
       toast.error('Please choose a photo.')
       return
     }

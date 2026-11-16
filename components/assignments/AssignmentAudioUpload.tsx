@@ -10,6 +10,22 @@ import { toast } from '@/lib/toast'
 
 const MAX_BYTES = 50 * 1024 * 1024 // 50MB
 
+const AUDIO_TYPES: Record<string, string> = {
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  opus: 'audio/ogg',
+  webm: 'audio/webm',
+  amr: 'audio/amr',
+  '3gp': 'audio/3gpp',
+}
+// Extensions as well as audio/*: on some Android phones "audio/*" alone
+// opens a music-only picker that can't see the Downloads folder.
+const ACCEPT = ['audio/*', ...Object.keys(AUDIO_TYPES).map((e) => `.${e}`)].join(',')
+
 // The audio clip for an audio homework: upload a file (mp3, m4a, ...) or
 // record one here. Same upload-then-hand-back-URL split as
 // AssignmentImageUpload -- the clip goes to the public 'resources'
@@ -39,13 +55,19 @@ export function AssignmentAudioUpload({ currentUrl, onUploaded }: { currentUrl: 
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+    const picked = e.target.files?.[0]
     e.target.value = ''
-    if (!file) return
-    if (!file.type.startsWith('audio/')) {
-      toast.error('Please choose an audio file.')
+    if (!picked) return
+    // Phones often report a downloaded .mp3 with no type or as
+    // "application/octet-stream", so go by the extension too, and give
+    // the upload the right audio type so every browser will play it.
+    const ext = picked.name.split('.').pop()?.toLowerCase() ?? ''
+    const typeFromExt = AUDIO_TYPES[ext]
+    if (!picked.type.startsWith('audio/') && !typeFromExt) {
+      toast.error('Please choose an audio file (mp3, m4a, wav...).')
       return
     }
+    const file = picked.type.startsWith('audio/') ? picked : new File([picked], picked.name, { type: typeFromExt })
     void upload(file)
   }
 
@@ -95,7 +117,7 @@ export function AssignmentAudioUpload({ currentUrl, onUploaded }: { currentUrl: 
         </div>
       )}
       {uploading && recording && <p className="text-xs text-stone-500 mt-1">Uploading recording...</p>}
-      <input ref={fileInputRef} type="file" accept="audio/*" onChange={handleFileChange} className="hidden" />
+      <input ref={fileInputRef} type="file" accept={ACCEPT} onChange={handleFileChange} className="hidden" />
     </div>
   )
 }
