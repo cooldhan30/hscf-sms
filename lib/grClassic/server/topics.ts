@@ -19,6 +19,8 @@ const GAME_FOR_KIND: Record<QuestionRow['kind'], GameType> = { choice: 'quiz', m
 // thousands of questions) is read in pages of 1000, all at once. Only the
 // small columns asked for are read. Up to 100 000 rows.
 const PAGE = 1000
+// Rows read from each topic in a draw, at least.
+const MIN_SAMPLE = 250
 // The few query-builder methods a filter uses (Supabase's own types are too
 // deep to pass around generically).
 interface Query {
@@ -96,7 +98,10 @@ export async function pickTopicQuestions(client: SupabaseClient, play: TopicPlay
   // set of that many topics, one question each.
   const withQuestions = play.topics.filter((t) => (counts.get(t) ?? 0) > 0)
   const used = withQuestions.length > play.count ? shuffle(withQuestions).slice(0, play.count) : withQuestions
-  const share = Math.ceil(play.count / Math.max(used.length, 1)) * 2 + 5
+  // Read well over what is needed: some topics ask the same example many
+  // ways (e.g. 1000 rows but only 30 different questions), and repeats are
+  // dropped below (sameQuestion.ts) before the draw.
+  const share = Math.max(Math.ceil(play.count / Math.max(used.length, 1)) * 2 + 5, MIN_SAMPLE)
   const sample = async (topic: string): Promise<QuestionRow[]> => {
     const size = counts.get(topic) ?? 0
     if (!size || !used.includes(topic)) return []

@@ -4,7 +4,11 @@ import type { Question } from './types'
 // twice. Two questions count as the same when a student would see them as
 // the same question, even if they are separate rows in the library:
 //   Classic Quiz     same wording and the same right answer (the wrong
-//                    options or their order may differ)
+//                    options or their order may differ). A question about
+//                    a quoted example ("கூடையில் இருந்து வந்தது" ...) is
+//                    the same question whenever the example and the right
+//                    answer match, however the instruction around it is
+//                    worded -- the library asks one example many ways.
 //   Match the Pairs  the same pairs, in any order
 //   Word Builder     the same word or sentence to build
 // Questions that only share a sentence stem ("which of these is a noun?")
@@ -12,8 +16,14 @@ import type { Question } from './types'
 
 const norm = (s: string) => s.normalize('NFC').replace(/\s+/g, ' ').trim().toLocaleLowerCase()
 
+// The quoted examples in a prompt ("..." or “...”), or null if none.
+function quotedExamples(prompt: string): string | null {
+  const found = Array.from(prompt.matchAll(/["“”]([^"“”]+)["“”]/g), (m) => norm(m[1]))
+  return found.length ? found.join('|') : null
+}
+
 export function sameQuestionKey(q: Question): string {
-  if (q.kind === 'choice') return `choice|${norm(q.prompt)}|${norm(q.options[q.answerIndex] ?? '')}`
+  if (q.kind === 'choice') return `choice|${quotedExamples(q.prompt) ?? norm(q.prompt)}|${norm(q.options[q.answerIndex] ?? '')}`
   if (q.kind === 'match') return `match|${q.pairs.map((p) => `${norm(p.left)}=${norm(p.right)}`).sort().join('|')}`
   return `order|${q.unit}|${norm(q.answer)}`
 }

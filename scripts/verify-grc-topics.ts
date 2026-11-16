@@ -155,6 +155,13 @@ const nounOtherWord = choice('3', 'இவற்றில் பெயர்ச�
 ok(sameQuestionKey(nounA) === sameQuestionKey(nounSameAnswer), 'same wording and same right answer is the same question (wrong options, order and spacing aside)')
 ok(sameQuestionKey(nounA) !== sameQuestionKey(nounOtherWord), 'same sentence stem about a different word is a different question')
 ok(sameQuestionKey(choice('4', 'Q', ['அ', 'ஆ'], 0)) !== sameQuestionKey(choice('5', 'Q', ['அ', 'ஆ'], 1)), 'a different right answer is a different question')
+const fifth = ['ஐந்தாம் வேற்றுமை', 'முதல் வேற்றுமை', 'ஏழாம் வேற்றுமை', 'எட்டாம் வேற்றுமை']
+const exampleA = choice('12', '"தலையணையில் இருந்து வந்தது" எந்த வேற்றுமையில் உள்ளது?', fifth, 0)
+const exampleAReworded = choice('13', '“தலையணையில் இருந்து வந்தது” என்ற வடிவம் எந்த வேற்றுமையை உணர்த்துகிறது?', [fifth[2], fifth[0], fifth[3], fifth[1]], 1)
+const exampleB = choice('14', '"வேரில் இருந்து வந்தது" எந்த வேற்றுமையில் உள்ளது?', fifth, 0)
+ok(sameQuestionKey(exampleA) === sameQuestionKey(exampleAReworded), 'the same quoted example and answer, worded another way, is the same question')
+ok(sameQuestionKey(exampleA) !== sameQuestionKey(exampleB), 'a different quoted example is a different question')
+ok(withoutRepeats([exampleA, exampleB, exampleAReworded]).length === 2, 'a game drops the reworded repeat')
 const pairs = (id: string, ps: [string, string][]): Question => ({ ...base, id, kind: 'match', prompt: 'Match', pairs: ps.map(([left, right]) => ({ left, right })) })
 ok(sameQuestionKey(pairs('6', [['பூனை', 'cat'], ['நாய்', 'dog']])) === sameQuestionKey(pairs('7', [['நாய்', 'dog'], ['பூனை', 'cat']])), 'the same pairs in another order are the same match board')
 ok(sameQuestionKey(pairs('6', [['பூனை', 'cat'], ['நாய்', 'dog']])) !== sameQuestionKey(pairs('8', [['பூனை', 'cat'], ['பசு', 'cow']])), 'different pairs are a different board')
